@@ -412,8 +412,8 @@ function openGraphBuilder(mode = "flow", preferredIds = []) {
   document.querySelector("#graph-builder-help").textContent = mode === "merge"
     ? "Choose two or more existing nodes that converge into a new target."
     : mode === "diagram" ? "Create a connected graph with its own root, label, fill, and outline." : "Create a new node connected from one existing parent.";
-  builderParent.innerHTML = currentGraph.nodes.map((node) => `<option value="${escapeHtml(node.id)}"${node.id === (selectedIds[0] ?? root?.id) ? " selected" : ""}>${escapeHtml(node.label || node.id)} · ${escapeHtml(node.id)}</option>`).join("");
-  builderSources.innerHTML = currentGraph.nodes.map((node) => `<label><input type="checkbox" value="${escapeHtml(node.id)}"${selectedIds.includes(node.id) ? " checked" : ""}> <span>${escapeHtml(node.label || node.id)} · ${escapeHtml(node.id)}</span></label>`).join("");
+  builderParent.innerHTML = currentGraph.nodes.map((node) => `<option value="${escapeHtml(node.id)}"${node.id === (selectedIds[0] ?? root?.id) ? " selected" : ""}>${escapeHtml(node.id)}</option>`).join("");
+  builderSources.innerHTML = currentGraph.nodes.map((node) => `<label><input type="checkbox" value="${escapeHtml(node.id)}"${selectedIds.includes(node.id) ? " checked" : ""}> <span>${escapeHtml(node.id)}</span></label>`).join("");
   builderNodeType.innerHTML = `<option value="node">node</option>${reusableNames("node").map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}`;
   builderLineType.innerHTML = `<option value="">Default line</option>${reusableNames("line").map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}`;
   builderId.value = suggestedNodeId();
