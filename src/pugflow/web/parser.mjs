@@ -9,6 +9,7 @@ const LINE_STYLES = new Set(["solid", "dashed", "dotted"]);
 const LINE_FIELDS = new Set([
   "line.arrow-style", "line.color", "line.stroke-style", "line.width",
   "line.label", "line.label-position", "line.label-offset", "line.use", "line.hidden",
+  "line.font-family", "line.font-size", "line.font-weight", "line.font-style", "line.text-decoration",
 ]);
 const LINE_DEFINITION_FIELDS = new Map([
   ["arrow-style", "line.arrow-style"],
@@ -18,18 +19,23 @@ const LINE_DEFINITION_FIELDS = new Map([
   ["label-position", "line.label-position"],
   ["label-offset", "line.label-offset"],
   ["hidden", "line.hidden"],
+  ["font-family", "line.font-family"], ["font-size", "line.font-size"],
+  ["font-weight", "line.font-weight"], ["font-style", "line.font-style"],
+  ["text-decoration", "line.text-decoration"],
 ]);
 const BLOCK_PROPERTIES = new Set([
   "id", "shape", "fill", "color", "outline", "outline-style", "outline-width",
   "width", "height", "align", "hidden", "offset", "label-offset",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
   "image", "image-width", "image-height", "image-fit", "image-opacity", "image-offset", "image-padding",
+  "font-family", "font-size", "font-weight", "font-style", "text-decoration",
 ]);
 const BLOCK_STYLE_PROPERTIES = new Set([
   "shape", "fill", "color", "outline", "outline-style", "outline-width",
   "width", "height", "align",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
   "image", "image-width", "image-height", "image-fit", "image-opacity", "image-padding",
+  "font-family", "font-size", "font-weight", "font-style", "text-decoration",
 ]);
 
 function indentationWidth(whitespace) {
@@ -229,6 +235,11 @@ function blockStyle(attrs, lineNumber, errors, defaults = {}) {
     imageFit: ["contain", "cover", "fill"].includes(attrs["image-fit"]) ? attrs["image-fit"] : defaults.imageFit ?? "contain",
     imageOpacity: numberAttribute(attrs["image-opacity"], defaults.imageOpacity ?? 1, 0, "image-opacity", lineNumber, errors),
     imagePadding: numberAttribute(attrs["image-padding"], defaults.imagePadding ?? 0, 0, "image-padding", lineNumber, errors),
+    fontFamily: attrs["font-family"] ?? defaults.fontFamily ?? null,
+    fontSize: numberAttribute(attrs["font-size"], defaults.fontSize ?? 16, 1, "font-size", lineNumber, errors),
+    fontWeight: attrs["font-weight"] ?? defaults.fontWeight ?? "normal",
+    fontStyle: attrs["font-style"] ?? defaults.fontStyle ?? "normal",
+    textDecoration: attrs["text-decoration"] ?? defaults.textDecoration ?? "none",
   };
 }
 
@@ -303,6 +314,11 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
     layoutDirection: FLOW_DIRECTIONS.has(layoutDirection) ? layoutDirection : "right",
     portDistribution: PORT_DISTRIBUTIONS.has(portDistribution) ? portDistribution : "shared",
     hidden: effective["line.hidden"] !== undefined && ![false, "false", "no", "0"].includes(effective["line.hidden"]),
+    fontFamily: effective["line.font-family"] ?? defaults.fontFamily ?? null,
+    fontSize: numberAttribute(effective["line.font-size"], defaults.fontSize ?? 12, 1, "line.font-size", lineNumber, errors),
+    fontWeight: effective["line.font-weight"] ?? defaults.fontWeight ?? "normal",
+    fontStyle: effective["line.font-style"] ?? defaults.fontStyle ?? "normal",
+    textDecoration: effective["line.text-decoration"] ?? defaults.textDecoration ?? "none",
   };
 }
 
@@ -365,6 +381,7 @@ function annotationsFor(container, errors, annotationStyles) {
       const colorFields = child.children.filter((item) => item.type === "color");
       const offsetFields = child.children.filter((item) => item.type === "offset");
       const hiddenFields = child.children.filter((item) => item.type === "hidden");
+      const textFields = Object.fromEntries(["font-family", "font-size", "font-weight", "font-style", "text-decoration"].map((name) => [name, child.children.find((item) => item.type === name)]));
       if (colorFields.length > 1) errors.push(`Line ${colorFields[1].lineNumber}: duplicate .color field.`);
       if (offsetFields.length > 1) errors.push(`Line ${offsetFields[1].lineNumber}: duplicate .offset field.`);
       for (const field of [...colorFields, ...offsetFields, ...hiddenFields]) {
@@ -374,13 +391,18 @@ function annotationsFor(container, errors, annotationStyles) {
       const offsetField = offsetFields[0];
       const offset = offsetField ? offsetTuple(offsetField.text.trim(), "offset", offsetField.lineNumber, errors) : preset.offset ?? { x: 0, y: 0 };
       return {
-        text: textFor(child, errors, ["color", "offset", "hidden", ...annotationStyles.keys()]),
+        text: textFor(child, errors, ["color", "offset", "hidden", ...Object.keys(textFields), ...annotationStyles.keys()]),
         position: child.classes.includes("below") ? "below" : "above",
         color: colorField?.text.trim() ?? preset.color ?? null,
         lineNumber: child.lineNumber,
         offsetX: offset.x,
         offsetY: offset.y,
         hidden: Boolean(hiddenFields.length && !["false", "no", "0"].includes(hiddenFields[0].text.trim())),
+        fontFamily: textFields["font-family"]?.text.trim() ?? preset.fontFamily ?? null,
+        fontSize: numberAttribute(textFields["font-size"]?.text.trim(), preset.fontSize ?? 12, 1, "font-size", child.lineNumber, errors),
+        fontWeight: textFields["font-weight"]?.text.trim() ?? preset.fontWeight ?? "normal",
+        fontStyle: textFields["font-style"]?.text.trim() ?? preset.fontStyle ?? "normal",
+        textDecoration: textFields["text-decoration"]?.text.trim() ?? preset.textDecoration ?? "none",
       };
     });
 }
@@ -439,7 +461,7 @@ function customLineStyles(tree, errors) {
     for (const child of definition.children) {
       const field = LINE_DEFINITION_FIELDS.get(child.type);
       if (!field) {
-        errors.push(`Line ${child.lineNumber}: @line definitions accept .color, .width, .stroke-style, .arrow-style, .label-position, and .label-offset.`);
+        errors.push(`Line ${child.lineNumber}: unknown @line style field .${child.type}.`);
         continue;
       }
       if (Object.keys(child.attrs).length || child.children.length) errors.push(`Line ${child.lineNumber}: .${child.type} must contain one plain-text value.`);
@@ -458,13 +480,15 @@ function customAnnotationStyles(tree, errors) {
   for (const definition of tree.roots.filter((root) => root.type === "annotation-definition")) {
     const style = {};
     for (const child of definition.children) {
-      if (!["color", "offset"].includes(child.type)) {
-        errors.push(`Line ${child.lineNumber}: @annotation definitions accept .color and .offset only.`);
+      if (!["color", "offset", "font-family", "font-size", "font-weight", "font-style", "text-decoration"].includes(child.type)) {
+        errors.push(`Line ${child.lineNumber}: unknown @annotation style field .${child.type}.`);
         continue;
       }
       if (Object.keys(child.attrs).length || child.children.length) errors.push(`Line ${child.lineNumber}: .${child.type} must contain one plain-text value.`);
       if (child.type === "color") style.color = child.text.trim();
-      else style.offset = offsetTuple(child.text.trim(), "offset", child.lineNumber, errors);
+      else if (child.type === "offset") style.offset = offsetTuple(child.text.trim(), "offset", child.lineNumber, errors);
+      else if (child.type === "font-size") style.fontSize = numberAttribute(child.text.trim(), 12, 1, "font-size", child.lineNumber, errors);
+      else style[child.type.replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase())] = child.text.trim();
     }
     definitions.set(definition.name, style);
   }

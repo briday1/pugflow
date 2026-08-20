@@ -134,6 +134,40 @@ test("supports nested nodes and reusable line and annotation classes", () => {
   assert.equal(result.edges[0].label, "alert");
 });
 
+test("supports reusable typography for nodes, annotations, and connection labels", () => {
+  const result = parseDiagram([
+    "@node heading",
+    "  .font-family Georgia, serif",
+    "  .font-size 20",
+    "  .font-weight bold",
+    "  .font-style italic",
+    "  .text-decoration underline",
+    "@line caption",
+    "  .font-size 14",
+    "  .font-weight 600",
+    "@annotation note",
+    "  .font-size 13",
+    "  .font-style italic",
+    "#canvas",
+    "  .heading",
+    "    .id root",
+    "    .label Root",
+    "    .annotation",
+    "      .above Note",
+    "        .note",
+    "        .text-decoration underline",
+    "    .flow",
+    "      .node",
+    "        .caption",
+    "          .label caption",
+    "        .label Child",
+  ].join("\n"));
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual([result.nodes[0].style.fontFamily, result.nodes[0].style.fontSize, result.nodes[0].style.fontWeight, result.nodes[0].style.fontStyle, result.nodes[0].style.textDecoration], ["Georgia, serif", 20, "bold", "italic", "underline"]);
+  assert.deepEqual([result.nodes[0].annotations[0].fontSize, result.nodes[0].annotations[0].fontStyle, result.nodes[0].annotations[0].textDecoration], [13, "italic", "underline"]);
+  assert.deepEqual([result.edges[0].fontSize, result.edges[0].fontWeight], [14, "600"]);
+});
+
 test("supports fully nested diagram defaults", () => {
   const result = parseDiagram([
     "#diagram",

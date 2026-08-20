@@ -76,20 +76,24 @@ function measureNodes(nodes, colors) {
   const measure = (text) => context.measureText(text).width;
 
   return nodes.map((node) => {
+    context.font = `${node.style.fontStyle} ${node.style.fontWeight} ${node.style.fontSize}px ${node.style.fontFamily ?? colors.font}`;
     const label = formatMath(node.label);
     const requestedWidth = node.style.width;
     const initialLines = label.split("\n");
     const imageOnly = Boolean(node.style.image) && !label.trim();
-    const naturalWidth = imageOnly ? node.style.imageWidth + node.style.imagePadding * 2 : Math.max(...initialLines.map(measure), 70) + 32;
-    const width = requestedWidth === "auto" ? Math.min(300, Math.max(110, naturalWidth)) : requestedWidth;
+    const imageWidth = node.style.image ? node.style.imageWidth + node.style.imagePadding * 2 : 0;
+    const imageHeight = node.style.image ? node.style.imageHeight + node.style.imagePadding * 2 : 0;
+    const naturalWidth = imageOnly ? imageWidth : Math.max(Math.max(...initialLines.map(measure), 70) + 32, imageWidth);
+    const width = requestedWidth === "auto" ? Math.max(imageWidth, Math.min(300, Math.max(110, naturalWidth))) : Math.max(requestedWidth, imageWidth);
     const lines = wrapText(label, Math.max(36, width - 30), measure);
-    const naturalHeight = imageOnly ? node.style.imageHeight + node.style.imagePadding * 2 : Math.max(42, lines.length * 19 + 20);
-    const height = node.style.height === "auto" ? naturalHeight : node.style.height;
+    const lineHeight = Math.ceil(node.style.fontSize * 1.2);
+    const naturalHeight = imageOnly ? imageHeight : Math.max(42, lines.length * lineHeight + 20, imageHeight);
+    const height = node.style.height === "auto" ? naturalHeight : Math.max(node.style.height, imageHeight);
     const above = node.annotations.filter((annotation) => annotation.position === "above").map((annotation) => ({ ...annotation, text: formatMath(annotation.text) }));
     const below = node.annotations.filter((annotation) => annotation.position === "below").map((annotation) => ({ ...annotation, text: formatMath(annotation.text) }));
     const aboveHeight = above.length ? above.length * 16 + 7 : 0;
     const belowHeight = below.length ? below.length * 16 + 7 : 0;
-    return { ...node, width, height, lines, above, below, aboveHeight, belowHeight, layoutHeight: aboveHeight + height + belowHeight };
+    return { ...node, width, height, lines, lineHeight, above, below, aboveHeight, belowHeight, layoutHeight: aboveHeight + height + belowHeight };
   });
 }
 
@@ -157,6 +161,9 @@ function addNode(svg, node, colors, defs) {
       x: node.x + node.width / 2 + annotation.offsetX,
       y: node.y + 12 + index * 16 + annotation.offsetY,
       fill: annotation.color ?? colors.annotation,
+      "font-family": annotation.fontFamily ?? colors.font,
+      "font-size": annotation.fontSize, "font-weight": annotation.fontWeight,
+      "font-style": annotation.fontStyle, "text-decoration": annotation.textDecoration,
       "data-line": annotation.lineNumber,
       "data-id": node.id,
       "data-select-kind": "annotation",
@@ -231,8 +238,11 @@ function addNode(svg, node, colors, defs) {
   const text = svgElement("text", {
     class: "label",
     x,
-    y: top + node.height / 2 - ((node.lines.length - 1) * 9.5) + node.labelOffsetY,
+    y: top + node.height / 2 - ((node.lines.length - 1) * node.lineHeight / 2) + node.labelOffsetY,
     fill: textColor,
+    "font-family": node.style.fontFamily ?? colors.font,
+    "font-size": node.style.fontSize, "font-weight": node.style.fontWeight,
+    "font-style": node.style.fontStyle, "text-decoration": node.style.textDecoration,
     "text-anchor": anchor,
     "dominant-baseline": "middle",
     "data-line": node.lineNumber,
@@ -247,7 +257,7 @@ function addNode(svg, node, colors, defs) {
     "aria-label": "Move or edit label " + node.label.replace(/\n/g, " "),
   });
   node.lines.forEach((line, index) => {
-    const span = svgElement("tspan", { x, dy: index ? 19 : 0 });
+    const span = svgElement("tspan", { x, dy: index ? node.lineHeight : 0 });
     span.textContent = line;
     text.append(span);
   });
@@ -258,6 +268,9 @@ function addNode(svg, node, colors, defs) {
       x: node.x + node.width / 2 + annotation.offsetX,
       y: top + node.height + 17 + index * 16 + annotation.offsetY,
       fill: annotation.color ?? colors.annotation,
+      "font-family": annotation.fontFamily ?? colors.font,
+      "font-size": annotation.fontSize, "font-weight": annotation.fontWeight,
+      "font-style": annotation.fontStyle, "text-decoration": annotation.textDecoration,
       "data-line": annotation.lineNumber,
       "data-id": node.id,
       "data-select-kind": "annotation",
@@ -503,6 +516,9 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
       x: route.labelX + edge.labelOffsetX,
       y: route.labelY + offset + edge.labelOffsetY,
       fill: color,
+      "font-family": edge.fontFamily ?? colors.font,
+      "font-size": edge.fontSize, "font-weight": edge.fontWeight,
+      "font-style": edge.fontStyle, "text-decoration": edge.textDecoration,
       "data-line": edge.labelLineNumber,
       "data-offset-line": edge.lineNumber,
       "data-drag-kind": "connection-label",
@@ -530,8 +546,10 @@ export function edgeIsVisible(edge, nodesById) {
 function layoutOptionsForLabels(edges, colors, requested = {}) {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
-  context.font = `12px ${colors.font}`;
-  const widestLabel = Math.max(0, ...edges.map((edge) => context.measureText(formatMath(edge.label ?? "")).width));
+  const widestLabel = Math.max(0, ...edges.map((edge) => {
+    context.font = `${edge.fontStyle ?? "normal"} ${edge.fontWeight ?? "normal"} ${edge.fontSize ?? 12}px ${edge.fontFamily ?? colors.font}`;
+    return context.measureText(formatMath(edge.label ?? "")).width;
+  }));
   return {
     ...requested,
     horizontalGutter: Math.max(requested.horizontalGutter ?? DEFAULT_LAYOUT.horizontalGutter, Math.ceil(widestLabel + 46)),
