@@ -1,5 +1,5 @@
 import { parseDiagram } from "./parser.mjs";
-import { DEFAULT_LAYOUT, layoutDiagram } from "./layout.mjs";
+import { DEFAULT_LAYOUT, inheritedFlowOffsets, layoutDiagram } from "./layout.mjs";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const MATH_SYMBOLS = {
@@ -613,10 +613,12 @@ function renderSvg(container, graph, options) {
   const colors = figureColors(container, graph.figure);
   const measured = measureNodes(graph.nodes, colors);
   const layout = layoutDiagram(measured, graph.edges, layoutOptionsForLabels(graph.edges, colors, options.layout));
+  const flowOffsets = inheritedFlowOffsets(layout.nodes, graph.edges);
   let visualNodes = layout.nodes.map((node) => {
     const graphOffset = (graph.groups ?? []).filter((group) => group.nodeIds.includes(node.id))
       .reduce((total, group) => ({ x: total.x + (group.offsetX ?? 0), y: total.y + (group.offsetY ?? 0) }), { x: 0, y: 0 });
-    return { ...node, x: node.x + node.offsetX + graphOffset.x, y: node.y + node.offsetY + graphOffset.y };
+    const inherited = flowOffsets.get(node.id) ?? { x: 0, y: 0 };
+    return { ...node, x: node.x + node.offsetX + inherited.x + graphOffset.x, y: node.y + node.offsetY + inherited.y + graphOffset.y };
   });
   visualNodes = packSiblingGraphs(visualNodes, graph.groups ?? []);
   const byId = new Map(visualNodes.map((node) => [node.id, node]));

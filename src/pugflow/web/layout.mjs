@@ -229,6 +229,29 @@ export function layoutDiagram(nodes, edges, overrides = {}) {
   return { nodes: placed, edges: routedEdges, width, height, options };
 }
 
+/** Translate structural flow descendants with their manually moved ancestors. */
+export function inheritedFlowOffsets(nodes, edges) {
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  const parentByTarget = new Map();
+  edges.filter((edge) => edge.kind === "branch").forEach((edge) => {
+    if (!parentByTarget.has(edge.to)) parentByTarget.set(edge.to, edge.from);
+  });
+  const memo = new Map();
+  const resolve = (id, visiting = new Set()) => {
+    if (memo.has(id)) return memo.get(id);
+    const parentId = parentByTarget.get(id);
+    if (!parentId || visiting.has(id)) return { x: 0, y: 0 };
+    const parent = nodesById.get(parentId);
+    if (!parent) return { x: 0, y: 0 };
+    const inherited = resolve(parentId, new Set([...visiting, id]));
+    const result = { x: inherited.x + (parent.offsetX ?? 0), y: inherited.y + (parent.offsetY ?? 0) };
+    memo.set(id, result);
+    return result;
+  };
+  nodes.forEach((node) => { if (!memo.has(node.id)) memo.set(node.id, resolve(node.id)); });
+  return memo;
+}
+
 export function cleanupAlignmentOffsets(nodes, edges, tolerance = 12) {
   const byId = new Map(nodes.map((node) => [node.id, { ...node }]));
   const changed = new Map();

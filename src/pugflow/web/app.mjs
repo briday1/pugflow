@@ -342,12 +342,6 @@ function reusableNames(kind) {
   return [...new Set([...`${pugSource}\n${cssSource}`.matchAll(new RegExp(`^@${kind}\\s+([\\w-]+)`, "gm"))].map((match) => match[1]))];
 }
 
-function graphActions(nodes) {
-  if (!nodes.length) return "";
-  if (nodes.length !== 1) return "";
-  return `<details open><summary>Build from selection</summary><div class="graph-action-row"><button type="button" data-graph-add="flow">+ Add flow</button></div></details>`;
-}
-
 function renderInspector() {
   const openSections = new Set([...inspectorContent.querySelectorAll("details[open] > summary")].map((summary) => summary.textContent.trim()));
   queueMicrotask(() => inspectorContent.querySelectorAll("details > summary").forEach((summary) => {
@@ -370,7 +364,6 @@ function renderInspector() {
       inspectorContent.querySelector("details")?.insertAdjacentHTML("afterend", textControls("node", { fontSize: 16 }));
       inspectorContent.querySelectorAll("details")[1]?.insertAdjacentHTML("afterend", imageControls());
       tidyInspectorSections();
-      inspectorContent.insertAdjacentHTML("beforeend", graphActions(nodes));
       return;
     }
     const node = currentGraph.nodes.find((candidate) => candidate.id === nodes[0].id);
@@ -378,7 +371,6 @@ function renderInspector() {
     inspectorContent.querySelector("details")?.insertAdjacentHTML("afterend", textControls("node", node.style));
     inspectorContent.querySelectorAll("details")[1]?.insertAdjacentHTML("afterend", imageControls(node));
     tidyInspectorSections();
-    inspectorContent.insertAdjacentHTML("beforeend", graphActions(nodes));
     return;
   }
   const annotationSelections = selections.filter((item) => item.kind === "annotation");
@@ -1087,6 +1079,7 @@ document.querySelector("#zoom-in").addEventListener("click", () => setCanvasZoom
 document.querySelector("#zoom-fit").addEventListener("click", fitCanvasZoom);
 document.querySelector("#add-diagram").addEventListener("click", () => openGraphBuilder("diagram"));
 document.querySelector("#add-node").addEventListener("click", () => openGraphBuilder(currentGraph.nodes.length ? "flow" : "diagram"));
+document.querySelector("#add-flow").addEventListener("click", () => openGraphBuilder("flow"));
 document.querySelector("#add-merge").addEventListener("click", () => openGraphBuilder("merge", []));
 document.querySelector("#undo-canvas").addEventListener("click", undoCanvas);
 document.querySelector("#redo-canvas").addEventListener("click", redoCanvas);

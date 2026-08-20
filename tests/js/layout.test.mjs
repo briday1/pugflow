@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
-import { arrangeNodeOffsets, cleanupAlignmentOffsets, layoutDiagram } from "../../src/pugflow/web/layout.mjs";
+import { arrangeNodeOffsets, cleanupAlignmentOffsets, inheritedFlowOffsets, layoutDiagram } from "../../src/pugflow/web/layout.mjs";
 import { connectionPath, connectionPathAvoidingNodes, edgeIsVisible } from "../../src/pugflow/web/pugflow.mjs";
 
 test("places parallel flows and merges in successive columns", () => {
@@ -100,6 +100,23 @@ test("routes vertical and leftward connections from the correct sides", () => {
   const left = { x: 0, y: 100, width: 100, height: 40, aboveHeight: 0 };
   assert.match(connectionPath(source, below, "branch", "down").d, /^M 250 140 V 240$/);
   assert.match(connectionPath(source, left, "merge", "left").d, /^M 200 120 H 100$/);
+});
+
+test("positions flow descendants from their parents' rendered offsets", () => {
+  const nodes = [
+    { id: "root", offsetX: 30, offsetY: -20 },
+    { id: "child", offsetX: 5, offsetY: 7 },
+    { id: "grandchild", offsetX: 0, offsetY: 0 },
+    { id: "merge", offsetX: 0, offsetY: 0 },
+  ];
+  const offsets = inheritedFlowOffsets(nodes, [
+    { kind: "branch", from: "root", to: "child" },
+    { kind: "branch", from: "child", to: "grandchild" },
+    { kind: "merge", from: "root", to: "merge" },
+  ]);
+  assert.deepEqual(offsets.get("child"), { x: 30, y: -20 });
+  assert.deepEqual(offsets.get("grandchild"), { x: 35, y: -13 });
+  assert.deepEqual(offsets.get("merge"), { x: 0, y: 0 });
 });
 
 test("routes explicit connections through independently selected endpoint directions", () => {
