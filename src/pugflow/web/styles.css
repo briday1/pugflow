@@ -313,7 +313,17 @@ details p { margin-bottom: 0; }
 .canvas-inspector input, .canvas-inspector select { width: 100%; min-height: 29px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 5px; color: var(--text); background: var(--surface); font: 11px Consolas, monospace; }
 .canvas-inspector button { margin: 4px 4px 0 0; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; color: var(--text); background: var(--surface); font-size: 10px; }
 .canvas-inspector button:hover { border-color: var(--accent); background: var(--code-bg); }
-#diagram svg .selected-element .label-box, #diagram svg .connector.selected-element { filter: drop-shadow(0 0 3px var(--accent)); stroke: var(--accent); }
+#diagram svg .entry.selected-element { filter: drop-shadow(0 0 3px var(--accent)); }
+#diagram svg .entry.selected-element .label-box, #diagram svg .connector.selected-element { stroke: var(--accent); }
+#diagram svg .connector.selected-element { filter: drop-shadow(0 0 3px var(--accent)); }
+#diagram svg .image-resize-handles { display: none; }
+#diagram svg .entry.selected-element .image-resize-handles { display: block !important; }
+#diagram svg .image-resize-frame { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }
+#diagram svg .image-resize-handle { fill: var(--panel); stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+#diagram svg .image-resize-handle[data-resize-x="0"] { cursor: ns-resize; }
+#diagram svg .image-resize-handle[data-resize-y="0"] { cursor: ew-resize; }
+#diagram svg .image-resize-handle[data-resize-x="-1"][data-resize-y="-1"], #diagram svg .image-resize-handle[data-resize-x="1"][data-resize-y="1"] { cursor: nwse-resize; }
+#diagram svg .image-resize-handle[data-resize-x="1"][data-resize-y="-1"], #diagram svg .image-resize-handle[data-resize-x="-1"][data-resize-y="1"] { cursor: nesw-resize; }
 #diagram svg [data-drag-kind] { cursor: move; }
 .inspector-color { display: grid; grid-template-columns: 32px 1fr; gap: 5px; }
 .canvas-inspector input[type="color"] { min-height: 29px; padding: 2px; }

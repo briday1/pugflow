@@ -177,10 +177,12 @@ function addNode(svg, node, colors, defs) {
     clip.append(clipShape);
     defs.append(clip);
     const preserveAspectRatio = node.style.imageFit === "fill" ? "none" : `xMidYMid ${node.style.imageFit === "cover" ? "slice" : "meet"}`;
+    const imageX = node.x + (node.width - node.style.imageWidth) / 2 + node.imageOffsetX;
+    const imageY = top + (node.height - node.style.imageHeight) / 2 + node.imageOffsetY;
     group.append(svgElement("image", {
       href: node.style.image,
-      x: node.x + (node.width - node.style.imageWidth) / 2 + node.imageOffsetX,
-      y: top + (node.height - node.style.imageHeight) / 2 + node.imageOffsetY,
+      x: imageX,
+      y: imageY,
       width: node.style.imageWidth,
       height: node.style.imageHeight,
       opacity: Math.min(1, node.style.imageOpacity),
@@ -195,6 +197,26 @@ function addNode(svg, node, colors, defs) {
       tabindex: 0,
       "aria-label": `Move image in ${node.label.replace(/\n/g, " ")}`,
     }));
+    const handles = svgElement("g", { class: "image-resize-handles", display: "none", "aria-hidden": "true" });
+    handles.append(svgElement("rect", { class: "image-resize-frame", x: imageX, y: imageY, width: node.style.imageWidth, height: node.style.imageHeight }));
+    for (const [resizeX, resizeY] of [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]]) {
+      handles.append(svgElement("circle", {
+        class: "image-resize-handle",
+        cx: imageX + (resizeX + 1) * node.style.imageWidth / 2,
+        cy: imageY + (resizeY + 1) * node.style.imageHeight / 2,
+        r: 5,
+        "data-line": node.lineNumber,
+        "data-id": node.id,
+        "data-drag-kind": "node-image-resize",
+        "data-resize-x": resizeX,
+        "data-resize-y": resizeY,
+        "data-current-x": node.imageOffsetX,
+        "data-current-y": node.imageOffsetY,
+        "data-current-width": node.style.imageWidth,
+        "data-current-height": node.style.imageHeight,
+      }));
+    }
+    group.append(handles);
   }
   const textColor = node.style.color ?? colors.text;
   const anchor = node.style.align === "left" ? "start" : node.style.align === "right" ? "end" : "middle";
@@ -668,6 +690,10 @@ function renderSvg(container, graph, options) {
             lineNumber: Number(completed.target.dataset.offsetLine ?? completed.target.dataset.line),
             currentX: Number(completed.target.dataset.currentX ?? 0),
             currentY: Number(completed.target.dataset.currentY ?? 0),
+            currentWidth: Number(completed.target.dataset.currentWidth ?? 0),
+            currentHeight: Number(completed.target.dataset.currentHeight ?? 0),
+            resizeX: Number(completed.target.dataset.resizeX ?? 0),
+            resizeY: Number(completed.target.dataset.resizeY ?? 0),
             dx: completed.dx,
             dy: completed.dy,
           });

@@ -196,6 +196,25 @@ export function setNodeField(value, labelLineNumber, field, fieldValue) {
   return lines.join("\n");
 }
 
+export function setNodeImageGeometry(value, labelLineNumber, width, height, offsetX, offsetY) {
+  const lines = value.split("\n");
+  const range = nodeRange(lines, labelLineNumber);
+  const values = new Map([
+    ["image-width", offsetNumber(width)],
+    ["image-height", offsetNumber(height)],
+    ["image-offset", offsetTuple(offsetX, offsetY)],
+  ]);
+  for (let index = range.end - 1; index > range.start; index -= 1) {
+    if (indentationWidth(lines[index]) !== indentationWidth(range.fieldIndent)) continue;
+    const field = lines[index].trim().match(/^\.([\w-]+)(?:\s|$)/)?.[1];
+    if (!values.has(field)) continue;
+    lines[index] = `${range.fieldIndent}.${field} ${values.get(field)}`;
+    values.delete(field);
+  }
+  lines.splice(range.start + 1, 0, ...[...values].map(([field, fieldValue]) => `${range.fieldIndent}.${field} ${fieldValue}`));
+  return lines.join("\n");
+}
+
 export function setNodeLineType(value, labelLineNumber, type, knownTypes) {
   const lines = value.split("\n");
   const range = nodeRange(lines, labelLineNumber);

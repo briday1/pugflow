@@ -1,5 +1,5 @@
 import { createBlockDiagram, parseDiagram } from "./pugflow.mjs";
-import { removeNodeField, setAnnotationOffsetField, setNodeField, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
+import { removeNodeField, setAnnotationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
 import { attachVimMode } from "./vim-mode.mjs";
 import { attachTextEditor } from "./text-editor.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets } from "./layout.mjs";
@@ -669,6 +669,14 @@ function persistElementMove(change) {
     setSource(setNodeOffsetField(source.value, change.lineNumber, prefix, nextX, nextY));
     return;
   }
+  if (change.kind === "node-image-resize") {
+    const width = Math.max(1, change.currentWidth + change.dx * change.resizeX);
+    const height = Math.max(1, change.currentHeight + change.dy * change.resizeY);
+    const offsetX = change.currentX + (change.resizeX ? change.dx / 2 : 0);
+    const offsetY = change.currentY + (change.resizeY ? change.dy / 2 : 0);
+    setSource(setNodeImageGeometry(source.value, change.lineNumber, width, height, offsetX, offsetY));
+    return;
+  }
   if (change.kind === "connection-label") {
     setSource(setStructuralOffsetField(source.value, change.lineNumber, nextX, nextY));
     return;
@@ -936,7 +944,7 @@ inspectorContent.addEventListener("change", (event) => {
   }
   const nodeField = event.target.dataset.nodeField;
   if (nodeField && node) {
-    if (!event.target.value) return;
+    if (!event.target.value && nodeField !== "label") return;
     let nextSource = source.value;
     [...nodes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((selected) => {
       nextSource = setNodeField(nextSource, selected.lineNumber, nodeField, event.target.value);
@@ -945,8 +953,8 @@ inspectorContent.addEventListener("change", (event) => {
     return;
   }
   const lineField = event.target.dataset.lineField;
-  const lineType = event.target.dataset.lineType;
-  if (lineType !== undefined) {
+  if (event.target.matches("[data-line-type]")) {
+    const lineType = event.target.value;
     if (!lineType) return;
     const knownTypes = [...`${pugSource}\n${cssSource}`.matchAll(/^@line\s+([\w-]+)/gm)].map((match) => match[1]);
     const operations = selections.filter((item) => item.kind === "line").map((item) => {

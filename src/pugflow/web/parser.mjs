@@ -500,7 +500,7 @@ function compileMarkup(tree) {
 
   function createNode(container, labelElement) {
     const label = labelElement ? textFor(labelElement, errors) : "";
-    if (!label) {
+    if (!labelElement) {
       errors.push(`Line ${container.lineNumber}: every diagram/entry needs a node.label.`);
       return null;
     }

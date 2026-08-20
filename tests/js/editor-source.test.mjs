@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { removeNodeField, setAnnotationOffsetField, setNodeField, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
+import { removeNodeField, setAnnotationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
 
 test("edits inspector-backed node and connector properties", () => {
   const source = "#diagram\n  .node\n    .id root\n    .offset (2, 3)\n    .label\n      | Old\n      | label\n  .connect\n    .from root\n    .to root";
@@ -53,6 +53,13 @@ test("writes an independently draggable image offset", () => {
   const source = "#diagram\n  .node\n    .image photo.png\n    .label Root";
   const updated = setNodeOffsetField(source, 4, "image-offset", 7.25, -3.04);
   assert.match(updated, /    \.image-offset \(7\.3, -3\)\n    \.label Root/);
+});
+
+test("writes image handle resizing as one stable geometry edit", () => {
+  const source = "#diagram\n  .node\n    .image photo.png\n    .image-width 40\n    .label Root";
+  const updated = setNodeImageGeometry(source, 5, 72, 55, 8.25, -4.04);
+  assert.match(updated, /    \.image-height 55\n    \.image-offset \(8\.3, -4\)\n    \.image photo\.png\n    \.image-width 72/);
+  assert.equal((updated.match(/\.image-width/g) ?? []).length, 1);
 });
 
 test("preserves fully nested syntax when writing offsets", () => {

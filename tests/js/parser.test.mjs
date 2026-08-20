@@ -397,3 +397,10 @@ test("rejects non-tuple offsets", () => {
 
   assert.match(result.errors[0], /must be a tuple/);
 });
+
+test("allows an intentionally empty node label", () => {
+  const result = parseDiagram("#diagram\n  .node\n    .id blank\n    .label");
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.nodes[0].label, "");
+  assert.equal(result.nodes[0].id, "blank");
+});
