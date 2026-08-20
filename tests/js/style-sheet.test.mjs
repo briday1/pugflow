@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
-import { compileStyleSheet } from "../../src/pugflow/web/style-sheet.mjs";
+import { compileStyleSheet, pugDefinitionsToStyleSheet } from "../../src/pugflow/web/style-sheet.mjs";
 
 test("compiles CSS-shaped reusable definitions", () => {
   const css = `
@@ -23,4 +23,12 @@ test("compiles CSS-shaped reusable definitions", () => {
 test("reports malformed external style rules", () => {
   assert.match(compileStyleSheet("@node card { fill #fff; }").errors[0], /property: value/);
   assert.match(compileStyleSheet("card { fill: red; }").errors[0], /expected an @node/);
+});
+
+test("moves Pug definition preludes into active CSS rules", () => {
+  const css = pugDefinitionsToStyleSheet("@node card\n  .shape rounded\n  .fill #123456\n\n@line path\n  .color red");
+  assert.match(css, /@node card \{\n  shape: rounded;\n  fill: #123456;/);
+  const graph = parseDiagram("#diagram\n  .card\n    .label Root", css);
+  assert.deepEqual(graph.errors, []);
+  assert.equal(graph.nodes[0].style.fill, "#123456");
 });

@@ -1,6 +1,24 @@
 const KINDS = new Set(["node", "line", "annotation"]);
 const NAME = /^[a-zA-Z][\w-]*$/;
 
+/** Convert top-level Pug-style reusable definitions to editable CSS rules. */
+export function pugDefinitionsToStyleSheet(source = "") {
+  const rules = [];
+  let current = null;
+  for (const line of String(source).split("\n")) {
+    const header = line.match(/^@(node|line|annotation)\s+([a-zA-Z][\w-]*)\s*$/);
+    if (header) {
+      if (current) rules.push(`${current.header} {\n${current.fields.join("\n")}\n}`);
+      current = { header: `@${header[1]} ${header[2]}`, fields: [] };
+      continue;
+    }
+    const field = line.match(/^\s+\.([a-z][\w-]*)\s+(.+)$/);
+    if (current && field) current.fields.push(`  ${field[1]}: ${field[2]};`);
+  }
+  if (current) rules.push(`${current.header} {\n${current.fields.join("\n")}\n}`);
+  return rules.join("\n\n");
+}
+
 /** Compile CSS-shaped reusable definitions into the diagram parser's definition prelude. */
 export function compileStyleSheet(source = "") {
   const clean = String(source).replace(/\/\*[\s\S]*?\*\//g, "");

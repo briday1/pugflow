@@ -3,12 +3,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 import { layoutDiagram } from "../../src/pugflow/web/layout.mjs";
+import { pugDefinitionsToStyleSheet } from "../../src/pugflow/web/style-sheet.mjs";
 
 test("the built-in feature tour remains valid", () => {
   const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
-  const source = app.match(/const EXAMPLE = `([\s\S]*?)`;/)?.[1];
-  assert.ok(source, "could not locate the built-in example");
-  const result = parseDiagram(source);
+  const document = app.match(/const EXAMPLE_DOCUMENT = `([\s\S]*?)`;/)?.[1];
+  assert.ok(document, "could not locate the built-in example");
+  const start = document.indexOf("#diagram");
+  const result = parseDiagram(document.slice(start), pugDefinitionsToStyleSheet(document.slice(0, start)));
   assert.deepEqual(result.errors, []);
   assert.ok(result.nodes.length >= 8);
   assert.ok(result.edges.some((edge) => edge.kind === "merge"));

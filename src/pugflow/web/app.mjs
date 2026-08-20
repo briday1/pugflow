@@ -3,8 +3,9 @@ import { removeNodeField, setAnnotationOffsetField, setNodeField, setNodeOffsetF
 import { attachVimMode } from "./vim-mode.mjs";
 import { attachTextEditor } from "./text-editor.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets } from "./layout.mjs";
+import { pugDefinitionsToStyleSheet } from "./style-sheet.mjs";
 
-const EXAMPLE = `// Full feature tour — edit anything and watch the preview update
+const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the preview update
 @node primary_node
   .shape pill
   .fill #245886
@@ -206,13 +207,9 @@ const EXAMPLE = `// Full feature tour — edit anything and watch the preview up
       .feedback_line
         .label feedback
 `;
-const EXAMPLE_STYLES = `/* Optional reusable definitions live here.
-@node card {
-  shape: rounded;
-  fill: #ffffff;
-  outline: #94a3b8;
-}
-*/`;
+const EXAMPLE_DIAGRAM_START = EXAMPLE_DOCUMENT.indexOf("#diagram");
+const EXAMPLE = `// Full feature tour — edit anything and watch the preview update\n${EXAMPLE_DOCUMENT.slice(EXAMPLE_DIAGRAM_START)}`;
+const EXAMPLE_STYLES = pugDefinitionsToStyleSheet(EXAMPLE_DOCUMENT.slice(0, EXAMPLE_DIAGRAM_START));
 
 const source = attachTextEditor(document.querySelector("#source"));
 const editorShell = document.querySelector(".editor-shell");
@@ -749,9 +746,13 @@ function update() {
   if (result.errors.length) {
     status.textContent = result.errors[0];
     status.className = "status error";
+    canvas.classList.add("preview-invalid");
+    canvas.dataset.error = "Preview paused — fix the source error";
     return;
   }
   try {
+    canvas.classList.remove("preview-invalid");
+    delete canvas.dataset.error;
     currentGraph = result;
     if (diagram) diagram.render(pugSource, cssSource);
     else diagram = createBlockDiagram(canvas, pugSource, {
@@ -767,6 +768,8 @@ function update() {
   } catch (error) {
     status.textContent = error.message;
     status.className = "status error";
+    canvas.classList.add("preview-invalid");
+    canvas.dataset.error = "Preview paused — fix the source error";
   }
 }
 
