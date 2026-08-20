@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appendFlowNode, appendMergeNode, removeNodeField, setAnnotationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
+import { appendDiagramNode, appendFlowNode, appendMergeNode, indentSourceSelection, removeNodeReferences, removeNodeField, setAnnotationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 
 test("edits inspector-backed node and connector properties", () => {
@@ -113,6 +113,36 @@ test("builds a typed flow node inside the selected parent", () => {
   assert.equal(parseDiagram(plain).nodes.length, 2);
 });
 
+test("builds a standalone connected-diagram component", () => {
+  const source = "#diagram\n  .node\n    .id root\n    .label Root";
+  const updated = appendDiagramNode(source, { nodeType: "node", id: "free", label: "Standalone", diagramId: "free-graph", diagramLabel: "Free graph" });
+  assert.match(updated, /  graph\n    \.id free-graph\n    \.label Free graph\n    \.node\n      \.id free\n      \.label Standalone/);
+  const graph = parseDiagram(updated);
+  assert.deepEqual(graph.errors, []);
+  assert.equal(graph.nodes.length, 2);
+  assert.equal(graph.edges.length, 0);
+  assert.equal(graph.groups[1].rootId, "free");
+});
+
+test("inserts a nested graph only inside the selected graph", () => {
+  const source = "#canvas\n  graph\n    .id outer\n    .node\n      .id root\n      .label Root";
+  const updated = appendDiagramNode(source, { parentGraphLineNumber: 2, diagramId: "inner", id: "child", label: "Child" });
+  assert.match(updated, /  graph\n    \.id outer[\s\S]*    graph\n      \.id inner\n      \.node\n        \.id child/);
+  const parsed = parseDiagram(updated);
+  assert.deepEqual(parsed.errors, []);
+  assert.equal(parsed.groups.length, 2);
+});
+
+test("appends sibling graphs after blank lines at the canvas level", () => {
+  const source = "#canvas\n  graph\n    .node\n      .id root\n      .label Root\n\n    .flow\n      .node\n        .id child\n        .label Child";
+  const updated = appendDiagramNode(source, { diagramId: "second", id: "other", label: "Other" });
+  assert.match(updated, /        \.label Child\n  graph\n    \.id second/);
+  const parsed = parseDiagram(updated);
+  assert.deepEqual(parsed.errors, []);
+  assert.equal(parsed.groups.length, 2);
+  assert.equal(parsed.edges.some((edge) => edge.from === "root" && edge.to === "other"), false);
+});
+
 test("builds a merge target from existing source IDs", () => {
   const source = "#diagram\n  .node\n    .id root\n    .label Root\n    .flow\n      .node\n        .id left\n        .label Left\n      .node\n        .id right\n        .label Right";
   const updated = appendMergeNode(source, 4, { sources: ["left", "right"], direction: "up", nodeType: "result", id: "combined", label: "Combined" });
@@ -120,4 +150,18 @@ test("builds a merge target from existing source IDs", () => {
   const plain = appendMergeNode(source, 4, { sources: ["left", "right"], id: "combined", label: "Combined" });
   assert.deepEqual(parseDiagram(plain).errors, []);
   assert.equal(parseDiagram(plain).edges.filter((edge) => edge.kind === "merge").length, 2);
+});
+
+test("indents and unindents complete selected lines", () => {
+  const source = ".node\n  .label Root\n.flow";
+  const indented = indentSourceSelection(source, 0, source.indexOf(".flow"), false);
+  assert.equal(indented.value, "  .node\n    .label Root\n.flow");
+  assert.equal(indentSourceSelection(indented.value, indented.start, indented.end, true).value, source);
+});
+
+test("removes merge and connection references before deleting a node", () => {
+  const source = "#canvas\n  graph\n    .node\n      .id one\n      .label One\n      .node\n        .id two\n        .label Two\n      .node\n        .id three\n        .label Three\n    .merge\n      .source\n        .ref one\n      .source\n        .ref two\n      .source\n        .ref three\n      .node\n        .id combined\n        .label Combined\n    .connect\n      .from two\n      .to one";
+  const cleaned = removeNodeReferences(source, "two");
+  assert.doesNotMatch(cleaned, /\.ref two|\.from two|\.to two/);
+  assert.deepEqual(parseDiagram(cleaned).errors, []);
 });

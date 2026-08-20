@@ -1,5 +1,5 @@
 import { createBlockDiagram, parseDiagram } from "./pugflow.mjs";
-import { appendFlowNode, appendMergeNode, removeNodeField, setAnnotationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
+import { appendDiagramNode, appendFlowNode, appendMergeNode, ensureGraphComponents, indentSourceSelection, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, setAnnotationOffsetField, setDeclarationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
 import { attachVimMode } from "./vim-mode.mjs";
 import { attachTextEditor } from "./text-editor.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets } from "./layout.mjs";
@@ -84,7 +84,7 @@ const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the p
 @annotation warning_note
   .color #f59e0b
 
-#diagram
+#canvas
   .background #ffffff
   .defaults
     .node
@@ -207,8 +207,8 @@ const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the p
       .feedback_line
         .label feedback
 `;
-const EXAMPLE_DIAGRAM_START = EXAMPLE_DOCUMENT.indexOf("#diagram");
-const EXAMPLE = `// Full feature tour — edit anything and watch the preview update\n${EXAMPLE_DOCUMENT.slice(EXAMPLE_DIAGRAM_START)}`;
+const EXAMPLE_DIAGRAM_START = EXAMPLE_DOCUMENT.indexOf("#canvas");
+const EXAMPLE = ensureGraphComponents(`// Full feature tour — edit anything and watch the preview update\n${EXAMPLE_DOCUMENT.slice(EXAMPLE_DIAGRAM_START)}`);
 const EXAMPLE_STYLES = pugDefinitionsToStyleSheet(EXAMPLE_DOCUMENT.slice(0, EXAMPLE_DIAGRAM_START));
 
 const source = attachTextEditor(document.querySelector("#source"));
@@ -239,6 +239,8 @@ const builderNodeType = document.querySelector("#builder-node-type");
 const builderLineType = document.querySelector("#builder-line-type");
 const builderId = document.querySelector("#builder-id");
 const builderLabel = document.querySelector("#builder-label");
+const builderDiagramId = document.querySelector("#builder-diagram-id");
+const builderDiagramLabel = document.querySelector("#builder-diagram-label");
 const builderError = document.querySelector("#builder-error");
 const PANEL_WIDTH_KEY = "pugflow-panel-width-v1";
 const THEME_KEY = "pugflow-theme-v1";
@@ -249,8 +251,15 @@ let selections = [];
 let canvasUndo = [];
 let canvasRedo = [];
 let activeDocument = "pug";
-let pugSource = EXAMPLE;
-let cssSource = EXAMPLE_STYLES;
+const launchParams = new URLSearchParams(location.search);
+let pugSource = launchParams.get("demo") === "1" ? EXAMPLE : "#canvas";
+let cssSource = launchParams.get("demo") === "1" ? EXAMPLE_STYLES : "";
+if (launchParams.get("project") === "1") {
+  [pugSource, cssSource] = await Promise.all([
+    fetch("/__project.pug").then((response) => response.ok ? response.text() : "#canvas"),
+    fetch("/__project.css").then((response) => response.ok ? response.text() : ""),
+  ]);
+}
 
 function storeActiveDocument() {
   if (activeDocument === "pug") pugSource = source.value;
@@ -262,9 +271,6 @@ function activateDocument(kind) {
   storeActiveDocument();
   activeDocument = kind;
   source.value = kind === "pug" ? pugSource : cssSource;
-  sourceFile.accept = kind === "pug" ? ".pug,text/plain" : ".css,text/css,text/plain";
-  document.querySelector("#load-source").textContent = kind === "pug" ? "Load Pug" : "Load CSS";
-  document.querySelector("#save-source").textContent = kind === "pug" ? "Save Pug" : "Save CSS";
   document.querySelectorAll("[data-source-tab]").forEach((tab) => {
     const selected = tab.dataset.sourceTab === kind;
     tab.classList.toggle("active", selected);
@@ -325,6 +331,13 @@ function graphActions(nodes) {
 function renderInspector() {
   if (!selections.length) { inspector.hidden = true; return; }
   inspector.hidden = false;
+  const graphSelections = selections.filter((item) => item.kind === "graph");
+  if (graphSelections.length === selections.length) {
+    const group = currentGraph.groups.find((candidate) => candidate.id === graphSelections[0].id);
+    inspectorContent.innerHTML = `<h3>Graph</h3><button type="button" data-graph-add="nested">+ Nested graph</button><label>Title<input data-graph-field="label" value="${escapeHtml(group?.label ?? "")}"></label><details open><summary>Frame</summary>${colorControl("Fill", "fill", group?.fill, "graph")}${colorControl("Text", "color", group?.color, "graph")}${colorControl("Outline", "outline", group?.outline, "graph")}<label>Outline style<select data-graph-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${group?.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Outline width<input data-graph-field="outline-width" type="number" min="0" value="${group?.outlineWidth ?? 1.5}"></label><label>Padding<input data-graph-field="padding" type="number" min="0" value="${group?.padding ?? 24}"></label><label class="inspector-switch"><span>Hidden</span><input data-graph-hidden type="checkbox"${group?.hidden ? " checked" : ""}></label></details>`;
+    if (graphSelections.length > 1) inspectorContent.insertAdjacentHTML("beforeend", '<label>Align / distribute<select data-arrange-select><option value="">Choose…</option><option value="left">Align left</option><option value="center">Align center</option><option value="right">Align right</option><option value="top">Align top</option><option value="middle">Align middle</option><option value="bottom">Align bottom</option><option value="horizontal">Distribute horizontally</option><option value="vertical">Distribute vertically</option></select></label><button data-arrange="remove-offsets">Remove graph offsets</button>');
+    return;
+  }
   const nodes = selectedNodes();
   if (nodes.length === selections.length) {
     const custom = [...`${pugSource}\n${cssSource}`.matchAll(/^@node\s+([\w-]+)/gm)].map((match) => match[1]);
@@ -361,16 +374,19 @@ function openGraphBuilder(mode = "flow", preferredIds = []) {
   const selectedIds = preferredIds.length ? preferredIds : selectedNodes().map((node) => node.id);
   const root = currentGraph.nodes[0];
   graphBuilder.dataset.mode = mode;
-  document.querySelector("#graph-builder-title").textContent = mode === "merge" ? "Add merge target" : "Add flow node";
+  graphBuilder.dataset.parentGraphLine = mode === "nested" ? String(selections.find((item) => item.kind === "graph")?.lineNumber ?? "") : "";
+  document.querySelector("#graph-builder-title").textContent = mode === "merge" ? "Add merge target" : ["diagram", "nested"].includes(mode) ? (mode === "nested" ? "Create nested graph" : "Create graph") : "Add flow node";
   document.querySelector("#graph-builder-help").textContent = mode === "merge"
     ? "Choose two or more existing nodes that converge into a new target."
-    : "Create a new node connected from one existing parent.";
-  builderParent.innerHTML = currentGraph.nodes.map((node) => `<option value="${escapeHtml(node.id)}"${node.id === (selectedIds[0] ?? root.id) ? " selected" : ""}>${escapeHtml(node.label || node.id)} · ${escapeHtml(node.id)}</option>`).join("");
+    : mode === "diagram" ? "Create a connected graph with its own root, label, fill, and outline." : "Create a new node connected from one existing parent.";
+  builderParent.innerHTML = currentGraph.nodes.map((node) => `<option value="${escapeHtml(node.id)}"${node.id === (selectedIds[0] ?? root?.id) ? " selected" : ""}>${escapeHtml(node.label || node.id)} · ${escapeHtml(node.id)}</option>`).join("");
   builderSources.innerHTML = currentGraph.nodes.map((node) => `<label><input type="checkbox" value="${escapeHtml(node.id)}"${selectedIds.includes(node.id) ? " checked" : ""}> <span>${escapeHtml(node.label || node.id)} · ${escapeHtml(node.id)}</span></label>`).join("");
   builderNodeType.innerHTML = `<option value="node">node</option>${reusableNames("node").map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}`;
   builderLineType.innerHTML = `<option value="">Default line</option>${reusableNames("line").map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}`;
   builderId.value = suggestedNodeId();
   builderLabel.value = "New node";
+  builderDiagramId.value = `diagram-${currentGraph.groups.length + 1}`;
+  builderDiagramLabel.value = "";
   builderError.textContent = "";
   graphBuilder.showModal();
   builderLabel.select();
@@ -392,6 +408,40 @@ function selectCanvasElement(item) {
   } else selections = [item];
   paintSelections();
   renderInspector();
+}
+
+function deleteCanvasSelection() {
+  const operations = selections.map((selection) => {
+    if (selection.kind === "graph") return { line: selection.lineNumber, apply: (value) => removeDeclaration(value, selection.lineNumber) };
+    if (selection.kind === "node") {
+      const group = currentGraph.groups.find((candidate) => candidate.rootId === selection.id);
+      if (group) return { line: group.lineNumber, apply: (value) => removeDeclaration(value, group.lineNumber) };
+      const node = currentGraph.nodes.find((candidate) => candidate.id === selection.id);
+      return node ? { line: node.lineNumber, apply: (value) => removeNodeDeclaration(removeNodeReferences(value, node.id), node.lineNumber) } : null;
+    }
+    if (selection.kind === "node-label") {
+      const node = currentGraph.nodes.find((candidate) => candidate.id === selection.id);
+      return node ? { line: node.lineNumber, apply: (value) => setNodeField(value, node.lineNumber, "label", "") } : null;
+    }
+    if (selection.kind === "image") {
+      const node = currentGraph.nodes.find((candidate) => candidate.id === selection.id);
+      return node ? { line: node.lineNumber, apply: (value) => removeNodeFields(value, node.lineNumber, ["image", "image-width", "image-height", "image-fit", "image-opacity", "image-offset", "image-padding"]) } : null;
+    }
+    if (selection.kind === "annotation") return { line: selection.lineNumber, apply: (value) => removeDeclaration(value, selection.lineNumber) };
+    const edge = currentGraph.edges.find((candidate) => candidate.from === selection.from && candidate.to === selection.to);
+    if (!edge) return null;
+    if (selection.kind === "connection-label") return { line: edge.lineNumber, apply: (value) => removeConnectionLabel(value, edge.lineNumber) };
+    if (edge.kind === "branch") {
+      const target = currentGraph.nodes.find((candidate) => candidate.id === edge.to);
+      return target ? { line: target.lineNumber, apply: (value) => setNodeField(value, target.lineNumber, "line.hidden", "") } : null;
+    }
+    return { line: edge.lineNumber, apply: (value) => setStructuralField(value, edge.lineNumber, "line.hidden", "") };
+  }).filter(Boolean).sort((a, b) => b.line - a.line);
+  const unique = operations.filter((operation, index) => index === 0 || operation.line !== operations[index - 1].line);
+  let nextSource = source.value;
+  unique.forEach((operation) => { nextSource = operation.apply(nextSource); });
+  selections = [];
+  setSource(nextSource);
 }
 
 vimToggle.checked = new URLSearchParams(location.search).get("vim") === "1";
@@ -551,7 +601,7 @@ function highlightSource() {
   for (const name of ["sbd-comment", "sbd-string", "sbd-math", "sbd-structure", "sbd-attribute", "sbd-number"]) {
     CSS.highlights.delete(name);
   }
-  const pattern = /(\/\/.*$)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\$[^$\n]*\$)|(@(?:node|line|annotation)\b|#diagram|^\s*\||[a-zA-Z][\w-]*(?:\.[\w-]+)+|(?:\.[\w-]+)+|^\s*node\b)|([\w-]+)(?=\s*=)|(\b\d+(?:\.\d+)?\b)/gm;
+  const pattern = /(\/\/.*$)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\$[^$\n]*\$)|(@(?:node|line|annotation)\b|#canvas|^\s*\||[a-zA-Z][\w-]*(?:\.[\w-]+)+|(?:\.[\w-]+)+|^\s*(?:node|graph)\b)|([\w-]+)(?=\s*=)|(\b\d+(?:\.\d+)?\b)/gm;
   const start = source.selectionStart;
   const end = source.selectionEnd;
   if (source.childNodes.length !== 1 || source.firstChild?.nodeType !== Node.TEXT_NODE) {
@@ -592,7 +642,7 @@ const structureCompletions = [
   { label: "@node", insert: "@node custom_node", detail: "Define a reusable node type" },
   { label: "@line", insert: "@line custom_line", detail: "Define a reusable connection style" },
   { label: "@annotation", insert: "@annotation custom_note", detail: "Define a reusable annotation style" },
-  { label: "#diagram", insert: "#diagram", detail: "Figure root" },
+  { label: "#canvas", insert: "#canvas", detail: "Canvas root" },
   { label: ".defaults", insert: ".defaults", detail: "Group diagram-wide node, line, and annotation defaults" },
   { label: ".flow", insert: ".flow", detail: "Chain sibling nodes in sequence" },
   { label: ".merge", insert: ".merge", detail: "Merge two or more sources" },
@@ -719,6 +769,10 @@ function acceptCompletion() {
 function persistElementMove(change) {
   const nextX = change.currentX + change.dx;
   const nextY = change.currentY + change.dy;
+  if (change.kind === "graph") {
+    setSource(setDeclarationOffsetField(source.value, change.lineNumber, nextX, nextY));
+    return;
+  }
   if (["node", "node-label", "node-image"].includes(change.kind)) {
     const prefix = change.kind === "node" ? "offset" : change.kind === "node-image" ? "image-offset" : "label-offset";
     setSource(setNodeOffsetField(source.value, change.lineNumber, prefix, nextX, nextY));
@@ -764,6 +818,22 @@ function applyNodePositions(targets) {
 }
 
 function arrangeSelection(action) {
+  const selectedGraphIds = new Set(selections.filter((item) => item.kind === "graph").map((item) => item.id));
+  const graphs = (diagram?.layout?.groups ?? []).filter((group) => selectedGraphIds.has(group.id)).map((group) => ({
+    id: group.id, lineNumber: group.lineNumber, x: group.x, y: group.y, width: group.right - group.x,
+    height: group.bottom - group.y, aboveHeight: 0, offsetX: group.offsetX ?? 0, offsetY: group.offsetY ?? 0,
+  }));
+  if (graphs.length) {
+    let nextSource = source.value;
+    if (action === "remove-offsets") {
+      [...graphs].sort((a, b) => b.lineNumber - a.lineNumber).forEach((graph) => { nextSource = removeDeclarationField(nextSource, graph.lineNumber, "offset"); });
+    } else if (graphs.length > 1) {
+      [...arrangeNodeOffsets(graphs, action)].sort((a, b) => b.lineNumber - a.lineNumber)
+        .forEach((graph) => { nextSource = setDeclarationOffsetField(nextSource, graph.lineNumber, graph.offsetX, graph.offsetY); });
+    }
+    setSource(nextSource);
+    return;
+  }
   const nodes = selectedNodes();
   if (!nodes.length) return;
   if (action === "remove-offsets") {
@@ -781,7 +851,7 @@ function filename(extension) {
   const labelIndex = lines.findIndex((line) => /[a-zA-Z][\w-]*\.label(?:\s|$)/.test(line));
   const inlineLabel = lines[labelIndex]?.match(/[a-zA-Z][\w-]*\.label\s+(.+)$/)?.[1];
   const literalLabel = labelIndex >= 0 ? lines[labelIndex + 1]?.match(/^\s*\|\s?(.*)$/)?.[1] : null;
-  const label = inlineLabel ?? literalLabel ?? "diagram";
+  const label = launchParams.get("name") ?? inlineLabel ?? literalLabel ?? "diagram";
   const name = label.replace(/\$[^$]+\$/g, "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "diagram";
   return `${name}.${extension}`;
 }
@@ -902,7 +972,9 @@ source.addEventListener("keydown", (event) => {
   }
   if (event.key !== "Tab") return;
   event.preventDefault();
-  source.setRangeText("  ", source.selectionStart, source.selectionEnd, "end");
+  const indented = indentSourceSelection(source.value, source.selectionStart, source.selectionEnd, event.shiftKey);
+  source.value = indented.value;
+  source.setSelectionRange(indented.start, indented.end);
   source.dispatchEvent(new Event("input"));
 });
 source.addEventListener("scroll", syncHighlightScroll);
@@ -917,18 +989,36 @@ document.addEventListener("pointerdown", (event) => {
 });
 
 document.querySelectorAll("[data-source-tab]").forEach((tab) => tab.addEventListener("click", () => activateDocument(tab.dataset.sourceTab)));
-document.querySelector("#save-source").addEventListener("click", () => {
+document.querySelector("#save-source").addEventListener("click", async () => {
   storeActiveDocument();
-  const extension = activeDocument === "pug" ? "pug" : "css";
-  const blob = new Blob([activeDocument === "pug" ? pugSource : cssSource], { type: "text/plain;charset=utf-8" });
-  const anchor = document.createElement("a");
-  anchor.href = URL.createObjectURL(blob);
-  anchor.download = filename(extension);
-  anchor.click();
-  setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
+  const documents = [["pug", pugSource], ...(cssSource.trim() ? [["css", cssSource]] : [])];
+  if (window.showDirectoryPicker) {
+    try {
+      const directory = await window.showDirectoryPicker({ mode: "readwrite" });
+      for (const [extension, value] of documents) {
+        const handle = await directory.getFileHandle(filename(extension), { create: true });
+        const writable = await handle.createWritable();
+        await writable.write(value);
+        await writable.close();
+      }
+      status.textContent = `Saved ${documents.length === 1 ? "Pug" : "Pug and CSS"}`;
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+  for (const [extension, value] of documents) {
+    if (extension === "css" && !value.trim()) continue;
+    const anchor = document.createElement("a");
+    anchor.href = URL.createObjectURL(new Blob([value], { type: "text/plain;charset=utf-8" }));
+    anchor.download = filename(extension);
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
+  }
 });
 document.querySelector("#cleanup-diagram").addEventListener("click", cleanupDiagram);
-document.querySelector("#add-node").addEventListener("click", () => openGraphBuilder("flow"));
+document.querySelector("#add-diagram").addEventListener("click", () => openGraphBuilder("diagram"));
+document.querySelector("#add-node").addEventListener("click", () => openGraphBuilder(currentGraph.nodes.length ? "flow" : "diagram"));
 document.querySelector("#undo-canvas").addEventListener("click", undoCanvas);
 document.querySelector("#redo-canvas").addEventListener("click", redoCanvas);
 document.querySelector(".preview").addEventListener("keydown", (event) => {
@@ -937,6 +1027,7 @@ document.querySelector(".preview").addEventListener("keydown", (event) => {
   else if (event.key.toLowerCase() === "y") { event.preventDefault(); redoCanvas(); }
 });
 document.querySelector("#close-inspector").addEventListener("click", () => { selections = []; paintSelections(); renderInspector(); });
+document.querySelector("#delete-selection").addEventListener("click", deleteCanvasSelection);
 inspectorContent.addEventListener("click", (event) => {
   const graphMode = event.target.closest("[data-graph-add]")?.dataset.graphAdd;
   if (graphMode) {
@@ -977,6 +1068,11 @@ graphBuilderForm.addEventListener("submit", (event) => {
     lineType: builderLineType.value,
     id,
     label,
+    diagramId: builderDiagramId.value.trim(),
+    diagramLabel: builderDiagramLabel.value.trim(),
+    diagramFill: document.querySelector("#builder-diagram-fill").value.trim(),
+    diagramOutline: document.querySelector("#builder-diagram-outline").value.trim(),
+    parentGraphLineNumber: mode === "nested" ? Number(graphBuilder.dataset.parentGraphLine) : null,
   };
   let nextSource;
   if (mode === "merge") {
@@ -986,14 +1082,14 @@ graphBuilderForm.addEventListener("submit", (event) => {
       return;
     }
     nextSource = appendMergeNode(pugSource, currentGraph.nodes[0].lineNumber, options);
-  } else {
+  } else if (mode === "flow") {
     const parent = currentGraph.nodes.find((node) => node.id === builderParent.value);
     if (!parent) {
       builderError.textContent = "Choose an existing parent node.";
       return;
     }
     nextSource = appendFlowNode(pugSource, parent.lineNumber, options);
-  }
+  } else nextSource = appendDiagramNode(pugSource, options);
   graphBuilder.close();
   setSource(nextSource);
   selectCreatedNode(id);
@@ -1003,16 +1099,39 @@ nodeImageFile.addEventListener("change", () => {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
-    let nextSource = source.value;
-    [...selectedNodes()].sort((a, b) => b.lineNumber - a.lineNumber).forEach((node) => { nextSource = setNodeField(nextSource, node.lineNumber, "image", reader.result); });
-    setSource(nextSource);
-    nodeImageFile.value = "";
+    const imported = new Image();
+    imported.onload = () => {
+      let nextSource = source.value;
+      [...selectedNodes()].sort((a, b) => b.lineNumber - a.lineNumber).forEach((node) => {
+        nextSource = setNodeField(nextSource, node.lineNumber, "image", reader.result);
+        nextSource = setNodeField(nextSource, node.lineNumber, "image-width", String(imported.naturalWidth));
+        nextSource = setNodeField(nextSource, node.lineNumber, "image-height", String(imported.naturalHeight));
+      });
+      setSource(nextSource);
+      nodeImageFile.value = "";
+    };
+    imported.src = reader.result;
   };
   reader.readAsDataURL(file);
 });
 inspectorContent.addEventListener("change", (event) => {
   const nodes = selectedNodes();
   const node = nodes[0];
+  const graphField = event.target.dataset.graphField;
+  if (graphField) {
+    let nextSource = source.value;
+    [...selections].filter((item) => item.kind === "graph").sort((a, b) => b.lineNumber - a.lineNumber)
+      .forEach((selection) => { nextSource = setStructuralField(nextSource, selection.lineNumber, graphField, event.target.value); });
+    setSource(nextSource);
+    return;
+  }
+  if (event.target.matches("[data-graph-hidden]")) {
+    let nextSource = source.value;
+    [...selections].filter((item) => item.kind === "graph").sort((a, b) => b.lineNumber - a.lineNumber)
+      .forEach((selection) => { nextSource = setStructuralField(nextSource, selection.lineNumber, "hidden", event.target.checked ? "" : "false"); });
+    setSource(nextSource);
+    return;
+  }
   if (event.target.matches("[data-arrange-select]")) {
     if (event.target.value) arrangeSelection(event.target.value);
     return;
@@ -1107,11 +1226,15 @@ document.querySelector(".inspector-drag-handle").addEventListener("pointermove",
 document.querySelector(".inspector-drag-handle").addEventListener("pointerup", () => { inspectorDrag = null; });
 document.querySelector("#load-source").addEventListener("click", () => sourceFile.click());
 sourceFile.addEventListener("change", async () => {
-  const file = sourceFile.files?.[0];
-  if (!file) return;
-  const value = await file.text();
-  if (activeDocument === "pug") setSource(value);
-  else { cssSource = value; source.value = value; highlightSource(); update(); }
+  const files = [...(sourceFile.files ?? [])];
+  if (!files.length) return;
+  const pug = files.find((file) => file.name.toLowerCase().endsWith(".pug"));
+  const css = files.find((file) => file.name.toLowerCase().endsWith(".css"));
+  if (pug) pugSource = await pug.text();
+  if (css) cssSource = await css.text();
+  source.value = activeDocument === "pug" ? pugSource : cssSource;
+  highlightSource();
+  update();
   sourceFile.value = "";
 });
 document.querySelector("#save-svg").addEventListener("click", () => diagram?.saveSVG(filename("svg")));

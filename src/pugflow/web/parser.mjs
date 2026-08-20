@@ -8,7 +8,7 @@ const PORT_DISTRIBUTIONS = new Set(["shared", "distributed"]);
 const LINE_STYLES = new Set(["solid", "dashed", "dotted"]);
 const LINE_FIELDS = new Set([
   "line.arrow-style", "line.color", "line.stroke-style", "line.width",
-  "line.label", "line.label-position", "line.label-offset", "line.use",
+  "line.label", "line.label-position", "line.label-offset", "line.use", "line.hidden",
 ]);
 const LINE_DEFINITION_FIELDS = new Map([
   ["arrow-style", "line.arrow-style"],
@@ -17,18 +17,19 @@ const LINE_DEFINITION_FIELDS = new Map([
   ["width", "line.width"],
   ["label-position", "line.label-position"],
   ["label-offset", "line.label-offset"],
+  ["hidden", "line.hidden"],
 ]);
 const BLOCK_PROPERTIES = new Set([
   "id", "shape", "fill", "color", "outline", "outline-style", "outline-width",
   "width", "height", "align", "hidden", "offset", "label-offset",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
-  "image", "image-width", "image-height", "image-fit", "image-opacity", "image-offset",
+  "image", "image-width", "image-height", "image-fit", "image-opacity", "image-offset", "image-padding",
 ]);
 const BLOCK_STYLE_PROPERTIES = new Set([
   "shape", "fill", "color", "outline", "outline-style", "outline-width",
   "width", "height", "align",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
-  "image", "image-width", "image-height", "image-fit", "image-opacity",
+  "image", "image-width", "image-height", "image-fit", "image-opacity", "image-padding",
 ]);
 
 function indentationWidth(whitespace) {
@@ -57,13 +58,14 @@ function parseMarkupLine(body, lineNumber, errors) {
   }
   const styleDefinition = body.match(/^@(node|line|annotation)\s+([a-zA-Z][\w-]*)$/);
   if (styleDefinition) return { type: styleDefinition[1] + "-definition", name: styleDefinition[2], classes: [], attrs: {}, text: "", children: [], lineNumber };
-  const diagram = body.match(/^#diagram(?:\((.*)\))?$/);
+  const diagram = body.match(/^#(?:canvas|diagram)(?:\((.*)\))?$/);
   if (diagram) return { type: "diagram", classes: [], attrs: parseAttributes(diagram[1], lineNumber, errors), text: "", children: [], lineNumber };
+  if (body === "graph") return { type: "graph", classes: [], attrs: {}, text: "", children: [], lineNumber };
   if (/^[a-zA-Z][\w-]*$/.test(body)) return { type: "node-group", tag: body, classes: [], attrs: {}, text: "", children: [], lineNumber };
 
   const element = body.match(/^([a-zA-Z][\w-]*)?((?:\.[\w-]+)+)(?:\((.*)\))?(?:\s+(.*))?$/);
   if (!element) {
-    errors.push(`Line ${lineNumber}: expected @node, #diagram, a structural declaration, or a node field.`);
+    errors.push(`Line ${lineNumber}: expected @node, #canvas, a structural declaration, or a node field.`);
     return null;
   }
   const classes = [...element[2].matchAll(/\.([\w-]+)/g)].map((match) => match[1]);
@@ -131,7 +133,7 @@ function normalizeGroups(item, errors, nodeTypeNames, lineTypeNames) {
         }
       }
       const entry = { type: "entry", classes: ["entry"], attrs: {}, text: "", children: nodeChildren, lineNumber: child.lineNumber, synthetic: true };
-      if (["branch", "merge", "flow"].includes(item.type)) {
+      if (["branch", "merge", "flow", "graph"].includes(item.type)) {
         expanded.push(entry);
       } else if (itemIsNode) {
         if (!directChildBranch) {
@@ -226,6 +228,7 @@ function blockStyle(attrs, lineNumber, errors, defaults = {}) {
     imageHeight: numberAttribute(attrs["image-height"], defaults.imageHeight ?? 64, 1, "image-height", lineNumber, errors),
     imageFit: ["contain", "cover", "fill"].includes(attrs["image-fit"]) ? attrs["image-fit"] : defaults.imageFit ?? "contain",
     imageOpacity: numberAttribute(attrs["image-opacity"], defaults.imageOpacity ?? 1, 0, "image-opacity", lineNumber, errors),
+    imagePadding: numberAttribute(attrs["image-padding"], defaults.imagePadding ?? 0, 0, "image-padding", lineNumber, errors),
   };
 }
 
@@ -252,7 +255,7 @@ function diagramSettingsFor(diagram, errors) {
   const settings = {};
   const block = {};
   if (Object.keys(diagram.attrs).length) {
-    errors.push(`Line ${diagram.lineNumber}: #diagram does not accept inline attributes; use indented default fields.`);
+    errors.push(`Line ${diagram.lineNumber}: #canvas does not accept inline attributes; use indented default fields.`);
   }
   for (const child of diagram.children) {
     const blockProperty = child.type.startsWith("node.") ? child.type.slice(5) : null;
@@ -299,15 +302,17 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
     labelOffsetY: labelOffset.y,
     layoutDirection: FLOW_DIRECTIONS.has(layoutDirection) ? layoutDirection : "right",
     portDistribution: PORT_DISTRIBUTIONS.has(portDistribution) ? portDistribution : "shared",
+    hidden: effective["line.hidden"] !== undefined && ![false, "false", "no", "0"].includes(effective["line.hidden"]),
   };
 }
 
 function connectionAttributesFor(container, errors, extras = [], rejectInline = true, lineStyles = new Map(), knownStyles = new Set(lineStyles.keys())) {
   const allowed = new Set([...LINE_FIELDS, ...extras]);
   const nested = {
-    diagram: new Set(["branch", "merge", "flow", "connect", "background", "font", "annotation.color"]),
+    diagram: new Set(["graph", "branch", "merge", "flow", "connect", "background", "font", "annotation.color"]),
+    graph: new Set(["graph", "branch", "merge", "flow", "connect"]),
     branch: new Set(["entry"]),
-    entry: new Set(["branch", "merge", "flow", "connect"]),
+    entry: new Set(["graph", "branch", "merge", "flow", "connect"]),
     flow: new Set(["entry"]),
     merge: new Set(["source", "entry"]),
     source: new Set(),
@@ -357,21 +362,23 @@ function annotationsFor(container, errors, annotationStyles) {
       const preset = annotationStyles.get(presetFields[0]?.type) ?? {};
       const colorFields = child.children.filter((item) => item.type === "color");
       const offsetFields = child.children.filter((item) => item.type === "offset");
+      const hiddenFields = child.children.filter((item) => item.type === "hidden");
       if (colorFields.length > 1) errors.push(`Line ${colorFields[1].lineNumber}: duplicate .color field.`);
       if (offsetFields.length > 1) errors.push(`Line ${offsetFields[1].lineNumber}: duplicate .offset field.`);
-      for (const field of [...colorFields, ...offsetFields]) {
+      for (const field of [...colorFields, ...offsetFields, ...hiddenFields]) {
         if (Object.keys(field.attrs).length || field.children.length) errors.push(`Line ${field.lineNumber}: .${field.type} must contain one plain-text value.`);
       }
       const colorField = colorFields[0];
       const offsetField = offsetFields[0];
       const offset = offsetField ? offsetTuple(offsetField.text.trim(), "offset", offsetField.lineNumber, errors) : preset.offset ?? { x: 0, y: 0 };
       return {
-        text: textFor(child, errors, ["color", "offset", ...annotationStyles.keys()]),
+        text: textFor(child, errors, ["color", "offset", "hidden", ...annotationStyles.keys()]),
         position: child.classes.includes("below") ? "below" : "above",
         color: colorField?.text.trim() ?? preset.color ?? null,
         lineNumber: child.lineNumber,
         offsetX: offset.x,
         offsetY: offset.y,
+        hidden: Boolean(hiddenFields.length && !["false", "no", "0"].includes(hiddenFields[0].text.trim())),
       };
     });
 }
@@ -486,6 +493,7 @@ function compileMarkup(tree) {
   const errors = [...tree.errors];
   const nodes = [];
   const edges = [];
+  const groups = [];
   const nodesById = new Map();
   const diagramRoot = tree.roots.find((root) => root.type === "diagram") ?? null;
   const diagramSettings = diagramRoot ? diagramSettingsFor(diagramRoot, errors) : { settings: {}, block: {} };
@@ -579,6 +587,39 @@ function compileMarkup(tree) {
     entries.forEach((entry) => { previous = buildEntry(entry, previous, defaults) ?? previous; });
   }
 
+  function buildSubdiagram(component) {
+    const entries = component.children.filter((child) => child.type === "entry");
+    if (entries.length !== 1) errors.push(`Line ${component.lineNumber}: graph needs exactly one root node.`);
+    const before = nodes.length;
+    const edgeBefore = edges.length;
+    const rootNode = entries[0] ? buildEntry(entries[0], null) : null;
+    if (rootNode) processChildren(component, rootNode);
+    const field = (name) => component.children.find((child) => child.type === name)?.text.trim();
+    const graphOffset = offsetTuple(field("offset"), "graph.offset", component.lineNumber, errors);
+    const hiddenField = component.children.find((child) => child.type === "hidden");
+    const hidden = Boolean(hiddenField && !["false", "no", "0"].includes(hiddenField.text.trim()));
+    if (hidden) {
+      nodes.slice(before).forEach((node) => { node.hidden = true; });
+      edges.slice(edgeBefore).forEach((edge) => { edge.hidden = true; });
+    }
+    groups.push({
+      id: field("id") || `diagram-${groups.length + 1}`,
+      label: field("label") || "",
+      fill: field("fill") || "transparent",
+      color: field("color") || null,
+      outline: field("outline") || "transparent",
+      outlineStyle: field("outline-style") || "solid",
+      outlineWidth: Number(field("outline-width") || 1.5),
+      padding: Number(field("padding") || 24),
+      rootId: rootNode?.id ?? null,
+      hidden,
+      offsetX: graphOffset.x,
+      offsetY: graphOffset.y,
+      nodeIds: nodes.slice(before).map((node) => node.id),
+      lineNumber: component.lineNumber,
+    });
+  }
+
   function buildMerge(merge) {
     const targetEntry = merge.children.find((child) => child.type === "entry");
     if (!targetEntry) return errors.push(`Line ${merge.lineNumber}: a merge needs one target .entry.`);
@@ -621,6 +662,7 @@ function compileMarkup(tree) {
     container.children.forEach((child) => {
       if (child.type === "branch") buildBranch(child, parent);
       else if (child.type === "flow") buildFlow(child, parent);
+      else if (child.type === "graph") buildSubdiagram(child);
       else if (child.type === "merge") buildMerge(child);
       else if (child.type === "connect") buildConnect(child);
     });
@@ -631,13 +673,14 @@ function compileMarkup(tree) {
   const unexpectedRoots = tree.roots.filter((root) => !definitionTypes.has(root.type) && root.type !== "diagram");
   const definitionAfterDiagram = diagramRoot && tree.roots.some((root, index) => definitionTypes.has(root.type) && index > tree.roots.indexOf(diagramRoot));
   if (diagramRoots.length !== 1 || unexpectedRoots.length || definitionAfterDiagram) {
-    errors.push("The document must contain optional @node, @line, and @annotation definitions followed by exactly one #diagram.");
-    return { nodes, edges, errors, format: "pug", figure };
+    errors.push("The document must contain optional @node, @line, and @annotation definitions followed by exactly one #canvas.");
+    return { nodes, edges, groups, errors, format: "pug", figure };
   }
   const rootLabel = diagramRoot.children.find((child) => child.type === "field" && child.classes.includes("label"));
-  const root = createNode(diagramRoot, rootLabel);
+  const root = rootLabel ? createNode(diagramRoot, rootLabel) : null;
   if (root) processChildren(diagramRoot, root);
-  return { nodes, edges, errors, format: "pug", figure };
+  else processChildren(diagramRoot, null);
+  return { nodes, edges, groups, errors, format: "pug", figure };
 }
 
 /** Parse a diagram definition with optional external CSS-shaped reusable definitions. */
@@ -647,6 +690,7 @@ export function parseDiagram(source, styleSource = "") {
   const prefix = styles.source ? `${styles.source}\n\n` : "";
   const prefixLines = prefix ? prefix.split("\n").length - 1 : 0;
   const tree = parseMarkupTree(prefix + source);
+  tree.roots.filter((root) => root.type === "diagram").forEach((root) => { root._isRoot = true; });
   const nodeTypeNames = new Set(tree.roots.filter((root) => root.type === "node-definition").map((root) => root.name));
   const lineTypeNames = new Set(tree.roots.filter((root) => root.type === "line-definition").map((root) => root.name));
   tree.roots.forEach((root) => normalizeGroups(root, tree.errors, nodeTypeNames, lineTypeNames));
@@ -661,6 +705,7 @@ export function parseDiagram(source, styleSource = "") {
       edge.lineNumber = adjust(edge.lineNumber);
       edge.labelLineNumber = adjust(edge.labelLineNumber);
     });
+    result.groups.forEach((group) => { group.lineNumber = adjust(group.lineNumber); });
     result.errors = result.errors.map((error) => error.replace(/^Line (\d+):/, (_, line) => `Line ${adjust(Number(line))}:`));
   }
   return result;

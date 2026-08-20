@@ -79,10 +79,11 @@ function measureNodes(nodes, colors) {
     const label = formatMath(node.label);
     const requestedWidth = node.style.width;
     const initialLines = label.split("\n");
-    const naturalWidth = Math.max(...initialLines.map(measure), 70) + 32;
+    const imageOnly = Boolean(node.style.image) && !label.trim();
+    const naturalWidth = imageOnly ? node.style.imageWidth + node.style.imagePadding * 2 : Math.max(...initialLines.map(measure), 70) + 32;
     const width = requestedWidth === "auto" ? Math.min(300, Math.max(110, naturalWidth)) : requestedWidth;
     const lines = wrapText(label, Math.max(36, width - 30), measure);
-    const naturalHeight = Math.max(42, lines.length * 19 + 20);
+    const naturalHeight = imageOnly ? node.style.imageHeight + node.style.imagePadding * 2 : Math.max(42, lines.length * 19 + 20);
     const height = node.style.height === "auto" ? naturalHeight : node.style.height;
     const above = node.annotations.filter((annotation) => annotation.position === "above").map((annotation) => ({ ...annotation, text: formatMath(annotation.text) }));
     const below = node.annotations.filter((annotation) => annotation.position === "below").map((annotation) => ({ ...annotation, text: formatMath(annotation.text) }));
@@ -150,13 +151,16 @@ function addNode(svg, node, colors, defs) {
     "aria-label": `Edit ${node.label.replace(/\n/g, " ")}`,
   });
   const top = boxTop(node);
-  node.above.forEach((annotation, index) => {
+  node.above.filter((annotation) => !annotation.hidden).forEach((annotation, index) => {
     const text = svgElement("text", {
       class: "block-annotation",
       x: node.x + node.width / 2 + annotation.offsetX,
       y: node.y + 12 + index * 16 + annotation.offsetY,
       fill: annotation.color ?? colors.annotation,
       "data-line": annotation.lineNumber,
+      "data-id": node.id,
+      "data-select-kind": "annotation",
+      "data-selection-key": `annotation:${annotation.lineNumber}`,
       "data-drag-kind": "block-annotation",
       "data-current-x": annotation.offsetX,
       "data-current-y": annotation.offsetY,
@@ -191,6 +195,8 @@ function addNode(svg, node, colors, defs) {
       "data-line": node.lineNumber,
       "data-id": node.id,
       "data-drag-kind": "node-image",
+      "data-select-kind": "image",
+      "data-selection-key": `image:${node.id}`,
       "data-current-x": node.imageOffsetX,
       "data-current-y": node.imageOffsetY,
       role: "link",
@@ -232,6 +238,8 @@ function addNode(svg, node, colors, defs) {
     "data-line": node.lineNumber,
     "data-id": node.id,
     "data-drag-kind": "node-label",
+    "data-select-kind": "node-label",
+    "data-selection-key": `node-label:${node.id}`,
     "data-current-x": node.labelOffsetX,
     "data-current-y": node.labelOffsetY,
     role: "link",
@@ -244,13 +252,16 @@ function addNode(svg, node, colors, defs) {
     text.append(span);
   });
   group.append(text);
-  node.below.forEach((annotation, index) => {
+  node.below.filter((annotation) => !annotation.hidden).forEach((annotation, index) => {
     const annotationText = svgElement("text", {
       class: "block-annotation",
       x: node.x + node.width / 2 + annotation.offsetX,
       y: top + node.height + 17 + index * 16 + annotation.offsetY,
       fill: annotation.color ?? colors.annotation,
       "data-line": annotation.lineNumber,
+      "data-id": node.id,
+      "data-select-kind": "annotation",
+      "data-selection-key": `annotation:${annotation.lineNumber}`,
       "data-drag-kind": "block-annotation",
       "data-current-x": annotation.offsetX,
       "data-current-y": annotation.offsetY,
@@ -495,6 +506,10 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
       "data-line": edge.labelLineNumber,
       "data-offset-line": edge.lineNumber,
       "data-drag-kind": "connection-label",
+      "data-select-kind": "connection-label",
+      "data-selection-key": `connection-label:${edge.from}:${edge.to}:${edge.lineNumber}`,
+      "data-from": edge.from,
+      "data-to": edge.to,
       "data-current-x": edge.labelOffsetX,
       "data-current-y": edge.labelOffsetY,
       role: "link",
@@ -509,7 +524,7 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
 export function edgeIsVisible(edge, nodesById) {
   const source = nodesById.get(edge.from);
   const target = nodesById.get(edge.to);
-  return Boolean(source && target && !source.hidden && !target.hidden);
+  return Boolean(source && target && !edge.hidden && !source.hidden && !target.hidden);
 }
 
 function layoutOptionsForLabels(edges, colors, requested = {}) {
@@ -523,16 +538,71 @@ function layoutOptionsForLabels(edges, colors, requested = {}) {
   };
 }
 
+function diagramBounds(groups, nodesById) {
+  return groups.map((group) => {
+    const nodes = group.nodeIds.map((id) => nodesById.get(id)).filter(Boolean);
+    if (!nodes.length) return null;
+    const padding = group.padding ?? 24;
+    const titleSpace = group.label ? 22 : 0;
+    return {
+      ...group,
+      x: Math.min(...nodes.map((node) => node.x)) - padding,
+      y: Math.min(...nodes.map((node) => node.y)) - padding - titleSpace,
+      right: Math.max(...nodes.map((node) => node.x + node.width)) + padding,
+      bottom: Math.max(...nodes.map((node) => node.y + node.layoutHeight)) + padding,
+    };
+  }).filter(Boolean);
+}
+
+function addDiagramFrame(svg, group, colors) {
+  const frame = svgElement("g", { "data-line": group.lineNumber, "data-id": group.id, "data-select-kind": "graph", "data-selection-key": `graph:${group.id}`, "data-drag-kind": "graph", "data-current-x": group.offsetX ?? 0, "data-current-y": group.offsetY ?? 0 });
+  frame.append(svgElement("rect", {
+    class: "subdiagram-frame", x: group.x, y: group.y, width: group.right - group.x, height: group.bottom - group.y,
+    rx: 12, fill: group.fill, stroke: group.outline, "stroke-width": group.outlineWidth,
+    "stroke-dasharray": dashArray(group.outlineStyle),
+  }));
+  if (group.label) {
+    const label = svgElement("text", { class: "subdiagram-label", x: group.x + 12, y: group.y + 17, fill: group.color ?? colors.text, "data-line": group.lineNumber, "data-id": group.id, "data-select-kind": "graph", "data-selection-key": `graph:${group.id}` });
+    label.textContent = group.label;
+    frame.append(label);
+  }
+  svg.append(frame);
+}
+
+function packSiblingGraphs(nodes, groups, gap = 80) {
+  const maximal = groups.filter((group) => !groups.some((other) => other !== group
+    && group.nodeIds.every((id) => other.nodeIds.includes(id)) && other.nodeIds.length > group.nodeIds.length));
+  if (maximal.length < 2) return nodes;
+  const shifts = new Map();
+  let previousBottom = null;
+  let anchorLeft = null;
+  for (const group of maximal) {
+    const members = nodes.filter((node) => group.nodeIds.includes(node.id));
+    if (!members.length) continue;
+    const top = Math.min(...members.map((node) => node.y));
+    const bottom = Math.max(...members.map((node) => node.y + node.layoutHeight));
+    const left = Math.min(...members.map((node) => node.x));
+    if (anchorLeft === null) anchorLeft = left;
+    const shiftY = previousBottom === null ? 0 : Math.max(0, previousBottom + gap - top);
+    const shiftX = anchorLeft - left;
+    group.nodeIds.forEach((id) => shifts.set(id, { x: shiftX, y: shiftY }));
+    previousBottom = bottom + shiftY;
+  }
+  return nodes.map((node) => ({ ...node, x: node.x + (shifts.get(node.id)?.x ?? 0), y: node.y + (shifts.get(node.id)?.y ?? 0) }));
+}
+
 function renderSvg(container, graph, options) {
   const colors = figureColors(container, graph.figure);
   const measured = measureNodes(graph.nodes, colors);
   const layout = layoutDiagram(measured, graph.edges, layoutOptionsForLabels(graph.edges, colors, options.layout));
-  const visualNodes = layout.nodes.map((node) => ({
-    ...node,
-    x: node.x + node.offsetX,
-    y: node.y + node.offsetY,
-  }));
+  let visualNodes = layout.nodes.map((node) => {
+    const graphOffset = (graph.groups ?? []).filter((group) => group.nodeIds.includes(node.id))
+      .reduce((total, group) => ({ x: total.x + (group.offsetX ?? 0), y: total.y + (group.offsetY ?? 0) }), { x: 0, y: 0 });
+    return { ...node, x: node.x + node.offsetX + graphOffset.x, y: node.y + node.offsetY + graphOffset.y };
+  });
+  visualNodes = packSiblingGraphs(visualNodes, graph.groups ?? []);
   const byId = new Map(visualNodes.map((node) => [node.id, node]));
+  const groups = diagramBounds((graph.groups ?? []).filter((group) => !group.hidden), byId);
   const extentX = visualNodes.flatMap((node) => [
     node.x,
     node.x + node.width,
@@ -545,10 +615,10 @@ function renderSvg(container, graph, options) {
     node.y + node.labelOffsetY,
     ...node.annotations.map((annotation) => node.y + annotation.offsetY),
   ]);
-  const viewX = Math.min(0, ...extentX.map((value) => value - 60));
-  const viewY = Math.min(0, ...extentY.map((value) => value - 40));
-  const viewRight = Math.max(layout.width, ...extentX.map((value) => value + 60));
-  const viewBottom = Math.max(layout.height, ...extentY.map((value) => value + 40));
+  const viewX = extentX.length ? Math.min(...extentX.map((value) => value - 60), ...groups.map((group) => group.x - 20)) : 0;
+  const viewY = extentY.length ? Math.min(...extentY.map((value) => value - 40), ...groups.map((group) => group.y - 20)) : 0;
+  const viewRight = extentX.length ? Math.max(...extentX.map((value) => value + 60), ...groups.map((group) => group.right + 20)) : 1;
+  const viewBottom = extentY.length ? Math.max(...extentY.map((value) => value + 40), ...groups.map((group) => group.bottom + 20)) : 1;
   const viewWidth = viewRight - viewX;
   const viewHeight = viewBottom - viewY;
   const svg = svgElement("svg", { xmlns: SVG_NS, viewBox: `${viewX} ${viewY} ${viewWidth} ${viewHeight}`, width: viewWidth, height: viewHeight, role: "img", "aria-label": options.accessibleLabel ?? "Block diagram" });
@@ -559,6 +629,7 @@ function renderSvg(container, graph, options) {
     .label { font: 16px ${colors.font}; user-select: none; }
     .block-annotation, .connection-annotation { font: 12px ${colors.font}; text-anchor: middle; user-select: none; }
     .connection-annotation { paint-order: stroke; stroke: ${colors.background}; stroke-width: 4px; stroke-linejoin: round; }
+    .subdiagram-label { font: 600 13px ${colors.font}; }
     .connector { fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .interactive [data-line] { cursor: pointer; }
     .interactive [data-drag-kind] { touch-action: none; }
@@ -572,13 +643,14 @@ function renderSvg(container, graph, options) {
   const defs = svgElement("defs");
   svg.append(defs);
   svg.append(svgElement("rect", { class: "diagram-background", x: viewX, y: viewY, width: viewWidth, height: viewHeight }));
+  [...groups].sort((a, b) => b.nodeIds.length - a.nodeIds.length).forEach((group) => addDiagramFrame(svg, group, colors));
   layout.edges.forEach((edge) => {
     const source = byId.get(edge.from);
     const target = byId.get(edge.to);
     if (edgeIsVisible(edge, byId)) addEdge(svg, defs, edge, source, target, colors, visualNodes);
   });
   visualNodes.forEach((node) => { if (!node.hidden) addNode(svg, node, colors, defs); });
-  Object.defineProperty(svg, "__diagramLayout", { value: { ...layout, nodes: visualNodes } });
+  Object.defineProperty(svg, "__diagramLayout", { value: { ...layout, nodes: visualNodes, groups } });
   if (options.onNodeClick || options.onElementMove) {
     svg.classList.add("interactive");
     let drag = null;
@@ -615,13 +687,15 @@ function renderSvg(container, graph, options) {
           const entry = completed.target.closest?.(".entry");
           const connector = completed.target.closest?.(".connector");
           const additive = event.ctrlKey || event.metaKey;
+          const selectedTarget = completed.target.closest?.("[data-select-kind]") ?? completed.target;
           options.onElementClick?.({
-            kind: connector ? "line" : "node",
-            id: entry?.dataset.id ?? null,
-            from: connector?.dataset.from ?? null,
-            to: connector?.dataset.to ?? null,
-            lineNumber: Number(completed.target.dataset.line),
-            selectionKey: connector?.dataset.selectionKey ?? entry?.dataset.selectionKey ?? null,
+            kind: selectedTarget.dataset.selectKind ?? (connector ? "line" : "node"),
+            id: entry?.dataset.id ?? selectedTarget.dataset.id ?? null,
+            from: connector?.dataset.from ?? selectedTarget.dataset.from ?? null,
+            to: connector?.dataset.to ?? selectedTarget.dataset.to ?? null,
+            lineNumber: Number(selectedTarget.dataset.line ?? completed.target.dataset.line),
+            offsetLineNumber: Number(selectedTarget.dataset.offsetLine ?? selectedTarget.dataset.line),
+            selectionKey: selectedTarget.dataset.selectionKey ?? connector?.dataset.selectionKey ?? entry?.dataset.selectionKey ?? null,
             additive,
           });
           if (!additive) options.onNodeClick({

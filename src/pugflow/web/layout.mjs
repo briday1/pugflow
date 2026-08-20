@@ -147,13 +147,38 @@ function assignCells(nodes, edges) {
     }
   }
 
-  // Defensive placement for disconnected source fragments.
-  let orphanRow = 0;
-  for (const node of nodes) {
-    if (positions.has(node.id)) continue;
-    while (occupied.has(cellKey(0, orphanRow))) orphanRow += 1;
-    positions.set(node.id, { x: 0, y: orphanRow });
-    occupied.add(cellKey(0, orphanRow));
+  // Seed each disconnected component below the completed components, then
+  // run its own relationships. This preserves earlier component geometry.
+  while (nodes.some((node) => !positions.has(node.id))) {
+    const root = nodes.find((node) => !positions.has(node.id));
+    const occupiedRows = [...positions.values()].map((position) => position.y);
+    const occupiedColumns = [...positions.values()].map((position) => position.x);
+    const orphanRow = (occupiedRows.length ? Math.max(...occupiedRows) : -2) + 2;
+    const orphanColumn = (occupiedColumns.length ? Math.max(...occupiedColumns) : -2) + 2;
+    positions.set(root.id, { x: orphanColumn, y: orphanRow });
+    occupied.add(cellKey(orphanColumn, orphanRow));
+    let componentChanged = true;
+    while (componentChanged) {
+      componentChanged = false;
+      for (const edge of edges) {
+        const from = positions.get(edge.from);
+        if (!from || positions.has(edge.to)) continue;
+        const incoming = edge.kind === "merge" ? edges.filter((candidate) => candidate.kind === "merge" && candidate.to === edge.to) : [];
+        const sources = incoming.map((candidate) => positions.get(candidate.from));
+        if (incoming.length && sources.some((position) => !position)) continue;
+        const direction = edge.layoutDirection ?? "right";
+        const base = incoming.length
+          ? direction === "left" ? { x: Math.min(...sources.map((position) => position.x)) - 1, y: median(sources.map((position) => position.y)) }
+            : direction === "right" ? { x: Math.max(...sources.map((position) => position.x)) + 1, y: median(sources.map((position) => position.y)) }
+              : direction === "up" ? { x: median(sources.map((position) => position.x)), y: Math.min(...sources.map((position) => position.y)) - 1 }
+                : { x: median(sources.map((position) => position.x)), y: Math.max(...sources.map((position) => position.y)) + 1 }
+          : freeCell(from, direction, occupied);
+        const position = incoming.length ? freeCandidate(base, direction, occupied) : base;
+        positions.set(edge.to, position);
+        occupied.add(cellKey(position.x, position.y));
+        componentChanged = true;
+      }
+    }
   }
   return positions;
 }

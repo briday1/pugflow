@@ -47,6 +47,12 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(headers.get_content_type(), "application/json")
         self.assertEqual(json.loads(body), {"status": "ok", "version": "0.2.0"})
 
+    def test_serves_an_optional_paired_gui_project(self):
+        self.server.project_pug = "#canvas\n"
+        self.server.project_css = "@node card { fill: #fff; }\n"
+        self.assertEqual(self.get("/__project.pug")[2], b"#canvas\n")
+        self.assertEqual(self.get("/__project.css")[2], b"@node card { fill: #fff; }\n")
+
 
 if __name__ == "__main__":
     unittest.main()

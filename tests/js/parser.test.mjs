@@ -404,3 +404,57 @@ test("allows an intentionally empty node label", () => {
   assert.equal(result.nodes[0].label, "");
   assert.equal(result.nodes[0].id, "blank");
 });
+
+test("supports framed diagram components and cross-component connections", () => {
+  const result = parseDiagram([
+    "#diagram",
+    "  graph",
+    "    .id left-graph",
+    "    .label Inputs",
+    "    .fill #f8fafc",
+    "    .outline #2563eb",
+    "    .node",
+    "      .id left",
+    "      .label Left",
+    "  graph",
+    "    .id right-graph",
+    "    .node",
+    "      .id right",
+    "      .label Right",
+    "  .connect",
+    "    .from left",
+    "    .to right",
+  ].join("\n"));
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.groups.length, 2);
+  assert.deepEqual(result.groups[0].nodeIds, ["left"]);
+  assert.equal(result.groups[0].label, "Inputs");
+  assert.equal(result.groups[0].fill, "#f8fafc");
+  assert.equal(result.edges[0].from, "left");
+  assert.equal(result.edges[0].to, "right");
+});
+
+test("hides individual lines, annotations, and complete graphs", () => {
+  const result = parseDiagram([
+    "#canvas",
+    "  graph",
+    "    .hidden",
+    "    .node",
+    "      .id a",
+    "      .label A",
+    "      .annotation",
+    "        .above Note",
+    "          .hidden",
+    "      .flow",
+    "        .line",
+    "          .hidden",
+    "        .node",
+    "          .id b",
+    "          .label B",
+  ].join("\n"));
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.groups[0].hidden, true);
+  assert.equal(result.nodes.every((node) => node.hidden), true);
+  assert.equal(result.edges[0].hidden, true);
+  assert.equal(result.nodes[0].annotations[0].hidden, true);
+});

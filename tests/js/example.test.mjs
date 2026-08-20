@@ -9,7 +9,7 @@ test("the built-in feature tour remains valid", () => {
   const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
   const document = app.match(/const EXAMPLE_DOCUMENT = `([\s\S]*?)`;/)?.[1];
   assert.ok(document, "could not locate the built-in example");
-  const start = document.indexOf("#diagram");
+  const start = document.indexOf("#canvas");
   const result = parseDiagram(document.slice(start), pugDefinitionsToStyleSheet(document.slice(0, start)));
   assert.deepEqual(result.errors, []);
   assert.ok(result.nodes.length >= 8);

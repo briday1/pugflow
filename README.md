@@ -22,6 +22,8 @@ The server opens <http://127.0.0.1:4173> automatically. Examples of server optio
 ```powershell
 pugflow --no-browser
 pugflow --host 0.0.0.0 --port 8080 --vim
+pugflow --demo
+pugflow --gui diagram.pug --css diagram.css
 pugflow --version
 ```
 
@@ -49,32 +51,36 @@ The editor has `diagram.pug` and `styles.css` tabs with matching Load and Save a
 }
 ```
 
-The editor opens with the full feature tour in the source panel on every launch. It provides live rendering, line numbers, current-line and syntax highlighting, contextual completions, **Load Pug**, **Save Pug**, **Save SVG**, and 1×–3× **Save PNG** controls. Choose a light, dark, or system UI theme from the top bar. Diagram text is not stored in the browser; use **Save Pug** and **Load Pug** to keep your work.
+The editor opens as a blank `#canvas`; use `pugflow --demo` for the full feature tour. It provides live rendering, line numbers, highlighting, completions, **Open Pug/CSS…**, **Save Pug + CSS**, **Save SVG**, and 1×–3× **Save PNG**. A project requires one Pug file and may include a same-basename CSS file. Source is not stored in the browser.
 
-Drag the divider beside the source panel to resize it (or focus it and use the arrow keys); the width is remembered.
+Drag the divider beside the source panel to resize it; the width is remembered.
 Click any visible block in the preview to focus and select its corresponding source line.
 Enable **Vim** beside the editor actions for Normal, Insert, and Visual modes. It starts off on every launch and supports standard movement, editing, yanking, pasting, marks, and undo/redo commands. Escape, Ctrl+[ and Ctrl+C return to Normal mode.
 
 ## Basic Pug definition
 
 ```pug
-#diagram
-  .node
-    .id root
-    .label Root
+#canvas
+  graph
+    .id main
     .node
-      .line
-        .arrow-style forward
-      .id left
-      .label Left path
-    .node
-      .id right
-      .label Right path
+      .id root
+      .label Root
+      .node
+        .line
+          .arrow-style forward
+        .id left
+        .label Left path
+      .node
+        .id right
+        .label Right path
 ```
 
 The common structure is intentionally small:
 
-- `#diagram` contains one root node.
+- `#canvas` contains one or more sibling or nested `graph` components.
+- Each `graph` has exactly one root node and defines one connected flow.
+- Sibling graphs are disconnected unless an explicit `.connect` crosses their boundaries.
 - Nodes nested directly inside another node become its children.
 - A child node's `.line` group styles its incoming connector.
 - Multiple directly nested nodes form a concise one-step fanout.
@@ -128,7 +134,7 @@ Flows and merges also accept `.ports shared` or `.ports distributed`. Shared por
 
 ## Reusable style classes
 
-Define a styled node type above `#diagram`, then use its name anywhere you would normally use `node`. It inherits the diagram's node defaults and overrides only the fields in its definition.
+Define a styled node type above `#canvas`, then use its name anywhere you would normally use `node`. It inherits the canvas node defaults and overrides only the fields in its definition.
 
 ```pug
 @node my_node
@@ -143,20 +149,21 @@ Define a styled node type above `#diagram`, then use its name anywhere you would
 @annotation warning_note
   .color #f59e0b
 
-#diagram
+#canvas
   .defaults
     .node
       .outline #111111
-  .my_node
-    .id root
-    .label Reusable styled node
-    .annotation
-      .above
-        .warning_note
-        | Styled annotation
-    .node
-      .warning_line
-      .label Child
+  graph
+    .my_node
+      .id root
+      .label Reusable styled node
+      .annotation
+        .above
+          .warning_note
+          | Styled annotation
+      .node
+        .warning_line
+        .label Child
 ```
 
 Reusable node definitions create classes such as `.my_node`; reusable line and annotation definitions create decorators such as `.warning_line` and `.warning_note`. Local fields override the reusable style. Names must be unique across node, line, and annotation definitions.
@@ -170,32 +177,33 @@ The complete original definition is preserved in [examples/original.pug](example
 Give source blocks IDs, then reference them from `.source` lines:
 
 ```pug
-#diagram
-  .node
-    .label Root
+#canvas
+  graph
     .node
-      .id api
-      .label API
-    .node
-      .id cache
-      .label Cache
-    .merge
-      .source
-        .ref api
-        .line
-          .label live
-      .source
-        .ref cache
-        .line
-          .label hit
+      .label Root
       .node
-        .id result
-        .label Result
-        .annotation
-          .above Paths converge here
-        .shape hexagon
+        .id api
+        .label API
+      .node
+        .id cache
+        .label Cache
+      .merge
+        .source
+          .ref api
+          .line
+            .label live
+        .source
+          .ref cache
+          .line
+            .label hit
         .node
-          .label Next block
+          .id result
+          .label Result
+          .annotation
+            .above Paths converge here
+          .shape hexagon
+          .node
+            .label Next block
 ```
 
 For a compact merge, put `.from api cache` under `.merge`. Terminal merge sources are aligned on a pre-merge frontier when space permits, while nodes that continue another flow retain their established position. Merge paths use straight segments with rounded 90-degree bends and the merge color. See [examples/flow-and-merge.pug](examples/flow-and-merge.pug).
@@ -217,10 +225,10 @@ The source and target must have explicit `.id` fields and must appear before the
 
 ## Figure defaults
 
-Unstyled figures use a white background with black blocks, text, annotations, and connections. Put defaults on `#diagram` to keep each figure's formatting in its saved Pug source:
+Pugflow has a small built-in rendering theme: white background with black blocks, text, annotations, and connections. Project CSS is optional and additive. Put per-document defaults on `#canvas`:
 
 ```pug
-#diagram
+#canvas
   .background #fffaf0
   .font Arial
   .defaults
@@ -234,11 +242,12 @@ Unstyled figures use a white background with black blocks, text, annotations, an
       .color #303030
     .annotation
       .color #606060
-  .node
-    .label Root
+  graph
+    .node
+      .label Root
 ```
 
-`.background` and `.font` belong directly to `#diagram`. Reusable node, line, and annotation defaults are grouped under `.defaults`. Style a particular merge through the `.line` group inside that `.merge`; fields closer to an object override inherited defaults.
+`.background` and `.font` belong directly to `#canvas`. Reusable node, line, and annotation defaults are grouped under `.defaults`. Style a particular merge through the `.line` group inside that `.merge`; fields closer to an object override inherited defaults.
 
 ## Block options
 
@@ -388,12 +397,13 @@ Copy the files in `src/pugflow/web/`, then:
 <script type="module">
   import { createBlockDiagram } from "./pugflow.mjs";
 
-  const source = `#diagram
-    .node
-      .label Root
-    .flow
+  const source = `#canvas
+    graph
       .node
-        .label Child`;
+        .label Root
+      .flow
+        .node
+          .label Child`;
 
   const diagram = createBlockDiagram(document.querySelector("#diagram"), source);
   diagram.render(updatedSource);

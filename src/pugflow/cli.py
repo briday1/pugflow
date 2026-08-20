@@ -24,6 +24,8 @@ def build_parser():
     parser.add_argument("--port", default=4173, type=int, help="Port to bind; use 0 for an available port (default: 4173).")
     parser.add_argument("--no-browser", action="store_true", help="Do not open the application in the default browser.")
     parser.add_argument("--vim", action="store_true", help="Open the GUI with Vim editing mode enabled.")
+    parser.add_argument("--gui", action="store_true", help="Open the input Pug and optional CSS in the GUI instead of rendering.")
+    parser.add_argument("--demo", action="store_true", help="Open the GUI with the full feature-tour example.")
     parser.add_argument("--quiet", action="store_true", help="Suppress HTTP request logging.")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser
@@ -31,7 +33,7 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
-    if args.input:
+    if args.input and not args.gui:
         if args.scale <= 0:
             raise SystemExit("--scale must be greater than zero")
         output = args.output or args.input.with_suffix(".png")
@@ -41,9 +43,16 @@ def main(argv=None):
             raise SystemExit(f"error: {error}") from error
         print(f"Wrote {output}")
         return
-    if args.output or args.css:
-        raise SystemExit("--output and --css require an input .pug file")
-    serve(args.host, args.port, open_browser=not args.no_browser, quiet=args.quiet, vim=args.vim)
+    if args.output:
+        raise SystemExit("--output requires rendering an input .pug file")
+    if args.css and not args.input:
+        raise SystemExit("--css requires an input .pug file")
+    css_path = args.css
+    if args.input and css_path is None:
+        candidate = args.input.with_suffix(".css")
+        css_path = candidate if candidate.is_file() else None
+    serve(args.host, args.port, open_browser=not args.no_browser, quiet=args.quiet, vim=args.vim,
+          demo=args.demo, pug_path=args.input, css_path=css_path)
 
 
 if __name__ == "__main__":

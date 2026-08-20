@@ -249,4 +249,20 @@ test("suppresses every edge touching a hidden node", () => {
   assert.equal(edgeIsVisible({ from: "visible", to: "hidden" }, nodes), false);
   assert.equal(edgeIsVisible({ from: "hidden", to: "other" }, nodes), false);
   assert.equal(edgeIsVisible({ from: "visible", to: "other" }, nodes), true);
+  assert.equal(edgeIsVisible({ from: "visible", to: "other", hidden: true }, nodes), false);
+});
+
+test("packs a disconnected graph below without perturbing the first graph", () => {
+  const originalNodes = [
+    { id: "a", width: 80, height: 40, layoutHeight: 40 },
+    { id: "b", width: 80, height: 40, layoutHeight: 40 },
+  ];
+  const edges = [{ from: "a", to: "b", kind: "branch", layoutDirection: "right" }];
+  const original = layoutDiagram(originalNodes, edges);
+  const expanded = layoutDiagram([...originalNodes, { id: "c", width: 260, height: 100, layoutHeight: 100 }, { id: "d", width: 80, height: 40, layoutHeight: 40 }], [...edges, { from: "c", to: "d", kind: "branch", layoutDirection: "down" }]);
+  for (const id of ["a", "b"]) {
+    const before = original.nodes.find((node) => node.id === id);
+    const after = expanded.nodes.find((node) => node.id === id);
+    assert.deepEqual({ x: after.x, y: after.y }, { x: before.x, y: before.y });
+  }
 });

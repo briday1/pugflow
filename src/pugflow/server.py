@@ -7,7 +7,7 @@ import threading
 import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from . import __version__
 
@@ -39,6 +39,10 @@ class DiagramRequestHandler(SimpleHTTPRequestHandler):
             return self._send_text(self.server.render_source, "text/plain; charset=utf-8")
         if path == "/__render_styles.css" and hasattr(self.server, "render_styles"):
             return self._send_text(self.server.render_styles, "text/css; charset=utf-8")
+        if path == "/__project.pug" and hasattr(self.server, "project_pug"):
+            return self._send_text(self.server.project_pug, "text/plain; charset=utf-8")
+        if path == "/__project.css" and hasattr(self.server, "project_css"):
+            return self._send_text(self.server.project_css, "text/css; charset=utf-8")
         if hasattr(self.server, "asset_root") and path not in {"/", "/render.html"}:
             asset = (self.server.asset_root / path.lstrip("/")).resolve()
             if asset.is_relative_to(self.server.asset_root.resolve()) and asset.is_file():
@@ -98,13 +102,21 @@ def create_server(host="127.0.0.1", port=4173, *, quiet=False):
     return server
 
 
-def serve(host="127.0.0.1", port=4173, *, open_browser=True, quiet=False, vim=False):
+def serve(host="127.0.0.1", port=4173, *, open_browser=True, quiet=False, vim=False, demo=False, pug_path=None, css_path=None):
     """Run the web application until interrupted and return the bound URL."""
 
     server = create_server(host, port, quiet=quiet)
+    if pug_path:
+        server.project_pug = Path(pug_path).read_text(encoding="utf-8")
+        server.project_css = Path(css_path).read_text(encoding="utf-8") if css_path else ""
     actual_port = server.server_address[1]
     browser_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
-    url = f"http://{browser_host}:{actual_port}" + ("?vim=1" if vim else "")
+    query = []
+    if vim: query.append("vim=1")
+    if demo: query.append("demo=1")
+    if pug_path:
+        query.extend(["project=1", f"name={quote(Path(pug_path).stem)}"])
+    url = f"http://{browser_host}:{actual_port}" + ("?" + "&".join(query) if query else "")
     print(f"Pugflow {__version__}: {url}")
     print("Press Ctrl+C to stop.")
 

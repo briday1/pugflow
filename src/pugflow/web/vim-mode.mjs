@@ -1,3 +1,5 @@
+import { indentSourceSelection } from "./editor-source.mjs";
+
 function lineBounds(value, position) {
   const start = value.lastIndexOf("\n", Math.max(0, position - 1)) + 1;
   const next = value.indexOf("\n", position);
@@ -101,6 +103,16 @@ export function attachVimMode(textarea, toggle, indicator) {
 
   function notifyInput() {
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function indentCommand(outdent) {
+    checkpoint();
+    const visual = state.mode.startsWith("visual");
+    const result = indentSourceSelection(textarea.value, visual ? textarea.selectionStart : state.cursor, visual ? textarea.selectionEnd : state.cursor, outdent);
+    textarea.value = result.value;
+    state.cursor = result.start;
+    notifyInput();
+    enterMode("normal");
   }
 
   function replaceRange(start, end, replacement, cursor) {
@@ -322,6 +334,12 @@ export function attachVimMode(textarea, toggle, indicator) {
       return;
     }
     if (state.mode === "insert") return;
+    if (event.key === ">" || event.key === "<") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      indentCommand(event.key === "<");
+      return;
+    }
     state.cursor = state.mode.startsWith("visual")
       ? (textarea.selectionDirection === "backward" ? textarea.selectionStart : Math.max(textarea.selectionStart, textarea.selectionEnd - 1))
       : textarea.selectionStart;

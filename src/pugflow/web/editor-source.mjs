@@ -16,6 +16,23 @@ function offsetTuple(x, y) {
   return "(" + offsetNumber(x) + ", " + offsetNumber(y) + ")";
 }
 
+export function indentSourceSelection(value, selectionStart, selectionEnd, outdent = false) {
+  const lineStart = value.lastIndexOf("\n", Math.max(0, selectionStart - 1)) + 1;
+  const lastCharacter = selectionEnd > selectionStart && value[selectionEnd - 1] === "\n" ? selectionEnd - 1 : selectionEnd;
+  const newline = value.indexOf("\n", lastCharacter);
+  const lineEnd = newline < 0 ? value.length : newline;
+  const original = value.slice(lineStart, lineEnd);
+  const lines = original.split("\n");
+  const transformed = lines.map((line) => outdent ? line.replace(/^(?:  |\t)/, "") : `  ${line}`).join("\n");
+  const nextValue = value.slice(0, lineStart) + transformed + value.slice(lineEnd);
+  if (selectionStart === selectionEnd) {
+    const firstDelta = transformed.split("\n")[0].length - lines[0].length;
+    const caret = Math.max(lineStart, selectionStart + firstDelta);
+    return { value: nextValue, start: caret, end: caret };
+  }
+  return { value: nextValue, start: lineStart, end: lineStart + transformed.length };
+}
+
 export function setNodeOffsetField(value, labelLineNumber, prefix, x, y) {
   const lines = value.split("\n");
   const labelIndex = labelLineNumber - 1;
@@ -56,7 +73,7 @@ function setChildOffsetField(value, declarationLineNumber, fieldName, x, y) {
   const declarationIndent = indentationWidth(lines[declarationIndex] ?? "");
   const indentation = (lines[declarationIndex]?.match(/^\s*/)?.[0] ?? "") + "  ";
   let end = declarationIndex + 1;
-  while (end < lines.length && indentationWidth(lines[end]) > declarationIndent) end += 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > declarationIndent)) end += 1;
   const pattern = new RegExp("^" + escapeRegExp(indentation) + escapeRegExp(fieldName) + "(?:\\s|$)");
   const existing = lines.findIndex((line, index) => index > declarationIndex && index < end && pattern.test(line));
   const field = indentation + fieldName + " " + offsetTuple(x, y);
@@ -111,7 +128,7 @@ export function setStructuralField(value, declarationLineNumber, field, fieldVal
   const indent = indentationWidth(lines[index] ?? "");
   const whitespace = (lines[index]?.match(/^\s*/)?.[0] ?? "") + "  ";
   let end = index + 1;
-  while (end < lines.length && indentationWidth(lines[end]) > indent) end += 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > indent)) end += 1;
   const pattern = new RegExp("^" + escapeRegExp(whitespace) + "\\." + escapeRegExp(field) + "(?:\\s|$)");
   const existing = lines.findIndex((line, candidate) => candidate > index && candidate < end && pattern.test(line));
   const replacement = whitespace + "." + field + " " + fieldValue;
@@ -161,12 +178,16 @@ export function setStructuralLineType(value, declarationLineNumber, type, knownT
   const start = declarationLineNumber - 1;
   const indent = indentationWidth(lines[start] ?? "");
   let end = start + 1;
-  while (end < lines.length && indentationWidth(lines[end]) > indent) end += 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > indent)) end += 1;
   const fieldIndent = (lines[start]?.match(/^\s*/)?.[0] ?? "") + "  ";
   return setReusableLine(value, start, end, fieldIndent, type, knownTypes);
 }
 
 export function setAnnotationOffsetField(value, declarationLineNumber, x, y) {
+  return setChildOffsetField(value, declarationLineNumber, ".offset", x, y);
+}
+
+export function setDeclarationOffsetField(value, declarationLineNumber, x, y) {
   return setChildOffsetField(value, declarationLineNumber, ".offset", x, y);
 }
 
@@ -178,7 +199,7 @@ function nodeRange(lines, labelLineNumber) {
   if (start < 0) start = labelIndex;
   const indent = indentationWidth(lines[start]);
   let end = start + 1;
-  while (end < lines.length && indentationWidth(lines[end]) > indent) end += 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > indent)) end += 1;
   return { start, end, fieldIndent: (lines[start].match(/^\s*/)?.[0] ?? "") + "  " };
 }
 
@@ -260,6 +281,25 @@ function nodeDeclaration(type, indentation, id, label) {
   ];
 }
 
+export function ensureGraphComponents(value) {
+  const lines = value.split("\n");
+  const rootIndex = lines.findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim()));
+  if (rootIndex < 0) return value;
+  const rootIndent = indentationWidth(lines[rootIndex]);
+  let end = rootIndex + 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > rootIndent)) end += 1;
+  const childWidth = rootIndent + 2;
+  if (lines.some((line, index) => index > rootIndex && index < end && indentationWidth(line) === childWidth && line.trim() === "graph")) return value;
+  const settings = new Set([".background", ".font", ".annotation", ".defaults"]);
+  const firstGraphChild = lines.findIndex((line, index) => index > rootIndex && index < end
+    && indentationWidth(line) === childWidth && !settings.has(line.trim().split(/\s/)[0]));
+  if (firstGraphChild < 0) return value;
+  const indentation = (lines[rootIndex].match(/^\s*/)?.[0] ?? "") + "  ";
+  const graphBlock = lines.slice(firstGraphChild, end).map((line) => "  " + line);
+  lines.splice(firstGraphChild, end - firstGraphChild, `${indentation}graph`, ...graphBlock);
+  return lines.join("\n");
+}
+
 export function appendFlowNode(value, parentLabelLineNumber, { direction = "right", ports = "shared", nodeType = "node", lineType = "", id = "", label = "" } = {}) {
   const lines = value.split("\n");
   const range = nodeRange(lines, parentLabelLineNumber);
@@ -273,6 +313,37 @@ export function appendFlowNode(value, parentLabelLineNumber, { direction = "righ
     ...nodeDeclaration(nodeType, childIndent, id, label),
   ];
   lines.splice(range.end, 0, ...insertion);
+  return lines.join("\n");
+}
+
+export function appendDiagramNode(value, { nodeType = "node", id = "", label = "", diagramId = "", diagramLabel = "", diagramFill = "", diagramOutline = "", parentGraphLineNumber = null } = {}) {
+  let lines = ensureGraphComponents(value).split("\n");
+  const rootIndex = parentGraphLineNumber ? parentGraphLineNumber - 1 : lines.findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim()));
+  if (rootIndex < 0) return value;
+  const rootIndent = indentationWidth(lines[rootIndex]);
+  let end = rootIndex + 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > rootIndent)) end += 1;
+  const indentation = (lines[rootIndex].match(/^\s*/)?.[0] ?? "") + "  ";
+  const fieldIndent = indentation + "  ";
+  const childWidth = rootIndent + 2;
+  const alreadyComponentized = lines.some((line, index) => index > rootIndex && index < end
+    && indentationWidth(line) === childWidth && line.trim() === "graph");
+  if (!parentGraphLineNumber && !alreadyComponentized) {
+    const settings = new Set([".background", ".font", ".annotation", ".defaults"]);
+    const firstGraphChild = lines.findIndex((line, index) => index > rootIndex && index < end
+      && indentationWidth(line) === childWidth && !settings.has(line.trim().split(/\s/)[0]));
+    if (firstGraphChild >= 0) {
+      const graphBlock = lines.slice(firstGraphChild, end).map((line) => "  " + line);
+      lines.splice(firstGraphChild, end - firstGraphChild, `${indentation}graph`, ...graphBlock);
+      end = firstGraphChild + graphBlock.length + 1;
+    }
+  }
+  lines.splice(end, 0, `${indentation}graph`,
+    ...(diagramId ? [`${fieldIndent}.id ${diagramId}`] : []),
+    ...(diagramLabel ? [`${fieldIndent}.label ${diagramLabel}`] : []),
+    ...(diagramFill ? [`${fieldIndent}.fill ${diagramFill}`] : []),
+    ...(diagramOutline ? [`${fieldIndent}.outline ${diagramOutline}`] : []),
+    ...nodeDeclaration(nodeType, fieldIndent, id, label));
   return lines.join("\n");
 }
 
@@ -291,5 +362,148 @@ export function appendMergeNode(value, rootLabelLineNumber, { sources = [], dire
     ...nodeDeclaration(nodeType, childIndent, id, label),
   ];
   lines.splice(range.end, 0, ...insertion);
+  return lines.join("\n");
+}
+
+export function removeDeclaration(value, declarationLineNumber) {
+  const lines = value.split("\n");
+  const start = declarationLineNumber - 1;
+  const indent = indentationWidth(lines[start] ?? "");
+  let end = start + 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > indent)) end += 1;
+  lines.splice(start, end - start);
+  return lines.join("\n");
+}
+
+export function removeDeclarationField(value, declarationLineNumber, field) {
+  const lines = value.split("\n");
+  const start = declarationLineNumber - 1;
+  const indent = indentationWidth(lines[start] ?? "");
+  let end = start + 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > indent)) end += 1;
+  const fieldIndent = indent + 2;
+  const pattern = new RegExp(`^\\.${escapeRegExp(field)}(?:\\s|$)`);
+  for (let index = end - 1; index > start; index -= 1) {
+    if (indentationWidth(lines[index]) === fieldIndent && pattern.test(lines[index].trim())) lines.splice(index, 1);
+  }
+  return lines.join("\n");
+}
+
+export function removeNodeDeclaration(value, labelLineNumber) {
+  const lines = value.split("\n");
+  const range = nodeRange(lines, labelLineNumber);
+  lines.splice(range.start, range.end - range.start);
+  return lines.join("\n");
+}
+
+export function removeNodeFields(value, labelLineNumber, fields) {
+  const lines = value.split("\n");
+  const range = nodeRange(lines, labelLineNumber);
+  const names = new Set(fields);
+  for (let index = range.end - 1; index > range.start; index -= 1) {
+    if (indentationWidth(lines[index]) !== indentationWidth(range.fieldIndent)) continue;
+    const field = lines[index].trim().match(/^\.([\w-]+)(?:\s|$)/)?.[1];
+    if (names.has(field)) lines.splice(index, 1);
+  }
+  return lines.join("\n");
+}
+
+export function removeConnectionLabel(value, declarationLineNumber) {
+  const lines = value.split("\n");
+  let start = declarationLineNumber - 1;
+  let end;
+  if (/^\.label(?:\s|$)/.test(lines[start]?.trim() ?? "")) {
+    const range = nodeRange(lines, declarationLineNumber);
+    start = range.start;
+    end = range.end;
+  } else {
+    const base = indentationWidth(lines[start] ?? "");
+    end = start + 1;
+    while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > base)) end += 1;
+  }
+  const baseIndent = indentationWidth(lines[start] ?? "");
+  for (let index = end - 1; index > start; index -= 1) {
+    const text = lines[index].trim();
+    if (/^\.line\.label(?:\s|$)/.test(text) || (indentationWidth(lines[index]) === baseIndent + 4 && /^\.label(?:\s|$)/.test(text))) lines.splice(index, 1);
+  }
+  return lines.join("\n");
+}
+
+export function removeAncestorDeclaration(value, lineNumber, type) {
+  const lines = value.split("\n");
+  let index = lineNumber - 1;
+  const initialIndent = indentationWidth(lines[index] ?? "");
+  while (index >= 0) {
+    if (lines[index].trim() === `.${type}` && indentationWidth(lines[index]) < initialIndent) return removeDeclaration(value, index + 1);
+    index -= 1;
+  }
+  return value;
+}
+
+export function removeNodeReferences(value, id) {
+  let result = value;
+  const escapedId = escapeRegExp(id);
+  while (true) {
+    const lines = result.split("\n");
+    const refIndex = lines.findIndex((line) => new RegExp(`^\\s*\\.ref\\s+${escapedId}\\s*$`).test(line));
+    if (refIndex < 0) break;
+    let sourceIndex = refIndex - 1;
+    while (sourceIndex >= 0 && !(lines[sourceIndex].trim() === ".source" && indentationWidth(lines[sourceIndex]) < indentationWidth(lines[refIndex]))) sourceIndex -= 1;
+    let mergeIndex = sourceIndex - 1;
+    while (mergeIndex >= 0 && !(lines[mergeIndex].trim() === ".merge" && indentationWidth(lines[mergeIndex]) < indentationWidth(lines[sourceIndex]))) mergeIndex -= 1;
+    if (sourceIndex < 0 || mergeIndex < 0) break;
+    const mergeIndent = indentationWidth(lines[mergeIndex]);
+    let mergeEnd = mergeIndex + 1;
+    while (mergeEnd < lines.length && (!lines[mergeEnd].trim() || indentationWidth(lines[mergeEnd]) > mergeIndent)) mergeEnd += 1;
+    const sourceCount = lines.slice(mergeIndex + 1, mergeEnd).filter((line) => indentationWidth(line) === mergeIndent + 2 && line.trim() === ".source").length;
+    if (sourceCount > 2) result = removeDeclaration(result, sourceIndex + 1);
+    else {
+      const targetLabel = lines.findIndex((line, index) => index > mergeIndex && index < mergeEnd && indentationWidth(line) === mergeIndent + 4 && /^\.label(?:\s|$)/.test(line.trim()));
+      if (targetLabel >= 0) result = moveNodeToDiagram(result, targetLabel + 1);
+      result = removeDeclaration(result, mergeIndex + 1);
+    }
+  }
+  while (true) {
+    const lines = result.split("\n");
+    const endpoint = lines.findIndex((line) => new RegExp(`^\\s*\\.(?:from|to)\\s+${escapedId}\\s*$`).test(line));
+    if (endpoint < 0) break;
+    let connect = endpoint - 1;
+    while (connect >= 0 && !(lines[connect].trim() === ".connect" && indentationWidth(lines[connect]) < indentationWidth(lines[endpoint]))) connect -= 1;
+    if (connect < 0) break;
+    result = removeDeclaration(result, connect + 1);
+  }
+  return result;
+}
+
+export function removeMergeEdge(value, sourceLineNumber) {
+  const lines = value.split("\n");
+  const sourceIndex = sourceLineNumber - 1;
+  let mergeIndex = sourceIndex - 1;
+  while (mergeIndex >= 0 && !(lines[mergeIndex].trim() === ".merge" && indentationWidth(lines[mergeIndex]) < indentationWidth(lines[sourceIndex]))) mergeIndex -= 1;
+  if (mergeIndex < 0) return value;
+  const mergeIndent = indentationWidth(lines[mergeIndex]);
+  let mergeEnd = mergeIndex + 1;
+  while (mergeEnd < lines.length && (!lines[mergeEnd].trim() || indentationWidth(lines[mergeEnd]) > mergeIndent)) mergeEnd += 1;
+  const sources = lines.map((line, index) => ({ line, index })).filter(({ line, index }) => index > mergeIndex && index < mergeEnd && indentationWidth(line) === mergeIndent + 2 && line.trim() === ".source");
+  if (sources.length > 2) return removeDeclaration(value, sourceLineNumber);
+  const targetLabel = lines.findIndex((line, index) => index > mergeIndex && index < mergeEnd && indentationWidth(line) === mergeIndent + 4 && /^\.label(?:\s|$)/.test(line.trim()));
+  let result = targetLabel >= 0 ? moveNodeToDiagram(value, targetLabel + 1) : value;
+  return removeDeclaration(result, mergeIndex + 1);
+}
+
+export function moveNodeToDiagram(value, labelLineNumber) {
+  let lines = value.split("\n");
+  const node = nodeRange(lines, labelLineNumber);
+  const originalIndent = lines[node.start].match(/^\s*/)?.[0] ?? "";
+  const block = lines.slice(node.start, node.end);
+  lines.splice(node.start, node.end - node.start);
+  const rootIndex = lines.findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim()));
+  const rootIndent = indentationWidth(lines[rootIndex] ?? "");
+  let end = rootIndex + 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > rootIndent)) end += 1;
+  const diagramIndent = (lines[rootIndex]?.match(/^\s*/)?.[0] ?? "") + "  ";
+  const targetIndent = diagramIndent + "  ";
+  const moved = block.map((line) => targetIndent + line.slice(originalIndent.length));
+  lines.splice(end, 0, `${diagramIndent}graph`, ...moved);
   return lines.join("\n");
 }
