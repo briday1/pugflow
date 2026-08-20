@@ -268,7 +268,7 @@ function diagramSettingsFor(diagram, errors) {
 }
 
 function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) {
-  const presetName = attrs["line.use"];
+  const presetName = attrs["line.use"] ?? defaults.lineType ?? null;
   const preset = presetName ? lineStyles.get(presetName) : null;
   if (presetName && !preset) errors.push(`Line ${attrs.__lines?.["line.use"] ?? lineNumber}: unknown line style "${presetName}".`);
   const effective = { ...(preset?.attributes ?? {}), ...attrs };
@@ -284,6 +284,7 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
     ? offsetTuple(effective["line.label-offset"], "line.label-offset", lineNumber, errors)
     : { x: defaults.labelOffsetX ?? 0, y: defaults.labelOffsetY ?? 0 };
   return {
+    lineType: presetName,
     direction: DIRECTIONS.has(resolvedDirection) ? resolvedDirection : "forward",
     color: effective["line.color"] ?? defaults.color ?? null,
     style: LINE_STYLES.has(style) ? style : "solid",

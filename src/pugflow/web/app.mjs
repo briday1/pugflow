@@ -1,5 +1,5 @@
 import { createBlockDiagram, parseDiagram } from "./pugflow.mjs";
-import { removeNodeField, setAnnotationOffsetField, setNodeField, setNodeOffsetField, setNodeType, setStructuralField, setStructuralOffsetField } from "./editor-source.mjs";
+import { removeNodeField, setAnnotationOffsetField, setNodeField, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
 import { attachVimMode } from "./vim-mode.mjs";
 import { attachTextEditor } from "./text-editor.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets } from "./layout.mjs";
@@ -324,7 +324,9 @@ function renderInspector() {
   }
   const edges = selections.filter((item) => item.kind === "line").map((item) => diagram.layout.edges.find((edge) => edge.from === item.from && edge.to === item.to));
   const edge = edges[0];
-  inspectorContent.innerHTML = `<h3>${edges.length} connector${edges.length === 1 ? "" : "s"}</h3><details open><summary>Line appearance</summary>${colorControl("Color", "color", edge?.color, "line")}<label>Width<input data-line-field="width" type="number" min="0.5" step="0.5" value="${edge?.width ?? 2}"></label><label>Stroke<select data-line-field="stroke-style">${["solid","dashed","dotted"].map((value) => `<option${edge?.style === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Arrow<select data-line-field="arrow-style">${["forward","backward","both","none"].map((value) => `<option${edge?.direction === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details>`;
+  const lineTypes = [...`${pugSource}\n${cssSource}`.matchAll(/^@line\s+([\w-]+)/gm)].map((match) => match[1]);
+  const sharedType = edges.every((candidate) => candidate?.lineType === edge?.lineType) ? edge?.lineType ?? "" : "";
+  inspectorContent.innerHTML = `<h3>${edges.length} connector${edges.length === 1 ? "" : "s"}</h3><label>Type<select data-line-type><option value="">Choose…</option>${lineTypes.map((name) => `<option value="${escapeHtml(name)}"${sharedType === name ? " selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><details open><summary>Line appearance <small>local overrides</small></summary>${colorControl("Color", "color", edge?.color, "line")}<label>Width<input data-line-field="width" type="number" min="0.5" step="0.5" value="${edge?.width ?? 2}"></label><label>Stroke<select data-line-field="stroke-style">${["solid","dashed","dotted"].map((value) => `<option${edge?.style === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Arrow<select data-line-field="arrow-style">${["forward","backward","both","none"].map((value) => `<option${edge?.direction === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details>`;
 }
 
 function selectCanvasElement(item) {
@@ -943,6 +945,24 @@ inspectorContent.addEventListener("change", (event) => {
     return;
   }
   const lineField = event.target.dataset.lineField;
+  const lineType = event.target.dataset.lineType;
+  if (lineType !== undefined) {
+    if (!lineType) return;
+    const knownTypes = [...`${pugSource}\n${cssSource}`.matchAll(/^@line\s+([\w-]+)/gm)].map((match) => match[1]);
+    const operations = selections.filter((item) => item.kind === "line").map((item) => {
+      const edge = diagram.layout.edges.find((candidate) => candidate.from === item.from && candidate.to === item.to);
+      const target = currentGraph.nodes.find((candidate) => candidate.id === edge.to);
+      return { edge, lineNumber: edge.kind === "branch" ? target.lineNumber : edge.lineNumber };
+    }).sort((a, b) => b.lineNumber - a.lineNumber);
+    let nextSource = source.value;
+    operations.forEach(({ edge, lineNumber }) => {
+      nextSource = edge.kind === "branch"
+        ? setNodeLineType(nextSource, lineNumber, lineType, knownTypes)
+        : setStructuralLineType(nextSource, lineNumber, lineType, knownTypes);
+    });
+    setSource(nextSource);
+    return;
+  }
   if (!lineField) return;
   const operations = selections.filter((item) => item.kind === "line").map((item) => {
     const edge = diagram.layout.edges.find((candidate) => candidate.from === item.from && candidate.to === item.to);

@@ -120,6 +120,29 @@ export function setStructuralField(value, declarationLineNumber, field, fieldVal
   return lines.join("\n");
 }
 
+function setReusableLine(value, start, end, fieldIndent, type, knownTypes) {
+  const lines = value.split("\n");
+  const names = new Set(knownTypes);
+  const existing = lines.findIndex((line, index) => index > start && index < end
+    && indentationWidth(line) === indentationWidth(fieldIndent)
+    && names.has(line.trim().slice(1))
+    && /^\.[a-zA-Z][\w-]*$/.test(line.trim()));
+  const replacement = fieldIndent + "." + type;
+  if (existing >= 0) lines[existing] = replacement;
+  else lines.splice(start + 1, 0, replacement);
+  return lines.join("\n");
+}
+
+export function setStructuralLineType(value, declarationLineNumber, type, knownTypes) {
+  const lines = value.split("\n");
+  const start = declarationLineNumber - 1;
+  const indent = indentationWidth(lines[start] ?? "");
+  let end = start + 1;
+  while (end < lines.length && indentationWidth(lines[end]) > indent) end += 1;
+  const fieldIndent = (lines[start]?.match(/^\s*/)?.[0] ?? "") + "  ";
+  return setReusableLine(value, start, end, fieldIndent, type, knownTypes);
+}
+
 export function setAnnotationOffsetField(value, declarationLineNumber, x, y) {
   return setChildOffsetField(value, declarationLineNumber, ".offset", x, y);
 }
@@ -148,6 +171,12 @@ export function setNodeField(value, labelLineNumber, field, fieldValue) {
     lines.splice(existing, removeTo - existing, replacement);
   } else lines.splice(range.start + 1, 0, replacement);
   return lines.join("\n");
+}
+
+export function setNodeLineType(value, labelLineNumber, type, knownTypes) {
+  const lines = value.split("\n");
+  const range = nodeRange(lines, labelLineNumber);
+  return setReusableLine(value, range.start, range.end, range.fieldIndent, type, knownTypes);
 }
 
 export function removeNodeField(value, labelLineNumber, field) {

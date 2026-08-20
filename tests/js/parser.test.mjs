@@ -129,6 +129,7 @@ test("supports nested nodes and reusable line and annotation classes", () => {
   assert.equal(result.nodes[0].annotations[0].color, "#f59e0b");
   assert.equal(result.nodes[0].annotations[0].text, "Watch this");
   assert.equal(result.edges[0].color, "#ef4444");
+  assert.equal(result.edges[0].lineType, "warning_line");
   assert.equal(result.edges[0].style, "dashed");
   assert.equal(result.edges[0].label, "alert");
 });

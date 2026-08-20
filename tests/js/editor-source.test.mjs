@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { removeNodeField, setAnnotationOffsetField, setNodeField, setNodeOffsetField, setNodeType, setStructuralField, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
+import { removeNodeField, setAnnotationOffsetField, setNodeField, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
 
 test("edits inspector-backed node and connector properties", () => {
   const source = "#diagram\n  .node\n    .id root\n    .offset (2, 3)\n    .label\n      | Old\n      | label\n  .connect\n    .from root\n    .to root";
@@ -83,4 +83,12 @@ test("writes label offsets into a reusable line group", () => {
   ].join("\n");
   const moved = setStructuralOffsetField(source, 4, 8, -3);
   assert.match(moved, /      \.warning_line\n        \.label-offset \(8, -3\)\n        \.label request/);
+});
+
+test("switches reusable incoming and structural line types without losing overrides", () => {
+  const source = "#diagram\n  .node\n    .id root\n    .label Root\n    .flow\n      .warning_line\n        .label request\n      .node\n        .quiet_line\n          .label response\n        .label Child";
+  const structural = setStructuralLineType(source, 5, "success_line", ["warning_line", "quiet_line", "success_line"]);
+  assert.match(structural, /    \.flow\n      \.success_line\n        \.label request/);
+  const incoming = setNodeLineType(structural, 11, "success_line", ["warning_line", "quiet_line", "success_line"]);
+  assert.match(incoming, /      \.node\n        \.success_line\n          \.label response\n        \.label Child/);
 });
