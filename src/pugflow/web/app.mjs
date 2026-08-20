@@ -344,7 +344,8 @@ function reusableNames(kind) {
 
 function graphActions(nodes) {
   if (!nodes.length) return "";
-  return `<details open><summary>Build from selection</summary><div class="graph-action-row">${nodes.length === 1 ? '<button type="button" data-graph-add="flow">+ Add flow</button>' : ""}<button type="button" data-graph-add="merge">+ Add merge</button></div></details>`;
+  if (nodes.length !== 1) return "";
+  return `<details open><summary>Build from selection</summary><div class="graph-action-row"><button type="button" data-graph-add="flow">+ Add flow</button></div></details>`;
 }
 
 function renderInspector() {
@@ -402,9 +403,9 @@ function suggestedNodeId() {
   return `node-${number}`;
 }
 
-function openGraphBuilder(mode = "flow", preferredIds = []) {
+function openGraphBuilder(mode = "flow", preferredIds = null) {
   if (activeDocument !== "pug") activateDocument("pug");
-  const selectedIds = preferredIds.length ? preferredIds : selectedNodes().map((node) => node.id);
+  const selectedIds = preferredIds ?? selectedNodes().map((node) => node.id);
   const root = currentGraph.nodes[0];
   graphBuilder.dataset.mode = mode;
   graphBuilder.dataset.parentGraphLine = mode === "nested" ? String(selections.find((item) => item.kind === "graph")?.lineNumber ?? "") : "";
@@ -1086,6 +1087,7 @@ document.querySelector("#zoom-in").addEventListener("click", () => setCanvasZoom
 document.querySelector("#zoom-fit").addEventListener("click", fitCanvasZoom);
 document.querySelector("#add-diagram").addEventListener("click", () => openGraphBuilder("diagram"));
 document.querySelector("#add-node").addEventListener("click", () => openGraphBuilder(currentGraph.nodes.length ? "flow" : "diagram"));
+document.querySelector("#add-merge").addEventListener("click", () => openGraphBuilder("merge", []));
 document.querySelector("#undo-canvas").addEventListener("click", undoCanvas);
 document.querySelector("#redo-canvas").addEventListener("click", redoCanvas);
 document.querySelector(".preview").addEventListener("keydown", (event) => {
