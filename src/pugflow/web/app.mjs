@@ -1,5 +1,5 @@
 import { createBlockDiagram, parseDiagram } from "./pugflow.mjs";
-import { appendDiagramNode, appendFlowNode, appendMergeNode, ensureGraphComponents, indentSourceSelection, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, setAnnotationOffsetField, setDeclarationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
+import { appendDiagramNode, appendFlowNode, appendMergeNode, ensureGraphComponents, indentSourceSelection, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, setAnnotationOffsetField, setAnnotationText, setDeclarationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
 import { attachVimMode } from "./vim-mode.mjs";
 import { attachTextEditor } from "./text-editor.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets } from "./layout.mjs";
@@ -313,6 +313,17 @@ function textControls(scope, style = {}, includeColor = false) {
   return `<details><summary>Typography</summary>${includeColor ? colorControl("Color", "color", style.color, scope) : ""}<label>Font family<input data-${scope}-field="font-family" value="${escapeHtml(style.fontFamily ?? "")}" placeholder="inherit"></label><div class="inspector-grid"><label>Size<input data-${scope}-field="font-size" type="number" min="1" value="${style.fontSize ?? 12}"></label><label>Weight<select data-${scope}-field="font-weight">${["normal","500","600","bold"].map((v) => option(v, style.fontWeight ?? "normal")).join("")}</select></label><label>Style<select data-${scope}-field="font-style">${["normal","italic","oblique"].map((v) => option(v, style.fontStyle ?? "normal")).join("")}</select></label><label>Decoration<select data-${scope}-field="text-decoration">${["none","underline","line-through","overline"].map((v) => option(v, style.textDecoration ?? "none")).join("")}</select></label></div></details>`;
 }
 
+function nodeAnnotationControls(node) {
+  if (!node.annotations.length) return '<details><summary>Annotations <small>none</small></summary><p class="inspector-empty">Add .annotation above or below in the source.</p></details>';
+  const option = (value, current) => `<option value="${value}"${String(current) === value ? " selected" : ""}>${value}</option>`;
+  const fields = node.annotations.map((annotation) => {
+    const line = annotation.lineNumber;
+    const hex = /^#[0-9a-f]{6}$/i.test(annotation.color ?? "") ? annotation.color : "#000000";
+    return `<details class="annotation-editor"><summary>${annotation.position === "below" ? "Below" : "Above"}</summary><label>Text<textarea data-annotation-text="${line}" rows="2">${escapeHtml(annotation.text)}</textarea></label><label>Color<span class="inspector-color"><input type="color" data-annotation-color-picker="${line}" value="${hex}"><input data-annotation-line="${line}" data-annotation-style-field="color" value="${escapeHtml(annotation.color ?? "")}" placeholder="CSS color"></span></label><label>Font family<input data-annotation-line="${line}" data-annotation-style-field="font-family" value="${escapeHtml(annotation.fontFamily ?? "")}" placeholder="inherit"></label><div class="inspector-grid"><label>Size<input data-annotation-line="${line}" data-annotation-style-field="font-size" type="number" min="1" value="${annotation.fontSize ?? 12}"></label><label>Weight<select data-annotation-line="${line}" data-annotation-style-field="font-weight">${["normal","500","600","bold"].map((v) => option(v, annotation.fontWeight ?? "normal")).join("")}</select></label><label>Style<select data-annotation-line="${line}" data-annotation-style-field="font-style">${["normal","italic","oblique"].map((v) => option(v, annotation.fontStyle ?? "normal")).join("")}</select></label><label>Decoration<select data-annotation-line="${line}" data-annotation-style-field="text-decoration">${["none","underline","line-through","overline"].map((v) => option(v, annotation.textDecoration ?? "none")).join("")}</select></label></div></details>`;
+  }).join("");
+  return `<details><summary>Annotations <small>${node.annotations.length}</small></summary>${fields}</details>`;
+}
+
 function imageControls(node = null) {
   const style = node?.style;
   const enabled = Boolean(style?.image);
@@ -378,6 +389,7 @@ function renderInspector() {
     inspectorContent.querySelector("details")?.insertAdjacentHTML("afterend", textControls("node", node.style));
     inspectorContent.querySelectorAll("details")[1]?.insertAdjacentHTML("afterend", imageControls(node));
     tidyInspectorSections();
+    inspectorContent.insertAdjacentHTML("beforeend", nodeAnnotationControls(node));
     inspectorContent.insertAdjacentHTML("beforeend", '<button type="button" class="inspector-primary-action" data-graph-add="flow">+ Add flow</button>');
     return;
   }
@@ -1217,6 +1229,19 @@ inspectorContent.addEventListener("change", (event) => {
   if (event.target.matches("[data-color-picker]")) {
     const textInput = inspectorContent.querySelector(`[data-color-text="${event.target.dataset.colorPicker}"]`);
     if (textInput) { textInput.value = event.target.value; textInput.dispatchEvent(new Event("change", { bubbles: true })); }
+    return;
+  }
+  if (event.target.matches("[data-annotation-color-picker]")) {
+    const input = inspectorContent.querySelector(`[data-annotation-line="${event.target.dataset.annotationColorPicker}"][data-annotation-style-field="color"]`);
+    if (input) { input.value = event.target.value; input.dispatchEvent(new Event("change", { bubbles: true })); }
+    return;
+  }
+  if (event.target.matches("[data-annotation-text]")) {
+    setSource(setAnnotationText(source.value, Number(event.target.dataset.annotationText), event.target.value));
+    return;
+  }
+  if (event.target.matches("[data-annotation-style-field]")) {
+    setSource(setStructuralField(source.value, Number(event.target.dataset.annotationLine), event.target.dataset.annotationStyleField, event.target.value));
     return;
   }
   if (event.target.matches("[data-shadow-toggle]")) {

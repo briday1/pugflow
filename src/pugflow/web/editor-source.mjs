@@ -187,6 +187,28 @@ export function setAnnotationOffsetField(value, declarationLineNumber, x, y) {
   return setChildOffsetField(value, declarationLineNumber, ".offset", x, y);
 }
 
+export function setAnnotationText(value, declarationLineNumber, text) {
+  const lines = value.split("\n");
+  const index = declarationLineNumber - 1;
+  const declaration = lines[index] ?? "";
+  const match = declaration.match(/^(\s*)\.(above|below)(?:\s.*)?$/);
+  if (!match) return value;
+  const indent = indentationWidth(declaration);
+  const childIndent = indent + 2;
+  let end = index + 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > indent)) end += 1;
+  for (let line = end - 1; line > index; line -= 1) {
+    if (indentationWidth(lines[line]) === childIndent && /^\|(?:\s|$)/.test(lines[line].trim())) lines.splice(line, 1);
+  }
+  const values = String(text).replace(/\r/g, "").split("\n");
+  if (values.length === 1) lines[index] = `${match[1]}.${match[2]}${values[0] ? ` ${values[0]}` : ""}`;
+  else {
+    lines[index] = `${match[1]}.${match[2]}`;
+    lines.splice(index + 1, 0, ...values.map((line) => `${match[1]}  |${line ? ` ${line}` : ""}`));
+  }
+  return lines.join("\n");
+}
+
 export function setDeclarationOffsetField(value, declarationLineNumber, x, y) {
   return setChildOffsetField(value, declarationLineNumber, ".offset", x, y);
 }

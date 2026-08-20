@@ -361,7 +361,10 @@ dialog::backdrop { background: rgb(15 23 42 / .48); backdrop-filter: blur(2px); 
 .inspector-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .inspector-file-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px; }
 .canvas-inspector label { display: grid; gap: 3px; margin: 7px 0; color: var(--muted); font-size: 10px; }
-.canvas-inspector input, .canvas-inspector select { width: 100%; min-height: 29px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 5px; color: var(--text); background: var(--surface); font: 11px Consolas, monospace; }
+.canvas-inspector input, .canvas-inspector select, .canvas-inspector textarea { width: 100%; min-height: 29px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 5px; color: var(--text); background: var(--surface); font: 11px Consolas, monospace; }
+.canvas-inspector textarea { resize: vertical; line-height: 1.4; }
+.canvas-inspector .annotation-editor { margin-left: 3px; border-left-color: var(--accent); }
+.inspector-empty { margin: 5px 0 0; color: var(--faint); line-height: 1.4; }
 .canvas-inspector button { margin: 4px 4px 0 0; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; color: var(--text); background: var(--surface); font-size: 10px; }
 .canvas-inspector .inspector-file-row label { margin: 0; }
 .canvas-inspector .inspector-file-row button { min-height: 29px; margin: 0; align-self: end; white-space: nowrap; }

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appendDiagramNode, appendFlowNode, appendMergeNode, indentSourceSelection, removeNodeDeclaration, removeNodeReferences, removeNodeField, setAnnotationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
+import { appendDiagramNode, appendFlowNode, appendMergeNode, indentSourceSelection, removeNodeDeclaration, removeNodeReferences, removeNodeField, setAnnotationOffsetField, setAnnotationText, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 
 test("edits inspector-backed node and connector properties", () => {
@@ -38,6 +38,15 @@ test("writes offsets into annotation and connection declarations", () => {
   assert.match(setAnnotationOffsetField(annotation, 2, 3, -2), /\.offset \(3, -2\)/);
   const source = "#diagram\n  node.label Root\n  .flow\n    .entry\n      .line.label request\n      .line.label-offset (1, 2)\n      node.label Child";
   assert.match(setStructuralOffsetField(source, 4, 5, 6), /\.line\.label-offset \(5, 6\)/);
+});
+
+test("updates inline and multiline annotation text without losing its styles", () => {
+  const inline = "#canvas\n  graph\n    .node\n      .label Root\n      .annotation\n        .above Old\n          .color #123456";
+  const multiline = setAnnotationText(inline, 6, "First\nSecond");
+  assert.match(multiline, /\.above\n          \| First\n          \| Second\n          \.color #123456/);
+  const compact = setAnnotationText(multiline, 6, "Replacement");
+  assert.match(compact, /\.above Replacement\n          \.color #123456/);
+  assert.doesNotMatch(compact, /\| First|\| Second/);
 });
 
 test("preserves a custom node type when adding offsets", () => {
