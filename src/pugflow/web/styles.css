@@ -281,6 +281,28 @@ details p { margin-bottom: 0; }
 }
 .preview-title button:hover { border-color: var(--accent); background: var(--code-bg); }
 .canvas-actions { display: flex; gap: 5px; }
+dialog { width: min(560px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--border-strong); border-radius: 12px; color: var(--text); background: var(--panel); box-shadow: 0 20px 60px rgb(0 0 0 / .28); }
+dialog::backdrop { background: rgb(15 23 42 / .48); backdrop-filter: blur(2px); }
+#graph-builder-form { padding: 16px; }
+.dialog-title { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.dialog-title small { color: var(--accent); font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.dialog-title h2 { margin: 2px 0 0; color: var(--heading); font-size: 17px; }
+.dialog-title > button { width: 30px; height: 30px; padding: 0; border-radius: 50%; font-size: 18px; }
+#graph-builder-help { margin: 7px 0 14px; color: var(--muted); font-size: 11px; }
+.builder-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.builder-grid label { display: grid; gap: 4px; color: var(--muted); font-size: 10px; }
+.builder-grid input, .builder-grid select { min-height: 34px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); font: 11px Consolas, monospace; }
+.builder-grid fieldset { grid-column: 1 / -1; margin: 0; padding: 9px; border: 1px solid var(--border); border-radius: 7px; }
+.builder-grid legend { padding: 0 5px; color: var(--muted); font-size: 10px; }
+.source-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 10px; max-height: 145px; overflow: auto; }
+.source-checks label { display: flex; align-items: center; gap: 6px; color: var(--text); }
+.source-checks input { min-height: 0; }
+.dialog-error { min-height: 16px; margin: 8px 0 0; color: var(--danger); font-size: 10px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 5px; }
+.dialog-actions button { min-height: 33px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); }
+.dialog-actions .primary { color: #fff; border-color: var(--accent); background: var(--accent); }
+#graph-builder[data-mode="flow"] .merge-only, #graph-builder[data-mode="merge"] .flow-only { display: none; }
+@media (max-width: 620px) { .builder-grid { grid-template-columns: 1fr; } .source-checks { grid-template-columns: 1fr; } }
 .canvas-shell {
   position: relative;
   flex: 1;

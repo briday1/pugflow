@@ -250,3 +250,46 @@ export function setNodeType(value, labelLineNumber, type) {
   }
   return lines.join("\n");
 }
+
+function nodeDeclaration(type, indentation, id, label) {
+  const nodeType = `.${type.replace(/^\./, "")}`;
+  return [
+    `${indentation}${nodeType}`,
+    ...(id ? [`${indentation}  .id ${id}`] : []),
+    `${indentation}  .label${label ? ` ${label}` : ""}`,
+  ];
+}
+
+export function appendFlowNode(value, parentLabelLineNumber, { direction = "right", ports = "shared", nodeType = "node", lineType = "", id = "", label = "" } = {}) {
+  const lines = value.split("\n");
+  const range = nodeRange(lines, parentLabelLineNumber);
+  const indentation = range.fieldIndent;
+  const childIndent = indentation + "  ";
+  const insertion = [
+    `${indentation}.flow`,
+    `${childIndent}.direction ${direction}`,
+    `${childIndent}.ports ${ports}`,
+    ...(lineType ? [`${childIndent}.${lineType.replace(/^\./, "")}`] : []),
+    ...nodeDeclaration(nodeType, childIndent, id, label),
+  ];
+  lines.splice(range.end, 0, ...insertion);
+  return lines.join("\n");
+}
+
+export function appendMergeNode(value, rootLabelLineNumber, { sources = [], direction = "right", ports = "shared", nodeType = "node", lineType = "", id = "", label = "" } = {}) {
+  const lines = value.split("\n");
+  const range = nodeRange(lines, rootLabelLineNumber);
+  const indentation = range.fieldIndent;
+  const childIndent = indentation + "  ";
+  const sourceIndent = childIndent + "  ";
+  const insertion = [
+    `${indentation}.merge`,
+    `${childIndent}.direction ${direction}`,
+    `${childIndent}.ports ${ports}`,
+    ...sources.flatMap((source) => [`${childIndent}.source`, `${sourceIndent}.ref ${source}`]),
+    ...(lineType ? [`${childIndent}.${lineType.replace(/^\./, "")}`] : []),
+    ...nodeDeclaration(nodeType, childIndent, id, label),
+  ];
+  lines.splice(range.end, 0, ...insertion);
+  return lines.join("\n");
+}

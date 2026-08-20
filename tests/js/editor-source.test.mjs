@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { removeNodeField, setAnnotationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
+import { appendFlowNode, appendMergeNode, removeNodeField, setAnnotationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
+import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 
 test("edits inspector-backed node and connector properties", () => {
   const source = "#diagram\n  .node\n    .id root\n    .offset (2, 3)\n    .label\n      | Old\n      | label\n  .connect\n    .from root\n    .to root";
@@ -101,4 +102,22 @@ test("switches reusable line types while clearing appearance overrides", () => {
   const incoming = setNodeLineType(structural, 12, "success_line", ["warning_line", "quiet_line", "success_line"]);
   assert.match(incoming, /      \.node\n        \.success_line\n          \.label response\n        \.label Child/);
   assert.doesNotMatch(incoming, /\.stroke-style dotted/);
+});
+
+test("builds a typed flow node inside the selected parent", () => {
+  const source = "#diagram\n  .node\n    .id root\n    .label Root";
+  const updated = appendFlowNode(source, 4, { direction: "down", ports: "distributed", nodeType: "card", lineType: "warning", id: "child", label: "Child" });
+  assert.match(updated, /    \.flow\n      \.direction down\n      \.ports distributed\n      \.warning\n      \.card\n        \.id child\n        \.label Child/);
+  const plain = appendFlowNode(source, 4, { id: "child", label: "Child" });
+  assert.deepEqual(parseDiagram(plain).errors, []);
+  assert.equal(parseDiagram(plain).nodes.length, 2);
+});
+
+test("builds a merge target from existing source IDs", () => {
+  const source = "#diagram\n  .node\n    .id root\n    .label Root\n    .flow\n      .node\n        .id left\n        .label Left\n      .node\n        .id right\n        .label Right";
+  const updated = appendMergeNode(source, 4, { sources: ["left", "right"], direction: "up", nodeType: "result", id: "combined", label: "Combined" });
+  assert.match(updated, /    \.merge\n      \.direction up\n      \.ports shared\n      \.source\n        \.ref left\n      \.source\n        \.ref right\n      \.result\n        \.id combined\n        \.label Combined/);
+  const plain = appendMergeNode(source, 4, { sources: ["left", "right"], id: "combined", label: "Combined" });
+  assert.deepEqual(parseDiagram(plain).errors, []);
+  assert.equal(parseDiagram(plain).edges.filter((edge) => edge.kind === "merge").length, 2);
 });

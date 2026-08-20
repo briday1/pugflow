@@ -312,6 +312,8 @@ Click a block, block label, annotation, connection, or connection label in the p
 
 Selecting a node or connector also opens the canvas inspector. Ctrl-click (Cmd-click on macOS) toggles additional nodes or connectors into the selection. The inspector can apply shared node or line properties, switch to any `@node` type defined in the source, remove offsets, align node centers/middles, and distribute selected nodes horizontally or vertically. Every inspector operation edits the Pug source directly.
 
+Use **+ New node** above the canvas to build the graph without hand-writing its initial structure. A flow creates a new node from one chosen parent with direction, port distribution, node type, and optional line type. **Add flow** in a selected node's inspector opens the same builder with that node preselected. **Add merge** uses two or more selected/chosen source IDs and creates a new merge target. These actions insert ordinary Pug; the source remains the single editable representation.
+
 - Dragging a box writes `.offset (x, y)` inside its node.
 - Dragging its label writes `.label-offset (x, y)` inside its node.
 - Dragging an image inside a node writes `.image-offset (x, y)` without moving the node.
