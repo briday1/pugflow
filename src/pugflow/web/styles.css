@@ -339,7 +339,8 @@ dialog::backdrop { background: rgb(15 23 42 / .48); backdrop-filter: blur(2px); 
 .inspector-switch input { width: auto !important; }
 .inspector-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .inspector-file-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px; }
-.inspector-file-row button { margin-bottom: 1px; white-space: nowrap; }
+.inspector-file-row label { margin-bottom: 0; }
+.inspector-file-row button { min-height: 29px; margin: 0; white-space: nowrap; }
 .canvas-inspector label { display: grid; gap: 3px; margin: 7px 0; color: var(--muted); font-size: 10px; }
 .canvas-inspector input, .canvas-inspector select { width: 100%; min-height: 29px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 5px; color: var(--text); background: var(--surface); font: 11px Consolas, monospace; }
 .canvas-inspector button { margin: 4px 4px 0 0; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; color: var(--text); background: var(--surface); font-size: 10px; }
