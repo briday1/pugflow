@@ -7,9 +7,10 @@ test("edits inspector-backed node and connector properties", () => {
   let edited = setNodeField(source, 5, "label", "New label");
   edited = setNodeField(edited, 5, "fill", "#123456");
   edited = setNodeType(edited, 6, "custom_node");
-  edited = removeNodeField(edited, 6, "offset");
-  edited = setStructuralField(edited, 6, "line.width", "3");
-  assert.match(edited, /\.custom_node\n    \.fill #123456\n    \.id root\n    \.label New label/);
+  edited = removeNodeField(edited, 5, "offset");
+  edited = setStructuralField(edited, 5, "line.width", "3");
+  assert.match(edited, /\.custom_node\n    \.id root\n    \.label New label/);
+  assert.doesNotMatch(edited, /\.fill #123456/);
   assert.doesNotMatch(edited, /\.offset/);
   assert.match(edited, /\.connect\n    \.line\.width 3/);
 });
@@ -85,10 +86,12 @@ test("writes label offsets into a reusable line group", () => {
   assert.match(moved, /      \.warning_line\n        \.label-offset \(8, -3\)\n        \.label request/);
 });
 
-test("switches reusable incoming and structural line types without losing overrides", () => {
-  const source = "#diagram\n  .node\n    .id root\n    .label Root\n    .flow\n      .warning_line\n        .label request\n      .node\n        .quiet_line\n          .label response\n        .label Child";
+test("switches reusable line types while clearing appearance overrides", () => {
+  const source = "#diagram\n  .node\n    .id root\n    .label Root\n    .flow\n      .warning_line\n        .color red\n        .label request\n      .line.width 5\n      .node\n        .quiet_line\n          .stroke-style dotted\n          .label response\n        .label Child";
   const structural = setStructuralLineType(source, 5, "success_line", ["warning_line", "quiet_line", "success_line"]);
   assert.match(structural, /    \.flow\n      \.success_line\n        \.label request/);
-  const incoming = setNodeLineType(structural, 11, "success_line", ["warning_line", "quiet_line", "success_line"]);
+  assert.doesNotMatch(structural, /\.color red|\.line\.width 5/);
+  const incoming = setNodeLineType(structural, 12, "success_line", ["warning_line", "quiet_line", "success_line"]);
   assert.match(incoming, /      \.node\n        \.success_line\n          \.label response\n        \.label Child/);
+  assert.doesNotMatch(incoming, /\.stroke-style dotted/);
 });

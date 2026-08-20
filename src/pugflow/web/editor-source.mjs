@@ -130,6 +130,29 @@ function setReusableLine(value, start, end, fieldIndent, type, knownTypes) {
   const replacement = fieldIndent + "." + type;
   if (existing >= 0) lines[existing] = replacement;
   else lines.splice(start + 1, 0, replacement);
+  const baseIndent = indentationWidth(fieldIndent);
+  const appearance = new Set(["color", "width", "stroke-style", "arrow-style", "label-position"]);
+  for (let index = lines.length - 1; index > start; index -= 1) {
+    if (index >= end + (existing < 0 ? 1 : 0)) continue;
+    const indent = indentationWidth(lines[index]);
+    const text = lines[index].trim();
+    if (indent === baseIndent && /^\.line\.(color|width|stroke-style|arrow-style|label-position)(?:\s|$)/.test(text)) {
+      lines.splice(index, 1);
+      continue;
+    }
+    if (indent === baseIndent + 2 && appearance.has(text.match(/^\.([\w-]+)/)?.[1])) {
+      let parent = index - 1;
+      while (parent > start && indentationWidth(lines[parent]) >= indent) parent -= 1;
+      const parentName = lines[parent]?.trim().slice(1);
+      if (lines[parent]?.trim() === ".line" || names.has(parentName) || parentName === type) lines.splice(index, 1);
+    }
+  }
+  for (let index = lines.length - 1; index > start; index -= 1) {
+    if (indentationWidth(lines[index]) === baseIndent && lines[index].trim() === ".line") {
+      const next = lines[index + 1];
+      if (!next || indentationWidth(next) <= baseIndent) lines.splice(index, 1);
+    }
+  }
   return lines.join("\n");
 }
 
@@ -193,5 +216,18 @@ export function setNodeType(value, labelLineNumber, type) {
   const range = nodeRange(lines, labelLineNumber);
   const indentation = lines[range.start].match(/^\s*/)?.[0] ?? "";
   lines[range.start] = indentation + "." + type.replace(/^\./, "");
+  const styleFields = new Set([
+    "shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align",
+    "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
+    "image", "image-width", "image-height", "image-fit", "image-opacity",
+  ]);
+  for (let index = range.end - 1; index > range.start; index -= 1) {
+    if (indentationWidth(lines[index]) !== indentationWidth(range.fieldIndent)) continue;
+    const field = lines[index].trim().match(/^\.([\w-]+)(?:\s|$)/)?.[1];
+    if (!styleFields.has(field)) continue;
+    let removeTo = index + 1;
+    while (removeTo < lines.length && indentationWidth(lines[removeTo]) > indentationWidth(lines[index])) removeTo += 1;
+    lines.splice(index, removeTo - index);
+  }
   return lines.join("\n");
 }
