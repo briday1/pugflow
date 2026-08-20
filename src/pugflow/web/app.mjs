@@ -142,7 +142,7 @@ const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the p
           .dotted_line
           .round_node
             .id three
-            .offset (-363.1, -110.5)
+            .offset (-363.1, -112)
             .label Round $\\sqrt{x}$
         .flow
           .direction down
