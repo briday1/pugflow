@@ -54,7 +54,7 @@
       <div class="panel-resizer" id="panel-resizer" role="separator" aria-label="Resize source panel" aria-controls="source-panel" aria-orientation="vertical" tabindex="0"></div>
 
       <section class="preview" aria-labelledby="preview-title">
-        <div class="preview-title"><div><span>CANVAS</span><h2 id="preview-title">Live preview</h2></div><div class="canvas-actions"><details class="new-menu"><summary>+ New</summary><div><button id="add-diagram" type="button">Graph</button><button id="add-node" type="button">Node</button><button id="add-flow" type="button">Flow</button><button id="add-merge" type="button">Merge</button></div></details><button id="undo-canvas" type="button">Undo</button><button id="redo-canvas" type="button">Redo</button><button id="cleanup-diagram" type="button" title="Straighten small connector jogs by updating node offsets">Clean up</button><div class="zoom-controls" aria-label="Canvas zoom"><button id="zoom-out" type="button" title="Zoom out">−</button><select id="canvas-zoom" aria-label="Canvas zoom"><option value="50">50%</option><option value="75">75%</option><option value="100" selected>100%</option><option value="125">125%</option><option value="150">150%</option><option value="200">200%</option></select><button id="zoom-in" type="button" title="Zoom in">+</button><button id="zoom-fit" type="button">Fit</button></div><details class="export-menu export-menu-first"><summary>Copy</summary><div><button id="copy-png" type="button">PNG</button><button id="copy-svg" type="button">SVG</button></div></details><details class="export-menu"><summary>Save</summary><div><button id="save-png" type="button">PNG</button><button id="save-svg" type="button">SVG</button></div></details></div></div>
+        <div class="preview-title"><div><span>CANVAS</span><h2 id="preview-title">Live preview</h2></div><div class="canvas-actions"><details class="new-menu"><summary>+ New</summary><div><button id="add-diagram" type="button">Graph</button><button id="add-node" type="button">Node</button><button id="add-flow" type="button">Flow</button><button id="add-merge" type="button">Merge</button></div></details><button id="undo-canvas" type="button">Undo</button><button id="redo-canvas" type="button">Redo</button><button id="cleanup-diagram" type="button" title="Straighten small connector jogs by updating node offsets">Clean up</button><div class="zoom-controls" aria-label="Canvas zoom"><button id="zoom-out" type="button" title="Zoom out">−</button><select id="canvas-zoom" aria-label="Canvas zoom"><option value="50">50%</option><option value="75">75%</option><option value="100" selected>100%</option><option value="125">125%</option><option value="150">150%</option><option value="200">200%</option></select><button id="zoom-in" type="button" title="Zoom in">+</button><button id="zoom-fit" type="button">Fit</button></div><button class="export-action-first" id="copy-png" type="button" title="Copy a 2× high-DPI PNG">Copy</button><button id="open-save-export" type="button">Save</button></div></div>
         <div class="canvas-shell" tabindex="0"><div id="diagram"></div><section class="canvas-inspector" id="canvas-inspector" hidden><div class="inspector-drag-handle">Properties</div><div id="inspector-content"></div><div class="inspector-footer"><button id="delete-selection" class="danger" type="button">Delete selected</button><button id="close-inspector" type="button">Close</button></div></section></div>
       </section>
     </main>
@@ -78,6 +78,17 @@
         </div>
         <p class="dialog-error" id="builder-error" role="alert"></p>
         <div class="dialog-actions"><button value="cancel">Cancel</button><button class="primary" id="builder-submit" value="default">Create node</button></div>
+      </form>
+    </dialog>
+    <dialog id="save-export-dialog">
+      <form method="dialog" id="save-export-form">
+        <div class="dialog-title"><div><small>EXPORT</small><h2>Save diagram</h2></div><button value="cancel" aria-label="Close">×</button></div>
+        <p class="export-help">Choose a format. Raster resolution applies only to PNG.</p>
+        <div class="builder-grid">
+          <label>Format<select id="save-export-format"><option value="png">PNG image</option><option value="svg">SVG vector</option></select></label>
+          <label id="save-export-resolution-row">PNG resolution<select id="save-export-resolution"><option value="1">1× standard</option><option value="2" selected>2× high DPI</option><option value="3">3× extra high DPI</option></select></label>
+        </div>
+        <div class="dialog-actions"><button value="cancel">Cancel</button><button class="primary" value="default">Save</button></div>
       </form>
     </dialog>
     <script type="module" src="app.mjs"></script>

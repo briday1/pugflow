@@ -219,7 +219,7 @@ const completionMenu = document.querySelector("#completion-menu");
 const canvas = document.querySelector("#diagram");
 const canvasShell = document.querySelector(".canvas-shell");
 const canvasZoom = document.querySelector("#canvas-zoom");
-const PNG_EXPORT_SCALE = 2;
+const PNG_COPY_SCALE = 2;
 const inspector = document.querySelector("#canvas-inspector");
 const inspectorContent = document.querySelector("#inspector-content");
 const status = document.querySelector("#status");
@@ -1080,7 +1080,7 @@ document.querySelector("#add-diagram").addEventListener("click", () => openGraph
 document.querySelector("#add-node").addEventListener("click", () => openGraphBuilder(currentGraph.nodes.length ? "flow" : "diagram"));
 document.querySelector("#add-flow").addEventListener("click", () => openGraphBuilder("flow"));
 document.querySelector("#add-merge").addEventListener("click", () => openGraphBuilder("merge", []));
-const toolbarMenus = [...document.querySelectorAll(".new-menu, .export-menu")];
+const toolbarMenus = [...document.querySelectorAll(".new-menu")];
 toolbarMenus.forEach((menu) => menu.addEventListener("click", (event) => {
   if (event.target.closest("button")) menu.open = false;
   else if (event.target.closest("summary")) toolbarMenus.filter((other) => other !== menu).forEach((other) => { other.open = false; });
@@ -1316,22 +1316,26 @@ sourceFile.addEventListener("change", async () => {
   update();
   sourceFile.value = "";
 });
-document.querySelector("#save-svg").addEventListener("click", () => diagram?.saveSVG(filename("svg")));
-document.querySelector("#save-png").addEventListener("click", () => diagram?.savePNG(filename("png"), PNG_EXPORT_SCALE));
 document.querySelector("#copy-png").addEventListener("click", async () => {
   if (!diagram) return;
   try {
-    const png = await diagram.toPNGBlob(PNG_EXPORT_SCALE);
+    const png = await diagram.toPNGBlob(PNG_COPY_SCALE);
     await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
     status.textContent = "PNG copied to the clipboard";
   } catch (error) {
     status.textContent = `Could not copy PNG: ${error.message}`;
   }
 });
-document.querySelector("#copy-svg").addEventListener("click", async () => {
-  if (!diagram) return;
-  await navigator.clipboard.writeText(diagram.toSVGString());
-  status.textContent = "SVG copied to the clipboard";
+const saveExportDialog = document.querySelector("#save-export-dialog");
+const saveExportFormat = document.querySelector("#save-export-format");
+document.querySelector("#open-save-export").addEventListener("click", () => saveExportDialog.showModal());
+saveExportFormat.addEventListener("change", () => { document.querySelector("#save-export-resolution-row").hidden = saveExportFormat.value !== "png"; });
+document.querySelector("#save-export-form").addEventListener("submit", (event) => {
+  if (event.submitter?.value === "cancel" || !diagram) return;
+  event.preventDefault();
+  if (saveExportFormat.value === "svg") diagram.saveSVG(filename("svg"));
+  else diagram.savePNG(filename("png"), Number(document.querySelector("#save-export-resolution").value));
+  saveExportDialog.close();
 });
 
 updateSourceFileNames();

@@ -51,7 +51,7 @@ The editor has `diagram.pug` and `styles.css` tabs with matching Load and Save a
 }
 ```
 
-The editor opens as a blank `#canvas`; use `pugflow --demo` for the full feature tour. It provides live rendering, line numbers, highlighting, completions, **Open Pug/CSS…**, **Save Pug + CSS**, **Save SVG**, and 1×–3× **Save PNG**. A project requires one Pug file. CSS is optional unless the Pug uses custom classes such as `.card`; select both files in the Open dialog or add the CSS afterward. Each source tab shows its loaded filename. Source is not stored in the browser.
+The editor opens as a blank `#canvas`; use `pugflow --demo` for the full feature tour. It provides live rendering, line numbers, highlighting, completions, **Open Pug/CSS…**, **Save Pug + CSS**, high-DPI PNG clipboard copying, and a Save dialog for PNG or SVG export. A project requires one Pug file. CSS is optional unless the Pug uses custom classes such as `.card`; select both files in the Open dialog or add the CSS afterward. Each source tab shows its loaded filename. Source is not stored in the browser.
 
 Drag the divider beside the source panel to resize it; the width is remembered.
 Click any visible block in the preview to focus and select its corresponding source line.
