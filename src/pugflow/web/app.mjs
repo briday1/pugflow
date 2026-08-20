@@ -924,7 +924,7 @@ function update() {
     applyCanvasZoom();
     paintSelections();
     renderInspector();
-    status.textContent = `${result.nodes.length} blocks | ${result.edges.length} connections | ${result.format}`;
+    status.textContent = "";
     status.className = "status ready";
   } catch (error) {
     status.textContent = error.message;
@@ -1080,6 +1080,9 @@ document.querySelector("#add-diagram").addEventListener("click", () => openGraph
 document.querySelector("#add-node").addEventListener("click", () => openGraphBuilder(currentGraph.nodes.length ? "flow" : "diagram"));
 document.querySelector("#add-flow").addEventListener("click", () => openGraphBuilder("flow"));
 document.querySelector("#add-merge").addEventListener("click", () => openGraphBuilder("merge", []));
+const newMenu = document.querySelector(".new-menu");
+newMenu.addEventListener("click", (event) => { if (event.target.closest("button")) newMenu.open = false; });
+document.addEventListener("pointerdown", (event) => { if (newMenu.open && !newMenu.contains(event.target)) newMenu.open = false; });
 document.querySelector("#undo-canvas").addEventListener("click", undoCanvas);
 document.querySelector("#redo-canvas").addEventListener("click", redoCanvas);
 document.querySelector(".preview").addEventListener("keydown", (event) => {
