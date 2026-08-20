@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appendDiagramNode, appendFlowNode, appendMergeNode, indentSourceSelection, removeNodeDeclaration, removeNodeReferences, removeNodeField, setAnnotationOffsetField, setAnnotationText, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
+import { appendDiagramNode, appendFlowNode, appendMergeNode, indentSourceSelection, removeNodeDeclaration, removeNodeReferences, removeNodeField, setAnnotationOffsetField, setAnnotationText, setNodeAnnotationField, setNodeAnnotationText, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 
 test("edits inspector-backed node and connector properties", () => {
@@ -47,6 +47,16 @@ test("updates inline and multiline annotation text without losing its styles", (
   const compact = setAnnotationText(multiline, 6, "Replacement");
   assert.match(compact, /\.above Replacement\n          \.color #123456/);
   assert.doesNotMatch(compact, /\| First|\| Second/);
+});
+
+test("creates missing above and below annotations from node properties", () => {
+  const source = "#canvas\n  graph\n    .node\n      .id root\n      .label Root";
+  const above = setNodeAnnotationText(source, 5, "above", "New above");
+  assert.match(above, /\.annotation\n        \.above New above/);
+  const below = setNodeAnnotationField(above, parseDiagram(above).nodes[0].lineNumber, "below", "font-style", "italic");
+  assert.match(below, /\.below\n          \.font-style italic/);
+  assert.deepEqual(parseDiagram(below).errors, []);
+  assert.equal(parseDiagram(below).nodes[0].annotations.find((item) => item.position === "above").text, "New above");
 });
 
 test("preserves a custom node type when adding offsets", () => {

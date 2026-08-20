@@ -1,5 +1,5 @@
 import { createBlockDiagram, parseDiagram } from "./pugflow.mjs";
-import { appendDiagramNode, appendFlowNode, appendMergeNode, ensureGraphComponents, indentSourceSelection, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, setAnnotationOffsetField, setAnnotationText, setDeclarationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
+import { appendDiagramNode, appendFlowNode, appendMergeNode, ensureGraphComponents, indentSourceSelection, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, setAnnotationOffsetField, setAnnotationText, setDeclarationOffsetField, setNodeAnnotationField, setNodeAnnotationText, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
 import { attachVimMode } from "./vim-mode.mjs";
 import { attachTextEditor } from "./text-editor.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets } from "./layout.mjs";
@@ -314,14 +314,14 @@ function textControls(scope, style = {}, includeColor = false) {
 }
 
 function nodeAnnotationControls(node) {
-  if (!node.annotations.length) return '<details><summary>Annotations <small>none</small></summary><p class="inspector-empty">Add .annotation above or below in the source.</p></details>';
   const option = (value, current) => `<option value="${value}"${String(current) === value ? " selected" : ""}>${value}</option>`;
-  const fields = node.annotations.map((annotation) => {
-    const line = annotation.lineNumber;
+  const fields = ["above", "below"].map((position) => {
+    const annotation = node.annotations.find((item) => item.position === position) ?? { position, text: "", color: null, fontFamily: null, fontSize: 12, fontWeight: "normal", fontStyle: "normal", textDecoration: "none" };
     const hex = /^#[0-9a-f]{6}$/i.test(annotation.color ?? "") ? annotation.color : "#000000";
-    return `<details class="annotation-editor"><summary>${annotation.position === "below" ? "Below" : "Above"}</summary><label>Text<textarea data-annotation-text="${line}" rows="2">${escapeHtml(annotation.text)}</textarea></label><label>Color<span class="inspector-color"><input type="color" data-annotation-color-picker="${line}" value="${hex}"><input data-annotation-line="${line}" data-annotation-style-field="color" value="${escapeHtml(annotation.color ?? "")}" placeholder="CSS color"></span></label><label>Font family<input data-annotation-line="${line}" data-annotation-style-field="font-family" value="${escapeHtml(annotation.fontFamily ?? "")}" placeholder="inherit"></label><div class="inspector-grid"><label>Size<input data-annotation-line="${line}" data-annotation-style-field="font-size" type="number" min="1" value="${annotation.fontSize ?? 12}"></label><label>Weight<select data-annotation-line="${line}" data-annotation-style-field="font-weight">${["normal","500","600","bold"].map((v) => option(v, annotation.fontWeight ?? "normal")).join("")}</select></label><label>Style<select data-annotation-line="${line}" data-annotation-style-field="font-style">${["normal","italic","oblique"].map((v) => option(v, annotation.fontStyle ?? "normal")).join("")}</select></label><label>Decoration<select data-annotation-line="${line}" data-annotation-style-field="text-decoration">${["none","underline","line-through","overline"].map((v) => option(v, annotation.textDecoration ?? "none")).join("")}</select></label></div></details>`;
+    const target = `data-node-annotation-line="${node.lineNumber}" data-node-annotation-position="${position}"`;
+    return `<details class="annotation-editor"><summary>${position === "below" ? "Below" : "Above"}</summary><label>Text<textarea data-node-annotation-text ${target} rows="2">${escapeHtml(annotation.text)}</textarea></label><label>Color<span class="inspector-color"><input type="color" data-node-annotation-color-picker="${position}" value="${hex}"><input ${target} data-node-annotation-field="color" value="${escapeHtml(annotation.color ?? "")}" placeholder="CSS color"></span></label><label>Font family<input ${target} data-node-annotation-field="font-family" value="${escapeHtml(annotation.fontFamily ?? "")}" placeholder="inherit"></label><div class="inspector-grid"><label>Size<input ${target} data-node-annotation-field="font-size" type="number" min="1" value="${annotation.fontSize ?? 12}"></label><label>Weight<select ${target} data-node-annotation-field="font-weight">${["normal","500","600","bold"].map((v) => option(v, annotation.fontWeight ?? "normal")).join("")}</select></label><label>Style<select ${target} data-node-annotation-field="font-style">${["normal","italic","oblique"].map((v) => option(v, annotation.fontStyle ?? "normal")).join("")}</select></label><label>Decoration<select ${target} data-node-annotation-field="text-decoration">${["none","underline","line-through","overline"].map((v) => option(v, annotation.textDecoration ?? "none")).join("")}</select></label></div></details>`;
   }).join("");
-  return `<details><summary>Annotations <small>${node.annotations.length}</small></summary>${fields}</details>`;
+  return `<details><summary>Annotations</summary>${fields}</details>`;
 }
 
 function imageControls(node = null) {
@@ -1234,6 +1234,20 @@ inspectorContent.addEventListener("change", (event) => {
   if (event.target.matches("[data-annotation-color-picker]")) {
     const input = inspectorContent.querySelector(`[data-annotation-line="${event.target.dataset.annotationColorPicker}"][data-annotation-style-field="color"]`);
     if (input) { input.value = event.target.value; input.dispatchEvent(new Event("change", { bubbles: true })); }
+    return;
+  }
+  if (event.target.matches("[data-node-annotation-color-picker]")) {
+    const position = event.target.dataset.nodeAnnotationColorPicker;
+    const input = inspectorContent.querySelector(`[data-node-annotation-position="${position}"][data-node-annotation-field="color"]`);
+    if (input) { input.value = event.target.value; input.dispatchEvent(new Event("change", { bubbles: true })); }
+    return;
+  }
+  if (event.target.matches("[data-node-annotation-text]")) {
+    setSource(setNodeAnnotationText(source.value, Number(event.target.dataset.nodeAnnotationLine), event.target.dataset.nodeAnnotationPosition, event.target.value));
+    return;
+  }
+  if (event.target.matches("[data-node-annotation-field]")) {
+    setSource(setNodeAnnotationField(source.value, Number(event.target.dataset.nodeAnnotationLine), event.target.dataset.nodeAnnotationPosition, event.target.dataset.nodeAnnotationField, event.target.value));
     return;
   }
   if (event.target.matches("[data-annotation-text]")) {

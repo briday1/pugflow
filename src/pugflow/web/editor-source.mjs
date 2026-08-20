@@ -209,6 +209,36 @@ export function setAnnotationText(value, declarationLineNumber, text) {
   return lines.join("\n");
 }
 
+function ensureNodeAnnotation(value, labelLineNumber, position) {
+  const lines = value.split("\n");
+  const range = nodeRange(lines, labelLineNumber);
+  const annotationIndent = indentationWidth(range.fieldIndent);
+  let group = lines.findIndex((line, index) => index > range.start && index < range.end
+    && indentationWidth(line) === annotationIndent && line.trim() === ".annotation");
+  if (group < 0) {
+    lines.splice(range.start + 1, 0, `${range.fieldIndent}.annotation`, `${range.fieldIndent}  .${position}`);
+    return { value: lines.join("\n"), lineNumber: range.start + 3 };
+  }
+  let groupEnd = group + 1;
+  while (groupEnd < lines.length && indentationWidth(lines[groupEnd]) > annotationIndent) groupEnd += 1;
+  const entryIndent = annotationIndent + 2;
+  const existing = lines.findIndex((line, index) => index > group && index < groupEnd
+    && indentationWidth(line) === entryIndent && new RegExp(`^\\.${position}(?:\\s|$)`).test(line.trim()));
+  if (existing >= 0) return { value, lineNumber: existing + 1 };
+  lines.splice(groupEnd, 0, `${range.fieldIndent}  .${position}`);
+  return { value: lines.join("\n"), lineNumber: groupEnd + 1 };
+}
+
+export function setNodeAnnotationText(value, labelLineNumber, position, text) {
+  const annotation = ensureNodeAnnotation(value, labelLineNumber, position);
+  return setAnnotationText(annotation.value, annotation.lineNumber, text);
+}
+
+export function setNodeAnnotationField(value, labelLineNumber, position, field, fieldValue) {
+  const annotation = ensureNodeAnnotation(value, labelLineNumber, position);
+  return setStructuralField(annotation.value, annotation.lineNumber, field, fieldValue);
+}
+
 export function setDeclarationOffsetField(value, declarationLineNumber, x, y) {
   return setChildOffsetField(value, declarationLineNumber, ".offset", x, y);
 }
