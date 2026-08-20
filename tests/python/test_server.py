@@ -1,0 +1,52 @@
+import json
+import sys
+import threading
+import unittest
+from pathlib import Path
+from urllib.request import urlopen
+
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "src"))
+
+from pugflow.server import create_server  # noqa: E402
+
+
+class ServerTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.server = create_server("127.0.0.1", 0, quiet=True)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+        cls.base_url = f"http://127.0.0.1:{cls.server.server_address[1]}"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.thread.join(timeout=2)
+
+    def get(self, path):
+        with urlopen(f"{self.base_url}{path}", timeout=3) as response:
+            return response.status, response.headers, response.read()
+
+    def test_serves_the_editor_and_bundled_assets(self):
+        status, headers, body = self.get("/")
+        self.assertEqual(status, 200)
+        self.assertIn(b"Pugflow", body)
+        self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
+
+        status, headers, bundle = self.get("/app.mjs")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers.get_content_type(), "text/javascript")
+        self.assertIn(b"Full feature tour", bundle)
+
+    def test_health_endpoint(self):
+        status, headers, body = self.get("/healthz")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers.get_content_type(), "application/json")
+        self.assertEqual(json.loads(body), {"status": "ok", "version": "0.2.0"})
+
+
+if __name__ == "__main__":
+    unittest.main()

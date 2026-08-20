@@ -1,0 +1,56 @@
+#diagram
+  .node
+    .id request
+    .label Request
+    .annotation
+      .above Request lifecycle
+    .shape pill
+    .fill #245886
+    .flow
+      .line
+        .label route
+      .node
+        .id cache
+        .label Check cache
+        .width 180
+        .flow
+          .node
+            .id cached
+            .label Cached response
+    .flow
+      .line
+        .label route
+        .stroke-style dashed
+      .node
+        .id database
+        .label
+          | Query database
+          | on cache miss
+        .width 180
+        .flow
+          .node
+            .id fresh
+            .label Fresh response
+    .merge
+      .source
+        .ref cached
+        .line
+          .label hit
+      .source
+        .ref fresh
+        .line
+          .label query
+      .node
+        .id response
+        .label Response
+        .annotation
+          .above Responses converge
+        .shape hexagon
+        .outline #ffd166
+        .flow
+          .line
+            .color #ffd166
+          .node
+            .label Add headers
+          .node
+            .label Send to client

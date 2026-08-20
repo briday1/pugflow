@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Build flow and merge diagrams from indented text." />
+    <link rel="icon" href="data:," />
+    <title>Pugflow</title>
+    <link rel="stylesheet" href="pugflow.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <div class="title">
+        <div><strong>Pugflow</strong><small>Readable source, polished diagrams</small></div>
+      </div>
+      <nav>
+        <label class="theme-control">Theme
+          <select id="theme" aria-label="Application theme">
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+        <button id="copy-svg" type="button">Copy SVG</button>
+        <button id="save-svg" type="button">Save SVG</button>
+        <label>PNG scale <select id="scale"><option value="1">1×</option><option value="2" selected>2×</option><option value="3">3×</option></select></label>
+        <button class="primary" id="save-png" type="button">Save PNG</button>
+      </nav>
+      <input id="source-file" type="file" accept=".pug,text/plain" hidden />
+      <input id="node-image-file" type="file" accept="image/*" hidden />
+    </header>
+
+    <main>
+      <aside id="source-panel">
+        <div class="panel-title">
+          <h1>Diagram source</h1>
+          <div class="editor-actions">
+            <label class="vim-toggle"><input id="vim-mode" type="checkbox" /> Vim</label>
+            <button id="load-source" type="button">Load Pug</button>
+            <button id="save-source" type="button">Save Pug</button>
+          </div>
+        </div>
+        <div class="source-tabs" role="tablist" aria-label="Source documents"><button class="active" data-source-tab="pug" role="tab" aria-selected="true">diagram.pug</button><button data-source-tab="css" role="tab" aria-selected="false">styles.css</button></div>
+        <p class="help">Write nested Pug-style flows and merges. Click to inspect; Ctrl-click to select multiple items. Use <code>.hidden</code> to preserve a node's layout slot.</p>
+        <div class="editor-shell">
+          <div class="current-line" id="current-line" aria-hidden="true"></div>
+          <div class="line-numbers" id="line-numbers" aria-hidden="true"></div>
+          <div class="color-decorators" id="color-decorators"></div>
+          <div class="vim-block-cursor" id="vim-block-cursor" aria-hidden="true" hidden></div>
+          <div id="source" role="textbox" aria-label="Diagram source" aria-describedby="editor-hint" aria-multiline="true" contenteditable="plaintext-only" autocapitalize="off" spellcheck="false"></div>
+          <div class="completion-menu" id="completion-menu" role="listbox" aria-label="Source completions" hidden></div>
+        </div>
+        <p class="editor-hint" id="editor-hint"><span>Ctrl+Space for completions · Tab accepts or indents</span><strong id="vim-status" hidden></strong></p>
+        <p class="status" id="status" role="status"></p>
+        <details>
+          <summary>Quick syntax</summary>
+          <pre>#diagram
+  .background #fff
+  .defaults
+    .node
+      .color #111
+    .line
+      .color #111
+  .node
+    .id root
+    .label
+      | Root
+      | Multiline descriptions stay readable
+    .node
+      .id a
+      .hidden
+      .label Child A
+    .flow
+      .direction right
+      .node
+        .label Step B
+      .node
+        .label Step C
+  .merge
+    .from a b
+    .node
+      .label Combined</pre>
+          <p>Save the editable definition as Pug; SVG and PNG are export formats.</p>
+        </details>
+      </aside>
+
+      <div class="panel-resizer" id="panel-resizer" role="separator" aria-label="Resize source panel" aria-controls="source-panel" aria-orientation="vertical" tabindex="0"></div>
+
+      <section class="preview" aria-labelledby="preview-title">
+        <div class="preview-title"><div><span>CANVAS</span><h2 id="preview-title">Live preview</h2></div><div class="canvas-actions"><button id="undo-canvas" type="button">Undo</button><button id="redo-canvas" type="button">Redo</button><button id="cleanup-diagram" type="button" title="Straighten small connector jogs by updating node offsets">Clean up</button></div></div>
+        <div class="canvas-shell" tabindex="0"><div id="diagram"></div><section class="canvas-inspector" id="canvas-inspector" hidden><div class="inspector-drag-handle">Properties</div><div id="inspector-content"></div><button id="close-inspector" type="button">Close</button></section></div>
+      </section>
+    </main>
+    <script type="module" src="app.mjs"></script>
+  </body>
+</html>

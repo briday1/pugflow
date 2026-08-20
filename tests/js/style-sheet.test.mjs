@@ -1,0 +1,26 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
+import { compileStyleSheet } from "../../src/pugflow/web/style-sheet.mjs";
+
+test("compiles CSS-shaped reusable definitions", () => {
+  const css = `
+    @node card { shape: rounded; fill: #123456; color: white; }
+    @line warning { color: #dc2626; stroke-style: dashed; }
+    @annotation note { color: #2563eb; }
+  `;
+  const compiled = compileStyleSheet(css);
+  assert.deepEqual(compiled.errors, []);
+  assert.match(compiled.source, /@node card\n  \.shape rounded/);
+
+  const graph = parseDiagram("#diagram\n  .card\n    .id root\n    .label Root", css);
+  assert.deepEqual(graph.errors, []);
+  assert.equal(graph.nodes[0].style.fill, "#123456");
+  assert.equal(graph.nodes[0].lineNumber, 4);
+});
+
+test("reports malformed external style rules", () => {
+  assert.match(compileStyleSheet("@node card { fill #fff; }").errors[0], /property: value/);
+  assert.match(compileStyleSheet("card { fill: red; }").errors[0], /expected an @node/);
+});

@@ -1,0 +1,252 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
+import { arrangeNodeOffsets, cleanupAlignmentOffsets, layoutDiagram } from "../../src/pugflow/web/layout.mjs";
+import { connectionPath, connectionPathAvoidingNodes, edgeIsVisible } from "../../src/pugflow/web/pugflow.mjs";
+
+test("places parallel flows and merges in successive columns", () => {
+  const graph = parseDiagram([
+    "#diagram",
+    "  node.label Root",
+    "  .flow",
+    "    .entry",
+    "      node.id a",
+    "      node.label Alpha",
+    "  .flow",
+    "    .entry",
+    "      node.id b",
+    "      node.label Beta",
+    "  .merge",
+    "    .from a b",
+    "    .entry",
+    "      node.id c",
+    "      node.label Combined",
+    "      .flow",
+    "        .entry",
+    "          node.label Done",
+  ].join("\n"));
+  const layout = layoutDiagram(graph.nodes, graph.edges);
+  const nodes = new Map(layout.nodes.map((node) => [node.id, node]));
+
+  assert.ok(nodes.get("a").x > nodes.get("root").x);
+  assert.equal(nodes.get("a").x, nodes.get("b").x);
+  assert.ok(nodes.get("c").x > nodes.get("a").x);
+  assert.ok(nodes.get("done").x > nodes.get("c").x);
+  assert.ok(layout.width > 0);
+  assert.ok(layout.height > 0);
+});
+
+test("keeps feedback cycles placeable", () => {
+  const nodes = [{ id: "a" }, { id: "b" }];
+  const edges = [
+    { from: "a", to: "b", kind: "merge" },
+    { from: "b", to: "a", kind: "merge" },
+  ];
+
+  const layout = layoutDiagram(nodes, edges);
+  assert.equal(layout.nodes.length, 2);
+  assert.notDeepEqual(
+    layout.nodes.map((node) => [node.x, node.y]),
+    [[layout.nodes[0].x, layout.nodes[0].y], [layout.nodes[0].x, layout.nodes[0].y]],
+  );
+});
+
+test("places multiple directional flows without collisions", () => {
+  const graph = parseDiagram([
+    "#diagram",
+    "  .node",
+    "    .id root",
+    "    .label Root",
+    "    .flow",
+    "      .direction right",
+    "      .node",
+    "        .id east",
+    "        .label East",
+    "    .flow",
+    "      .direction down",
+    "      .node",
+    "        .id south",
+    "        .label South",
+    "    .flow",
+    "      .direction right",
+    "      .node",
+    "        .id east-two",
+    "        .label East lane two",
+  ].join("\n"));
+  assert.deepEqual(graph.errors, []);
+  const layout = layoutDiagram(graph.nodes, graph.edges);
+  const nodes = new Map(layout.nodes.map((node) => [node.id, node]));
+  assert.ok(nodes.get("east").x > nodes.get("root").x);
+  assert.ok(nodes.get("south").y > nodes.get("root").y);
+  assert.ok(nodes.get("east-two").x > nodes.get("root").x);
+  assert.notEqual(nodes.get("east").y, nodes.get("east-two").y);
+});
+
+test("routes merge connections with rounded orthogonal bends", () => {
+  const source = { x: 10, y: 10, width: 100, height: 40, aboveHeight: 0 };
+  const target = { x: 260, y: 100, width: 100, height: 40, aboveHeight: 0 };
+  const route = connectionPath(source, target, "merge");
+
+  assert.match(route.d, / H /);
+  assert.match(route.d, / Q /);
+  assert.match(route.d, / V /);
+  assert.doesNotMatch(route.d, / C /);
+  assert.equal(route.labelY, 30);
+});
+
+test("routes vertical and leftward connections from the correct sides", () => {
+  const source = { x: 200, y: 100, width: 100, height: 40, aboveHeight: 0 };
+  const below = { x: 200, y: 240, width: 100, height: 40, aboveHeight: 0 };
+  const left = { x: 0, y: 100, width: 100, height: 40, aboveHeight: 0 };
+  assert.match(connectionPath(source, below, "branch", "down").d, /^M 250 140 V 240$/);
+  assert.match(connectionPath(source, left, "merge", "left").d, /^M 200 120 H 100$/);
+});
+
+test("routes explicit connections through independently selected endpoint directions", () => {
+  const source = { x: 100, y: 200, width: 100, height: 40, aboveHeight: 0 };
+  const target = { x: 300, y: 100, width: 100, height: 40, aboveHeight: 0 };
+  const route = connectionPath(source, target, "connection", "left", 0, 0, "down");
+  assert.match(route.d, /^M 100 220 L 85 220 Q 76 220/);
+  assert.match(route.d, /L 350 100$/);
+});
+
+test("routes connectors around unrelated nodes", () => {
+  const source = { id: "source", x: 0, y: 100, width: 100, height: 40, aboveHeight: 0 };
+  const obstacle = { id: "obstacle", x: 150, y: 80, width: 100, height: 80, aboveHeight: 0 };
+  const target = { id: "target", x: 300, y: 100, width: 100, height: 40, aboveHeight: 0 };
+  const route = connectionPathAvoidingNodes(source, target, "branch", "right", [source, obstacle, target]);
+  assert.match(route.d, /Q/);
+  assert.notEqual(route.d, "M 100 120 H 300");
+  assert.match(route.d, /^M 100 120 L \d+ 120/);
+  assert.match(route.d, /L 300 120$/);
+});
+
+test("keeps side-port approaches horizontal while detouring vertically", () => {
+  const source = { id: "source", x: 0, y: 180, width: 100, height: 40, aboveHeight: 0 };
+  const obstacle = { id: "obstacle", x: 150, y: 100, width: 100, height: 100, aboveHeight: 0 };
+  const target = { id: "target", x: 300, y: 40, width: 100, height: 40, aboveHeight: 0 };
+  const route = connectionPathAvoidingNodes(source, target, "merge", "right", [source, obstacle, target]);
+  assert.match(route.d, /^M 100 200 L \d+ 200/);
+  assert.match(route.d, /L 300 60$/);
+});
+
+test("centers merge targets beyond their full source set", () => {
+  const nodes = ["root", "top", "middle", "bottom", "combined"].map((id) => ({ id, width: 100, height: 40 }));
+  const edges = [
+    { from: "root", to: "top", layoutDirection: "right", kind: "branch" },
+    { from: "root", to: "middle", layoutDirection: "right", kind: "branch" },
+    { from: "root", to: "bottom", layoutDirection: "right", kind: "branch" },
+    { from: "top", to: "combined", layoutDirection: "right", kind: "merge", portDistribution: "distributed" },
+    { from: "middle", to: "combined", layoutDirection: "right", kind: "merge", portDistribution: "distributed" },
+    { from: "bottom", to: "combined", layoutDirection: "right", kind: "merge", portDistribution: "distributed" },
+  ];
+  const placed = new Map(layoutDiagram(nodes, edges).nodes.map((node) => [node.id, node]));
+  assert.ok(placed.get("combined").x > Math.max(placed.get("top").x, placed.get("middle").x, placed.get("bottom").x));
+  const sourceRows = [placed.get("top").y, placed.get("middle").y, placed.get("bottom").y].sort((a, b) => a - b);
+  assert.equal(placed.get("combined").y, sourceRows[1]);
+});
+
+test("assigns ordered ports when merge sources share an approach row", () => {
+  const nodes = ["first", "second", "lower", "combined"].map((id) => ({ id, width: 100, height: 60 }));
+  const edges = [
+    { from: "first", to: "second", layoutDirection: "right", kind: "branch" },
+    { from: "first", to: "lower", layoutDirection: "down", kind: "branch" },
+    { from: "first", to: "combined", layoutDirection: "right", kind: "merge", portDistribution: "distributed" },
+    { from: "second", to: "combined", layoutDirection: "right", kind: "merge", portDistribution: "distributed" },
+    { from: "lower", to: "combined", layoutDirection: "right", kind: "merge", portDistribution: "distributed" },
+  ];
+  const layout = layoutDiagram(nodes, edges);
+  const mergeEdges = layout.edges.filter((edge) => edge.kind === "merge");
+  assert.deepEqual(mergeEdges.map((edge) => edge.mergePortIndex), [0, 1, 2]);
+  assert.deepEqual(mergeEdges.map((edge) => edge.targetPortFraction), [-0.25, 0, 0.25]);
+});
+
+test("pulls terminal merge sources forward without moving intermediate flow nodes", () => {
+  const nodes = ["root", "early", "late", "lower", "combined"].map((id) => ({ id, width: 100, height: 40 }));
+  const edges = [
+    { from: "root", to: "early", layoutDirection: "right", kind: "branch" },
+    { from: "early", to: "late", layoutDirection: "right", kind: "branch" },
+    { from: "root", to: "lower", layoutDirection: "down", kind: "branch" },
+    { from: "early", to: "combined", layoutDirection: "right", kind: "merge" },
+    { from: "late", to: "combined", layoutDirection: "right", kind: "merge" },
+    { from: "lower", to: "combined", layoutDirection: "right", kind: "merge" },
+  ];
+  const placed = new Map(layoutDiagram(nodes, edges).nodes.map((node) => [node.id, node]));
+  assert.equal(placed.get("lower").rank, placed.get("late").rank);
+  assert.ok(placed.get("lower").y > placed.get("late").y);
+  assert.ok(placed.get("early").rank < placed.get("late").rank);
+});
+
+test("routes merge inputs to separate ports on the target face", () => {
+  const source = { id: "source", x: 0, y: 100, width: 100, height: 40, aboveHeight: 0 };
+  const target = { id: "target", x: 300, y: 100, width: 100, height: 60, aboveHeight: 0 };
+  const upper = connectionPathAvoidingNodes(source, target, "merge", "right", [source, target], -15);
+  const lower = connectionPathAvoidingNodes(source, target, "merge", "right", [source, target], 15);
+  assert.match(upper.d, /H 300$/);
+  assert.match(lower.d, /H 300$/);
+  assert.notEqual(upper.d, lower.d);
+});
+
+test("supports shared merge ports and distributed flow source ports", () => {
+  const nodes = ["root", "upper", "lower", "combined"].map((id) => ({ id, width: 100, height: 60 }));
+  const edges = [
+    { from: "root", to: "upper", kind: "branch", layoutDirection: "right", portDistribution: "distributed" },
+    { from: "root", to: "lower", kind: "branch", layoutDirection: "right", portDistribution: "distributed" },
+    { from: "upper", to: "combined", kind: "merge", layoutDirection: "right", portDistribution: "shared" },
+    { from: "lower", to: "combined", kind: "merge", layoutDirection: "right", portDistribution: "shared" },
+  ];
+  const layoutEdges = layoutDiagram(nodes, edges).edges;
+  assert.deepEqual(layoutEdges.filter((edge) => edge.kind === "branch").map((edge) => Math.round(edge.sourcePortFraction * 6)), [-1, 1]);
+  assert.deepEqual(layoutEdges.filter((edge) => edge.kind === "merge").map((edge) => edge.targetPortFraction), [0, 0]);
+});
+
+test("cleans up small flow kinks by updating target offsets", () => {
+  const nodes = [
+    { id: "a", x: 0, y: 100, width: 100, height: 40, aboveHeight: 0, offsetX: 0, offsetY: -53.4, lineNumber: 2 },
+    { id: "b", x: 200, y: 100.8, width: 100, height: 40, aboveHeight: 0, offsetX: -97.8, offsetY: -52.6, lineNumber: 5 },
+    { id: "c", x: 400, y: 118, width: 100, height: 40, aboveHeight: 0, offsetX: 0, offsetY: 0, lineNumber: 8 },
+  ];
+  const edges = [
+    { from: "a", to: "b", kind: "branch", layoutDirection: "right" },
+    { from: "b", to: "c", kind: "branch", layoutDirection: "right" },
+  ];
+  assert.deepEqual(cleanupAlignmentOffsets(nodes, edges), [
+    { id: "b", lineNumber: 5, offsetX: -97.8, offsetY: -53.4 },
+  ]);
+});
+
+test("distributes rendered positions while preserving existing offsets", () => {
+  const nodes = [
+    { id: "a", x: 10, y: 0, width: 80, height: 20, offsetX: 10, offsetY: 0 },
+    { id: "b", x: 120, y: 0, width: 20, height: 20, offsetX: 23, offsetY: 0 },
+    { id: "c", x: 210, y: 0, width: 60, height: 20, offsetX: 10, offsetY: 0 },
+  ];
+  const arranged = arrangeNodeOffsets(nodes, "horizontal");
+  assert.deepEqual(arranged.map((node) => node.offsetX), [10, 43, 10]);
+  const finalLeft = arranged.map((node, index) => node.x + node.offsetX - nodes[index].offsetX);
+  const gaps = [finalLeft[1] - (finalLeft[0] + arranged[0].width), finalLeft[2] - (finalLeft[1] + arranged[1].width)];
+  assert.equal(gaps[0], gaps[1]);
+});
+
+test("aligns differing node edges through offset deltas", () => {
+  const nodes = [
+    { id: "a", x: 10, y: 20, width: 80, height: 30, aboveHeight: 0, offsetX: 4, offsetY: 2 },
+    { id: "b", x: 40, y: 60, width: 20, height: 10, aboveHeight: 0, offsetX: -3, offsetY: 5 },
+  ];
+  const right = arrangeNodeOffsets(nodes, "right");
+  assert.equal(right[0].x + right[0].width + right[0].offsetX - nodes[0].offsetX, right[1].x + right[1].width + right[1].offsetX - nodes[1].offsetX);
+  const bottom = arrangeNodeOffsets(nodes, "bottom");
+  assert.equal(bottom[0].y + bottom[0].height + bottom[0].offsetY - nodes[0].offsetY, bottom[1].y + bottom[1].height + bottom[1].offsetY - nodes[1].offsetY);
+});
+
+test("suppresses every edge touching a hidden node", () => {
+  const nodes = new Map([
+    ["visible", { hidden: false }],
+    ["hidden", { hidden: true }],
+    ["other", { hidden: false }],
+  ]);
+
+  assert.equal(edgeIsVisible({ from: "visible", to: "hidden" }, nodes), false);
+  assert.equal(edgeIsVisible({ from: "hidden", to: "other" }, nodes), false);
+  assert.equal(edgeIsVisible({ from: "visible", to: "other" }, nodes), true);
+});
