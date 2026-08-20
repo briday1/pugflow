@@ -371,6 +371,7 @@ function renderInspector() {
     inspectorContent.querySelector("details")?.insertAdjacentHTML("afterend", textControls("node", node.style));
     inspectorContent.querySelectorAll("details")[1]?.insertAdjacentHTML("afterend", imageControls(node));
     tidyInspectorSections();
+    inspectorContent.insertAdjacentHTML("beforeend", '<button type="button" class="inspector-primary-action" data-graph-add="flow">+ Add flow</button>');
     return;
   }
   const annotationSelections = selections.filter((item) => item.kind === "annotation");

@@ -345,6 +345,7 @@ dialog::backdrop { background: rgb(15 23 42 / .48); backdrop-filter: blur(2px); 
 .canvas-inspector .inspector-file-row label { margin: 0; }
 .canvas-inspector .inspector-file-row button { min-height: 29px; margin: 0; align-self: end; white-space: nowrap; }
 .canvas-inspector button:hover { border-color: var(--accent); background: var(--code-bg); }
+.canvas-inspector .inspector-primary-action { width: 100%; margin: 10px 0 0; border-color: var(--accent); color: var(--accent); font-weight: 750; }
 #diagram svg .entry.selected-element { filter: drop-shadow(0 0 3px var(--accent)); }
 #diagram svg .entry.selected-element .label-box, #diagram svg .connector.selected-element { stroke: var(--accent); }
 #diagram svg .connector.selected-element { filter: drop-shadow(0 0 3px var(--accent)); }
