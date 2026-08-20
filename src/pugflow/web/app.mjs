@@ -220,6 +220,15 @@ const canvas = document.querySelector("#diagram");
 const canvasShell = document.querySelector(".canvas-shell");
 const canvasZoom = document.querySelector("#canvas-zoom");
 const PNG_COPY_SCALE = 2;
+const canvasToast = document.querySelector("#canvas-toast");
+let canvasToastTimer = null;
+
+function showCanvasToast(message) {
+  canvasToast.textContent = message;
+  canvasToast.classList.add("show");
+  clearTimeout(canvasToastTimer);
+  canvasToastTimer = setTimeout(() => canvasToast.classList.remove("show"), 2200);
+}
 const inspector = document.querySelector("#canvas-inspector");
 const inspectorContent = document.querySelector("#inspector-content");
 const status = document.querySelector("#status");
@@ -1321,7 +1330,7 @@ document.querySelector("#copy-png").addEventListener("click", async () => {
   try {
     const png = await diagram.toPNGBlob(PNG_COPY_SCALE);
     await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
-    status.textContent = "PNG copied to the clipboard";
+    showCanvasToast("PNG copied to clipboard");
   } catch (error) {
     status.textContent = `Could not copy PNG: ${error.message}`;
   }
