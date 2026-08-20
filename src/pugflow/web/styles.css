@@ -285,8 +285,9 @@ details p { margin-bottom: 0; }
 }
 .preview-title button:hover { border-color: var(--accent); background: var(--code-bg); }
 .canvas-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+.canvas-actions > button, .new-menu > summary { display: flex; height: 35px; align-items: center; padding-block: 0; }
 .new-menu { position: relative; height: 35px; margin: 0; padding: 0; border: 0; font-size: 11px; }
-.new-menu > summary { display: flex; height: 35px; align-items: center; padding: 0 11px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--surface); font-size: 11px; font-weight: 650; line-height: 1; cursor: pointer; list-style: none; }
+.new-menu > summary { padding-inline: 10px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--surface); font-size: 11px; font-weight: 650; line-height: 1; cursor: pointer; list-style: none; }
 .new-menu > summary::-webkit-details-marker { display: none; }
 .new-menu > summary::after { content: " ▾"; font-size: 9px; }
 .new-menu > summary:hover, .new-menu[open] > summary { border-color: var(--accent); background: var(--code-bg); }
