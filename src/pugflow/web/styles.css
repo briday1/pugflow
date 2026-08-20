@@ -259,6 +259,7 @@ code { padding: 2px 4px; border-radius: 3px; color: var(--accent); background: v
 .editor-hint { display: flex; min-height: 16px; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 2px 0; color: var(--faint); font-size: 9px; }
 .editor-hint strong { color: var(--accent); font: 800 9px/1 Consolas, monospace; letter-spacing: .05em; }
 .status { height: 27px; margin: 0; padding: 7px 2px 0; font-size: 10px; }
+.status:empty { display: none; }
 .status.ready { color: #478168; }
 .status.error { color: #c2413d; }
 .docs-link { align-self: flex-start; margin: 2px 2px 0; color: var(--accent); font-size: 10px; font-weight: 650; text-decoration: none; }
@@ -284,10 +285,10 @@ details p { margin-bottom: 0; }
 .preview-title button:hover { border-color: var(--accent); background: var(--code-bg); }
 .canvas-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
 .new-menu { position: relative; margin: 0; padding: 0; border: 0; font-size: 11px; }
-.new-menu > summary { min-height: 31px; padding: 6px 11px; border: 1px solid var(--accent); border-radius: 7px; color: #fff; background: var(--accent); font-weight: 750; cursor: pointer; list-style: none; }
+.new-menu > summary { min-height: 31px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--surface); font-size: 11px; font-weight: 650; cursor: pointer; list-style: none; }
 .new-menu > summary::-webkit-details-marker { display: none; }
 .new-menu > summary::after { content: " ▾"; font-size: 9px; }
-.new-menu[open] > summary { background: var(--accent-hover); }
+.new-menu > summary:hover, .new-menu[open] > summary { border-color: var(--accent); background: var(--code-bg); }
 .new-menu > div { position: absolute; z-index: 12; top: calc(100% + 5px); right: 0; width: 130px; padding: 5px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--panel); box-shadow: 0 10px 28px var(--shadow); }
 .preview-title .new-menu button { display: block; width: 100%; min-height: 0; padding: 7px 9px; border: 0; background: transparent; text-align: left; }
 .preview-title .new-menu button:hover { color: var(--heading); background: var(--code-bg); }
