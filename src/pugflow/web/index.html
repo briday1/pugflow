@@ -41,8 +41,9 @@
             <button id="save-source" type="button">Save Pug + CSS</button>
           </div>
         </div>
-        <div class="source-tabs" role="tablist" aria-label="Source documents"><button class="active" data-source-tab="pug" role="tab" aria-selected="true">diagram.pug</button><button data-source-tab="css" role="tab" aria-selected="false">styles.css</button></div>
-        <p class="help">Write nested Pug-style flows and merges. Click to inspect; Ctrl-click to select multiple items. Use <code>.hidden</code> to preserve a node's layout slot.</p>
+        <div class="source-tabs" role="tablist" aria-label="Source documents"><button class="active" data-source-tab="pug" role="tab" aria-selected="true">Pug</button><button data-source-tab="css" role="tab" aria-selected="false">CSS</button></div>
+        <div class="source-files" id="source-files" aria-live="polite"></div>
+        <p class="help">Open a required <code>.pug</code> alone, or select its optional <code>.css</code> companion in the same dialog. You can add or replace either file later.</p>
         <div class="editor-shell">
           <div class="current-line" id="current-line" aria-hidden="true"></div>
           <div class="line-numbers" id="line-numbers" aria-hidden="true"></div>
@@ -62,12 +63,13 @@
       .color #111
     .line
       .color #111
-  .node
-    .id root
-    .label
-      | Root
-      | Multiline descriptions stay readable
+  graph
     .node
+      .id root
+      .label
+        | Root
+        | Multiline descriptions stay readable
+      .node
       .id a
       .hidden
       .label Child A

@@ -254,11 +254,20 @@ let activeDocument = "pug";
 const launchParams = new URLSearchParams(location.search);
 let pugSource = launchParams.get("demo") === "1" ? EXAMPLE : "#canvas";
 let cssSource = launchParams.get("demo") === "1" ? EXAMPLE_STYLES : "";
+let pugFileName = launchParams.get("pug_name") ?? (launchParams.get("demo") === "1" ? "demo.pug" : "Untitled.pug");
+let cssFileName = launchParams.get("css_name") ?? (launchParams.get("demo") === "1" ? "demo.css" : "");
 if (launchParams.get("project") === "1") {
   [pugSource, cssSource] = await Promise.all([
     fetch("/__project.pug").then((response) => response.ok ? response.text() : "#canvas"),
     fetch("/__project.css").then((response) => response.ok ? response.text() : ""),
   ]);
+}
+
+function updateSourceFileNames() {
+  const cssLabel = cssFileName || "not loaded (optional)";
+  document.querySelector("#source-files").textContent = `Pug: ${pugFileName} · CSS: ${cssLabel}`;
+  document.querySelector('[data-source-tab="pug"]').title = pugFileName;
+  document.querySelector('[data-source-tab="css"]').title = cssLabel;
 }
 
 function storeActiveDocument() {
@@ -847,13 +856,8 @@ function arrangeSelection(action) {
 }
 
 function filename(extension) {
-  const lines = source.value.split("\n");
-  const labelIndex = lines.findIndex((line) => /[a-zA-Z][\w-]*\.label(?:\s|$)/.test(line));
-  const inlineLabel = lines[labelIndex]?.match(/[a-zA-Z][\w-]*\.label\s+(.+)$/)?.[1];
-  const literalLabel = labelIndex >= 0 ? lines[labelIndex + 1]?.match(/^\s*\|\s?(.*)$/)?.[1] : null;
-  const label = launchParams.get("name") ?? inlineLabel ?? literalLabel ?? "diagram";
-  const name = label.replace(/\$[^$]+\$/g, "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "diagram";
-  return `${name}.${extension}`;
+  const stem = pugFileName.replace(/\.pug$/i, "") || "Untitled";
+  return `${stem}.${extension}`;
 }
 
 function selectSourceLine({ lineNumber }) {
@@ -1231,7 +1235,9 @@ sourceFile.addEventListener("change", async () => {
   const pug = files.find((file) => file.name.toLowerCase().endsWith(".pug"));
   const css = files.find((file) => file.name.toLowerCase().endsWith(".css"));
   if (pug) pugSource = await pug.text();
-  if (css) cssSource = await css.text();
+  if (pug) pugFileName = pug.name;
+  if (css) { cssSource = await css.text(); cssFileName = css.name; }
+  updateSourceFileNames();
   source.value = activeDocument === "pug" ? pugSource : cssSource;
   highlightSource();
   update();
@@ -1245,5 +1251,6 @@ document.querySelector("#copy-svg").addEventListener("click", async () => {
   status.textContent = "SVG copied to the clipboard";
 });
 
+updateSourceFileNames();
 highlightSource();
 update();

@@ -102,6 +102,7 @@ body.resizing-panel { cursor: col-resize; user-select: none; }
 .source-tabs { display: flex; gap: 2px; margin: 2px 0 8px; border-bottom: 1px solid var(--border); }
 .source-tabs button { padding: 7px 11px 6px; border: 0; border-bottom: 2px solid transparent; border-radius: 5px 5px 0 0; color: var(--muted); background: transparent; font: 600 11px/1.2 Consolas, monospace; }
 .source-tabs button.active { border-bottom-color: var(--accent); color: var(--heading); background: var(--surface-soft); }
+.source-files { overflow: hidden; margin: -3px 0 8px; color: var(--muted); font: 10px/1.4 Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .vim-toggle {
   min-height: 31px;
   padding: 5px 8px;

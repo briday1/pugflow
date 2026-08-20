@@ -333,7 +333,9 @@ function connectionAttributesFor(container, errors, extras = [], rejectInline = 
     && !nested.has(item.type)
     && !knownStyles.has(item.type)
     && !(container.type === "diagram" && item.type.startsWith("node.")))) {
-    errors.push(`Line ${child.lineNumber}: ".${child.type}" is not valid inside .${container.type}.`);
+    if (["diagram", "graph"].includes(container.type) && /^[a-zA-Z][\w-]*$/.test(child.type)) {
+      errors.push(`Line ${child.lineNumber}: unknown node style ".${child.type}". Open the companion CSS file that defines it, or add an @node ${child.type} definition.`);
+    } else errors.push(`Line ${child.lineNumber}: ".${child.type}" is not valid inside .${container.type}.`);
   }
   const presetChildren = container.children.filter((item) => lineStyles.has(item.type));
   if (presetChildren.length > 1) errors.push(`Line ${presetChildren[1].lineNumber}: only one reusable line class may be applied here.`);
