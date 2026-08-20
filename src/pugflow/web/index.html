@@ -42,7 +42,6 @@
           </div>
         </div>
         <div class="source-tabs" role="tablist" aria-label="Source documents"><button class="active" data-source-tab="pug" role="tab" aria-selected="true">Pug</button><button data-source-tab="css" role="tab" aria-selected="false">CSS</button></div>
-        <div class="source-files" id="source-files" aria-live="polite"></div>
         <p class="help">Open a required <code>.pug</code> alone, or select its optional <code>.css</code> companion in the same dialog. You can add or replace either file later.</p>
         <div class="editor-shell">
           <div class="current-line" id="current-line" aria-hidden="true"></div>
@@ -90,7 +89,7 @@
       <div class="panel-resizer" id="panel-resizer" role="separator" aria-label="Resize source panel" aria-controls="source-panel" aria-orientation="vertical" tabindex="0"></div>
 
       <section class="preview" aria-labelledby="preview-title">
-        <div class="preview-title"><div><span>CANVAS</span><h2 id="preview-title">Live preview</h2></div><div class="canvas-actions"><button id="add-diagram" type="button">+ Graph</button><button id="add-node" type="button">+ Node</button><button id="undo-canvas" type="button">Undo</button><button id="redo-canvas" type="button">Redo</button><button id="cleanup-diagram" type="button" title="Straighten small connector jogs by updating node offsets">Clean up</button></div></div>
+        <div class="preview-title"><div><span>CANVAS</span><h2 id="preview-title">Live preview</h2></div><div class="canvas-actions"><button id="add-diagram" type="button">+ Graph</button><button id="add-node" type="button">+ Node</button><button id="undo-canvas" type="button">Undo</button><button id="redo-canvas" type="button">Redo</button><button id="cleanup-diagram" type="button" title="Straighten small connector jogs by updating node offsets">Clean up</button><div class="zoom-controls" aria-label="Canvas zoom"><button id="zoom-out" type="button" title="Zoom out">−</button><select id="canvas-zoom" aria-label="Canvas zoom"><option value="50">50%</option><option value="75">75%</option><option value="100" selected>100%</option><option value="125">125%</option><option value="150">150%</option><option value="200">200%</option></select><button id="zoom-in" type="button" title="Zoom in">+</button><button id="zoom-fit" type="button">Fit</button></div></div></div>
         <div class="canvas-shell" tabindex="0"><div id="diagram"></div><section class="canvas-inspector" id="canvas-inspector" hidden><div class="inspector-drag-handle">Properties</div><div id="inspector-content"></div><div class="inspector-footer"><button id="delete-selection" class="danger" type="button">Delete selected</button><button id="close-inspector" type="button">Close</button></div></section></div>
       </section>
     </main>

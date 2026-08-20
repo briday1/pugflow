@@ -219,6 +219,8 @@ const currentLine = document.querySelector("#current-line");
 const vimBlockCursor = document.querySelector("#vim-block-cursor");
 const completionMenu = document.querySelector("#completion-menu");
 const canvas = document.querySelector("#diagram");
+const canvasShell = document.querySelector(".canvas-shell");
+const canvasZoom = document.querySelector("#canvas-zoom");
 const inspector = document.querySelector("#canvas-inspector");
 const inspectorContent = document.querySelector("#inspector-content");
 const status = document.querySelector("#status");
@@ -256,6 +258,7 @@ let pugSource = launchParams.get("demo") === "1" ? EXAMPLE : "#canvas";
 let cssSource = launchParams.get("demo") === "1" ? EXAMPLE_STYLES : "";
 let pugFileName = launchParams.get("pug_name") ?? (launchParams.get("demo") === "1" ? "demo.pug" : "Untitled.pug");
 let cssFileName = launchParams.get("css_name") ?? (launchParams.get("demo") === "1" ? "demo.css" : "");
+let canvasZoomPercent = 100;
 if (launchParams.get("project") === "1") {
   [pugSource, cssSource] = await Promise.all([
     fetch("/__project.pug").then((response) => response.ok ? response.text() : "#canvas"),
@@ -264,10 +267,12 @@ if (launchParams.get("project") === "1") {
 }
 
 function updateSourceFileNames() {
-  const cssLabel = cssFileName || "not loaded (optional)";
-  document.querySelector("#source-files").textContent = `Pug: ${pugFileName} · CSS: ${cssLabel}`;
-  document.querySelector('[data-source-tab="pug"]').title = pugFileName;
-  document.querySelector('[data-source-tab="css"]').title = cssLabel;
+  const pugTab = document.querySelector('[data-source-tab="pug"]');
+  const cssTab = document.querySelector('[data-source-tab="css"]');
+  pugTab.textContent = pugFileName === "Untitled.pug" ? "Pug" : pugFileName;
+  cssTab.textContent = cssFileName || "CSS";
+  pugTab.title = pugFileName;
+  cssTab.title = cssFileName || "No CSS file loaded";
 }
 
 function storeActiveDocument() {
@@ -900,6 +905,7 @@ function update() {
       onElementMove: persistElementMove,
       onElementClick: selectCanvasElement,
     });
+    applyCanvasZoom();
     paintSelections();
     renderInspector();
     status.textContent = `${result.nodes.length} blocks | ${result.edges.length} connections | ${result.format}`;
@@ -910,6 +916,35 @@ function update() {
     canvas.classList.add("preview-invalid");
     canvas.dataset.error = "Preview paused — fix the source error";
   }
+}
+
+function setCanvasZoom(percent) {
+  canvasZoomPercent = Math.max(25, Math.min(300, Math.round(percent / 5) * 5));
+  if (![...canvasZoom.options].some((option) => Number(option.value) === canvasZoomPercent)) {
+    canvasZoom.add(new Option(`${canvasZoomPercent}%`, String(canvasZoomPercent)));
+  }
+  canvasZoom.value = String(canvasZoomPercent);
+  applyCanvasZoom();
+}
+
+function applyCanvasZoom() {
+  const svg = canvas.querySelector("svg");
+  if (!svg) return;
+  const intrinsicWidth = Number(svg.getAttribute("width")) || 1;
+  const intrinsicHeight = Number(svg.getAttribute("height")) || 1;
+  svg.style.width = `${intrinsicWidth * canvasZoomPercent / 100}px`;
+  svg.style.height = `${intrinsicHeight * canvasZoomPercent / 100}px`;
+  svg.style.maxWidth = "none";
+}
+
+function fitCanvasZoom() {
+  const svg = canvas.querySelector("svg");
+  if (!svg) return;
+  const width = Number(svg.getAttribute("width")) || 1;
+  const height = Number(svg.getAttribute("height")) || 1;
+  const availableWidth = Math.max(1, canvasShell.clientWidth - 70);
+  const availableHeight = Math.max(1, canvasShell.clientHeight - 70);
+  setCanvasZoom(Math.min(availableWidth / width, availableHeight / height) * 100);
 }
 
 function setSource(value, recordHistory = true) {
@@ -1021,6 +1056,10 @@ document.querySelector("#save-source").addEventListener("click", async () => {
   }
 });
 document.querySelector("#cleanup-diagram").addEventListener("click", cleanupDiagram);
+canvasZoom.addEventListener("change", () => setCanvasZoom(Number(canvasZoom.value)));
+document.querySelector("#zoom-out").addEventListener("click", () => setCanvasZoom(canvasZoomPercent - 25));
+document.querySelector("#zoom-in").addEventListener("click", () => setCanvasZoom(canvasZoomPercent + 25));
+document.querySelector("#zoom-fit").addEventListener("click", fitCanvasZoom);
 document.querySelector("#add-diagram").addEventListener("click", () => openGraphBuilder("diagram"));
 document.querySelector("#add-node").addEventListener("click", () => openGraphBuilder(currentGraph.nodes.length ? "flow" : "diagram"));
 document.querySelector("#undo-canvas").addEventListener("click", undoCanvas);
