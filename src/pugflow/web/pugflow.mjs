@@ -93,12 +93,16 @@ function measureNodes(nodes, colors) {
     const below = node.annotations.filter((annotation) => annotation.position === "below").map((annotation) => ({ ...annotation, text: formatMath(annotation.text) }));
     const aboveHeight = above.length ? above.length * 16 + 7 : 0;
     const belowHeight = below.length ? below.length * 16 + 7 : 0;
-    return { ...node, width, height, lines, lineHeight, above, below, aboveHeight, belowHeight, layoutHeight: aboveHeight + height + belowHeight };
+    return { ...node, width, height, lines, lineHeight, above, below, aboveHeight, belowHeight, layoutHeight: height };
   });
 }
 
-function boxTop(node) { return node.y + node.aboveHeight; }
+function boxTop(node) { return node.y; }
 function centerY(node) { return boxTop(node) + node.height / 2; }
+function annotationY(node, annotation, index) {
+  if (annotation.position === "above") return boxTop(node) - 7 - (node.above.length - index - 1) * 16 + annotation.offsetY;
+  return boxTop(node) + node.height + 17 + index * 16 + annotation.offsetY;
+}
 function edgeColor(edge, colors) { return edge.color === "merge" ? colors.merge : edge.color ?? colors.label; }
 function dashArray(style) { return style === "dashed" ? "8 6" : style === "dotted" ? "2 5" : null; }
 
@@ -159,7 +163,7 @@ function addNode(svg, node, colors, defs) {
     const text = svgElement("text", {
       class: "block-annotation",
       x: node.x + node.width / 2 + annotation.offsetX,
-      y: node.y + 12 + index * 16 + annotation.offsetY,
+      y: annotationY(node, annotation, index),
       fill: annotation.color ?? colors.annotation,
       "font-family": annotation.fontFamily ?? colors.font,
       "font-size": annotation.fontSize, "font-weight": annotation.fontWeight,
@@ -266,7 +270,7 @@ function addNode(svg, node, colors, defs) {
     const annotationText = svgElement("text", {
       class: "block-annotation",
       x: node.x + node.width / 2 + annotation.offsetX,
-      y: top + node.height + 17 + index * 16 + annotation.offsetY,
+      y: annotationY(node, annotation, index),
       fill: annotation.color ?? colors.annotation,
       "font-family": annotation.fontFamily ?? colors.font,
       "font-size": annotation.fontSize, "font-weight": annotation.fontWeight,
@@ -630,10 +634,11 @@ function renderSvg(container, graph, options) {
     ...node.annotations.map((annotation) => node.x + node.width / 2 + annotation.offsetX),
   ]);
   const extentY = visualNodes.flatMap((node) => [
-    node.y,
-    node.y + node.layoutHeight,
-    node.y + node.labelOffsetY,
-    ...node.annotations.map((annotation) => node.y + annotation.offsetY),
+    boxTop(node),
+    boxTop(node) + node.height,
+    boxTop(node) + node.height / 2 + node.labelOffsetY,
+    ...node.above.map((annotation, index) => annotationY(node, annotation, index)),
+    ...node.below.map((annotation, index) => annotationY(node, annotation, index)),
   ]);
   const viewX = extentX.length ? Math.min(...extentX.map((value) => value - 60), ...groups.map((group) => group.x - 20)) : 0;
   const viewY = extentY.length ? Math.min(...extentY.map((value) => value - 40), ...groups.map((group) => group.y - 20)) : 0;
@@ -646,8 +651,8 @@ function renderSvg(container, graph, options) {
   const style = svgElement("style");
   style.textContent = `
     .diagram-background { fill: ${colors.background}; }
-    .label { font: 16px ${colors.font}; user-select: none; }
-    .block-annotation, .connection-annotation { font: 12px ${colors.font}; text-anchor: middle; user-select: none; }
+    .label { user-select: none; }
+    .block-annotation, .connection-annotation { text-anchor: middle; user-select: none; }
     .connection-annotation { paint-order: stroke; stroke: ${colors.background}; stroke-width: 4px; stroke-linejoin: round; }
     .subdiagram-label { font: 600 13px ${colors.font}; }
     .connector { fill: none; stroke-linecap: round; stroke-linejoin: round; }
