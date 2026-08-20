@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appendDiagramNode, appendFlowNode, appendMergeNode, indentSourceSelection, removeNodeReferences, removeNodeField, setAnnotationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
+import { appendDiagramNode, appendFlowNode, appendMergeNode, indentSourceSelection, removeNodeDeclaration, removeNodeReferences, removeNodeField, setAnnotationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 
 test("edits inspector-backed node and connector properties", () => {
@@ -164,4 +164,12 @@ test("removes merge and connection references before deleting a node", () => {
   const cleaned = removeNodeReferences(source, "two");
   assert.doesNotMatch(cleaned, /\.ref two|\.from two|\.to two/);
   assert.deepEqual(parseDiagram(cleaned).errors, []);
+});
+
+test("removes empty nested flow wrappers when deleting their last node", () => {
+  const source = "#canvas\n  graph\n    .node\n      .id root\n      .label Root\n      .flow\n        .direction right\n        .node\n          .id middle\n          .label Middle\n          .flow\n            .direction down\n            .ports shared\n            .node\n              .id last\n              .label Last";
+  const updated = removeNodeDeclaration(removeNodeReferences(source, "last"), 16);
+  assert.doesNotMatch(updated, /\.id last|^          \.flow$/m);
+  assert.match(updated, /\.id middle/);
+  assert.deepEqual(parseDiagram(updated).errors, []);
 });

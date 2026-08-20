@@ -393,6 +393,35 @@ export function removeNodeDeclaration(value, labelLineNumber) {
   const lines = value.split("\n");
   const range = nodeRange(lines, labelLineNumber);
   lines.splice(range.start, range.end - range.start);
+  const lineTypes = new Set(lines.map((line) => line.match(/^@line\s+([a-zA-Z][\w-]*)/)?.[1]).filter(Boolean));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let flowIndex = lines.length - 1; flowIndex >= 0; flowIndex -= 1) {
+      if (lines[flowIndex].trim() !== ".flow") continue;
+      const flowIndent = indentationWidth(lines[flowIndex]);
+      let flowEnd = flowIndex + 1;
+      while (flowEnd < lines.length && (!lines[flowEnd].trim() || indentationWidth(lines[flowEnd]) > flowIndent)) flowEnd += 1;
+      const childIndent = flowIndent + 2;
+      let hasNode = false;
+      for (let child = flowIndex + 1; child < flowEnd; child += 1) {
+        if (indentationWidth(lines[child]) !== childIndent) continue;
+        const type = lines[child].trim().match(/^\.([a-zA-Z][\w-]*)$/)?.[1];
+        if (!type || ["direction", "ports", "line"].includes(type) || lineTypes.has(type)) continue;
+        let childEnd = child + 1;
+        while (childEnd < flowEnd && indentationWidth(lines[childEnd]) > childIndent) childEnd += 1;
+        if (lines.some((line, index) => index > child && index < childEnd && indentationWidth(line) === childIndent + 2 && /^\.label(?:\s|$)/.test(line.trim()))) {
+          hasNode = true;
+          break;
+        }
+      }
+      if (!hasNode) {
+        lines.splice(flowIndex, flowEnd - flowIndex);
+        changed = true;
+        break;
+      }
+    }
+  }
   return lines.join("\n");
 }
 
