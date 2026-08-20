@@ -41,6 +41,11 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(headers.get_content_type(), "text/javascript")
         self.assertIn(b"Full feature tour", bundle)
 
+        status, headers, docs = self.get("/docs.html")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers.get_content_type(), "text/html")
+        self.assertIn(b"Complete offline reference", docs)
+
     def test_health_endpoint(self):
         status, headers, body = self.get("/healthz")
         self.assertEqual(status, 200)

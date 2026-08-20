@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Complete offline Pugflow documentation"><link rel="icon" href="data:,"><link rel="stylesheet" href="docs.css"><title>Pugflow documentation</title></head>
+<body><div class="layout">
+<nav><strong>Pugflow docs</strong><a href="#start">Getting started</a><a href="#structure">Canvas and graphs</a><a href="#nodes">Nodes</a><a href="#flows">Flows</a><a href="#merges">Merges</a><a href="#connect">Explicit connections</a><a href="#styles">Reusable CSS</a><a href="#text">Text and annotations</a><a href="#images">Images and shadows</a><a href="#hidden">Hiding items</a><a href="#canvas-ui">Canvas editing</a><a href="#editor">Source editor</a><a href="#files">Pug and CSS files</a><a href="#cli">Command line</a><a href="#reference">Property reference</a></nav>
+<main>
+<h1>Pugflow</h1><p class="lede">Complete offline reference for building, styling, editing, and exporting source-first diagrams.</p>
+
+<h2 id="start">Getting started</h2><p>A project needs one Pug file and may have one companion CSS file. Pug describes structure and local overrides; CSS holds reusable node, line, and annotation types. The smallest diagram is:</p>
+<pre><code>#canvas
+  graph
+    .node
+      .id start
+      .label Start</code></pre>
+<p>Indentation defines ownership. Use two spaces consistently. Blank lines and lines beginning with <code>//</code> are ignored. Save Pug and CSS to keep the project editable; SVG and PNG are export formats.</p>
+
+<h2 id="structure">Canvas and graphs</h2><p><code>#canvas</code> is the single document root. It holds canvas defaults and one or more <code>graph</code> blocks. A graph represents one connected flow and has one root node. Sibling graphs are disconnected; a graph nested inside another graph is visually contained by it.</p>
+<pre><code>#canvas
+  .background #ffffff
+  graph
+    .id main
+    .label Main process
+    .node
+      .id root
+      .label Root
+  graph
+    .id separate
+    .offset (0, 40)
+    .node
+      .label Independent graph</code></pre>
+<p>Graphs support <code>.id</code>, <code>.label</code>, <code>.offset</code>, <code>.fill</code>, <code>.color</code>, <code>.outline</code>, <code>.outline-style</code>, <code>.outline-width</code>, <code>.padding</code>, and <code>.hidden</code>. Frames are transparent by default.</p>
+
+<h2 id="nodes">Nodes</h2><p>A node may use the built-in <code>.node</code> type or any reusable <code>@node</code> type. Keep identity, label, layout, and appearance fields together beneath it.</p>
+<pre><code>.node
+  .id service
+  .label
+    | Service name
+    | Multiline description
+  .shape rounded
+  .width 220
+  .height auto
+  .fill #ffffff
+  .color #111827
+  .outline #94a3b8
+  .outline-style dashed
+  .outline-width 2
+  .align left</code></pre>
+<p>Directly nesting multiple nodes under a node creates a one-step fanout. Use a flow for a sequence so long pipelines do not require progressively deeper indentation.</p>
+
+<h2 id="flows">Flows</h2><p>A flow starts at the node containing it and connects its sibling node declarations in sequence. Its first node is placed from the parent’s rendered position, including manual offsets.</p>
+<pre><code>.node
+  .id start
+  .label Start
+  .flow
+    .direction right
+    .ports shared
+    .node
+      .id validate
+      .label Validate
+    .node
+      .id publish
+      .label Publish</code></pre>
+<p>Directions are <code>right</code>, <code>left</code>, <code>up</code>, and <code>down</code>. Ports are <code>shared</code> (the default) or <code>distributed</code>. Multiple flows from one node are an explicit fanout, including multiple flows in the same direction.</p>
+
+<h2 id="merges">Merges</h2><p>A merge is a graph-level relationship. Select two or more existing source IDs and define a new target node.</p>
+<pre><code>.merge
+  .direction right
+  .ports shared
+  .source
+    .ref api
+    .line
+      .label live
+  .source
+    .ref cache
+  .node
+    .id result
+    .label Combined result</code></pre>
+<p>The compact form <code>.from api cache</code> may replace explicit source blocks when individual incoming lines need no overrides. Source IDs must already be defined.</p>
+
+<h2 id="connect">Explicit connections</h2><p>Use <code>.connect</code> when both endpoint nodes already exist, including cross-graph and feedback connections.</p>
+<pre><code>.connect
+  .from archived
+  .from-direction up
+  .to active
+  .to-direction left
+  .ports shared
+  .feedback_line
+    .label feedback</code></pre>
+<p><code>.from-direction</code> controls the side used to leave the source; <code>.to-direction</code> independently controls the side used to enter the target.</p>
+
+<h2 id="styles">Reusable CSS</h2><p>Reusable definitions may be written above <code>#canvas</code> in Pug or in the optional CSS tab. CSS uses Pugflow at-rules rather than browser selectors:</p>
+<pre><code>@node card {
+  shape: rounded;
+  fill: #ffffff;
+  outline: #94a3b8;
+  shadow-color: #000000;
+}
+
+@line warning {
+  color: #dc2626;
+  stroke-style: dashed;
+  arrow-style: both;
+}
+
+@annotation note {
+  color: #2563eb;
+  font-style: italic;
+}</code></pre>
+<p>Use them as <code>.card</code> in place of <code>.node</code>, or as <code>.warning</code>/<code>.note</code> decorators. Local fields beneath an item override its reusable type. Names must be unique across all three definition kinds.</p>
+
+<h2 id="text">Text and annotations</h2><p>Nodes, annotations, and connection labels support <code>font-family</code>, <code>font-size</code>, <code>font-weight</code>, <code>font-style</code>, and <code>text-decoration</code>. Nodes additionally support <code>.align</code>.</p>
+<pre><code>.node
+  .label Important
+  .font-size 20
+  .font-weight bold
+  .font-style italic
+  .text-decoration underline
+  .annotation
+    .above
+      .font-size 13
+      .color #2563eb
+      | Annotation above
+    .below Annotation below</code></pre>
+<p>Inline <code>$...$</code> supports a portable TeX-like subset: Greek letters, common operators, superscripts/subscripts, <code>\sqrt{...}</code>, and <code>\frac{...}{...}</code>.</p>
+
+<h2 id="images">Images and shadows</h2><pre><code>.node
+  .label Profile
+  .image photos/profile.png
+  .image-width 96
+  .image-height 96
+  .image-fit contain
+  .image-opacity 1
+  .image-padding 8
+  .shadow-color #000000
+  .shadow-offset-x 4
+  .shadow-offset-y 5
+  .shadow-blur 8
+  .shadow-opacity 0.3</code></pre>
+<p>The node grows to contain the complete image plus padding. Image fit accepts <code>contain</code>, <code>cover</code>, or <code>fill</code>. Drag the image or its resize handles on the canvas to write image geometry and <code>.image-offset</code>.</p>
+
+<h2 id="hidden">Hiding items</h2><p>Add <code>.hidden</code> to a node, annotation, line, or graph. Hidden nodes remain in layout so before/after versions retain exact placement; their annotations and every touching connection are also hidden.</p>
+
+<h2 id="canvas-ui">Canvas editing</h2><ul><li>Click a node, label, annotation, connector, connection label, or graph to select it and jump to its source.</li><li>Ctrl-click (Cmd-click on macOS) toggles multi-selection.</li><li>Drag nodes, text, images, and graphs; hold Shift to constrain node/text movement to one axis.</li><li>The origin ghost shows the previous position while dragging.</li><li>Use node/line types first, then local inspector values as overrides.</li><li>Align or distribute multiple selected nodes or graphs from the inspector.</li><li><strong>Clean up</strong> straightens small connector jogs and writes corrected offsets.</li><li>Undo/Redo and Ctrl+Z/Ctrl+Y cover canvas source edits.</li><li>Zoom affects preview only; Fit frames the drawing. Exports use diagram bounds.</li><li><strong>+ Graph</strong> creates a disconnected graph, <strong>+ Flow</strong> adds from one source ID, and <strong>+ Merge</strong> combines source IDs.</li></ul>
+
+<h2 id="editor">Source editor</h2><p>The editor provides line numbers, current-line highlighting, syntax color, color pickers beside hex values, completions with Ctrl+Space, Tab/Shift+Tab indentation, and click-to-source navigation. Vim mode is off by default and supports Normal, Insert, and Visual modes, a block cursor, movement/edit/yank/paste/marks, <code>&gt;</code>/<code>&lt;</code> indentation, and Escape/Ctrl+[ /Ctrl+C to return to Normal mode.</p>
+
+<h2 id="files">Pug and CSS files</h2><p><strong>Open Pug/CSS…</strong> accepts a Pug file alone or a Pug and CSS together. The CSS file is optional unless custom types are referenced. Each editor tab shows its actual filename. <strong>Save Pug + CSS</strong> writes the pair together when supported, with a download fallback. Pugflow intentionally starts blank or with <code>--demo</code>; it does not restore browser state.</p>
+
+<h2 id="cli">Command line</h2><pre><code>pugflow                         # blank GUI
+pugflow --demo                  # GUI with feature tour
+pugflow --vim                   # GUI with Vim enabled
+pugflow --gui diagram.pug --css diagram.css
+pugflow diagram.pug
+pugflow diagram.pug --css styles.css --output diagram.png --scale 2
+pugflow --no-browser --host 127.0.0.1 --port 4173</code></pre>
+<p>Direct rendering uses an installed Edge, Chrome, or Chromium browser. Set <code>PUGFLOW_BROWSER</code> if automatic discovery cannot find it.</p>
+
+<h2 id="reference">Property reference</h2>
+<table><thead><tr><th>Scope</th><th>Fields</th></tr></thead><tbody>
+<tr><td>Canvas</td><td><code>background</code>, <code>font</code>, nested <code>defaults.node</code>, <code>defaults.line</code>, <code>defaults.annotation</code></td></tr>
+<tr><td>Graph</td><td><code>id</code>, <code>label</code>, <code>offset</code>, <code>fill</code>, <code>color</code>, <code>outline</code>, <code>outline-style</code>, <code>outline-width</code>, <code>padding</code>, <code>hidden</code></td></tr>
+<tr><td>Node</td><td><code>id</code>, <code>label</code>, <code>shape</code>, <code>fill</code>, <code>color</code>, <code>outline</code>, <code>outline-style</code>, <code>outline-width</code>, <code>width</code>, <code>height</code>, <code>align</code>, <code>offset</code>, <code>label-offset</code>, typography, image, shadow, <code>hidden</code></td></tr>
+<tr><td>Line</td><td><code>color</code>, <code>width</code>, <code>stroke-style</code>, <code>arrow-style</code>, <code>label</code>, <code>label-position</code>, <code>label-offset</code>, typography, <code>hidden</code></td></tr>
+<tr><td>Annotation</td><td><code>color</code>, <code>offset</code>, typography, <code>hidden</code></td></tr>
+<tr><td>Typography</td><td><code>font-family</code>, <code>font-size</code>, <code>font-weight</code>, <code>font-style</code>, <code>text-decoration</code></td></tr>
+<tr><td>Image</td><td><code>image</code>, <code>image-width</code>, <code>image-height</code>, <code>image-fit</code>, <code>image-opacity</code>, <code>image-padding</code>, <code>image-offset</code></td></tr>
+<tr><td>Shadow</td><td><code>shadow-color</code>, <code>shadow-offset-x</code>, <code>shadow-offset-y</code>, <code>shadow-blur</code>, <code>shadow-opacity</code></td></tr>
+</tbody></table>
+<p class="note">This page is bundled with Pugflow and requires no internet connection. It documents the installed application version.</p>
+</main></div></body></html>
