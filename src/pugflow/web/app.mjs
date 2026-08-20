@@ -191,11 +191,9 @@ const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the p
           .direction right
           .output_node
             .output_line
-            .offset (-85.9, 0)
             .label Final output
           .node
             .id archived
-            .offset (-177.8, 0)
             .label Archived
 
     .connect

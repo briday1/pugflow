@@ -22,7 +22,7 @@ test("the built-in feature tour remains valid", () => {
   assert.ok(result.edges.filter((edge) => edge.kind === "merge").every((edge) => edge.portDistribution === "shared"));
   const parsed = new Map(result.nodes.map((node) => [node.id, node]));
   assert.deepEqual([parsed.get("three").offsetX, parsed.get("three").offsetY], [-363.1, -112]);
-  assert.deepEqual([parsed.get("archived").offsetX, parsed.get("archived").offsetY], [-177.8, 0]);
+  assert.deepEqual([parsed.get("archived").offsetX, parsed.get("archived").offsetY], [0, 0]);
   const placed = new Map(layoutDiagram(result.nodes, result.edges).nodes.map((node) => [node.id, node]));
   assert.equal(placed.get("three").rank, placed.get("two").rank);
   assert.ok(placed.get("three").y > placed.get("two").y);
