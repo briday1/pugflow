@@ -219,10 +219,10 @@ const completionMenu = document.querySelector("#completion-menu");
 const canvas = document.querySelector("#diagram");
 const canvasShell = document.querySelector(".canvas-shell");
 const canvasZoom = document.querySelector("#canvas-zoom");
+const PNG_EXPORT_SCALE = 2;
 const inspector = document.querySelector("#canvas-inspector");
 const inspectorContent = document.querySelector("#inspector-content");
 const status = document.querySelector("#status");
-const scale = document.querySelector("#scale");
 const sourceFile = document.querySelector("#source-file");
 const nodeImageFile = document.querySelector("#node-image-file");
 const themeSelect = document.querySelector("#theme");
@@ -1080,9 +1080,14 @@ document.querySelector("#add-diagram").addEventListener("click", () => openGraph
 document.querySelector("#add-node").addEventListener("click", () => openGraphBuilder(currentGraph.nodes.length ? "flow" : "diagram"));
 document.querySelector("#add-flow").addEventListener("click", () => openGraphBuilder("flow"));
 document.querySelector("#add-merge").addEventListener("click", () => openGraphBuilder("merge", []));
-const newMenu = document.querySelector(".new-menu");
-newMenu.addEventListener("click", (event) => { if (event.target.closest("button")) newMenu.open = false; });
-document.addEventListener("pointerdown", (event) => { if (newMenu.open && !newMenu.contains(event.target)) newMenu.open = false; });
+const toolbarMenus = [...document.querySelectorAll(".new-menu, .export-menu")];
+toolbarMenus.forEach((menu) => menu.addEventListener("click", (event) => {
+  if (event.target.closest("button")) menu.open = false;
+  else if (event.target.closest("summary")) toolbarMenus.filter((other) => other !== menu).forEach((other) => { other.open = false; });
+}));
+document.addEventListener("pointerdown", (event) => toolbarMenus.forEach((menu) => {
+  if (menu.open && !menu.contains(event.target)) menu.open = false;
+}));
 document.querySelector("#undo-canvas").addEventListener("click", undoCanvas);
 document.querySelector("#redo-canvas").addEventListener("click", redoCanvas);
 document.querySelector(".preview").addEventListener("keydown", (event) => {
@@ -1312,7 +1317,17 @@ sourceFile.addEventListener("change", async () => {
   sourceFile.value = "";
 });
 document.querySelector("#save-svg").addEventListener("click", () => diagram?.saveSVG(filename("svg")));
-document.querySelector("#save-png").addEventListener("click", () => diagram?.savePNG(filename("png"), Number(scale.value)));
+document.querySelector("#save-png").addEventListener("click", () => diagram?.savePNG(filename("png"), PNG_EXPORT_SCALE));
+document.querySelector("#copy-png").addEventListener("click", async () => {
+  if (!diagram) return;
+  try {
+    const png = await diagram.toPNGBlob(PNG_EXPORT_SCALE);
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+    status.textContent = "PNG copied to the clipboard";
+  } catch (error) {
+    status.textContent = `Could not copy PNG: ${error.message}`;
+  }
+});
 document.querySelector("#copy-svg").addEventListener("click", async () => {
   if (!diagram) return;
   await navigator.clipboard.writeText(diagram.toSVGString());

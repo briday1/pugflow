@@ -846,7 +846,7 @@ export function createBlockDiagram(container, source, options = {}) {
   function toSVGString() { if (!currentSvg) render(); return serialize(currentSvg); }
   function saveSVG(filename = "diagram.svg") { download(new Blob([toSVGString()], { type: "image/svg+xml;charset=utf-8" }), filename); }
   function saveSource(filename = "diagram.pug") { download(new Blob([currentSource], { type: "text/plain;charset=utf-8" }), filename); }
-  function savePNG(filename = "diagram.png", scale = 2) {
+  function toPNGBlob(scale = 2) {
     return new Promise((resolve, reject) => {
       if (!currentSvg) render();
       const url = URL.createObjectURL(new Blob([toSVGString()], { type: "image/svg+xml;charset=utf-8" }));
@@ -862,17 +862,17 @@ export function createBlockDiagram(container, source, options = {}) {
         canvas.toBlob((png) => {
           URL.revokeObjectURL(url);
           if (!png) return reject(new Error("The browser could not create the PNG."));
-          download(png, filename);
-          resolve();
+          resolve(png);
         }, "image/png");
       };
       image.onerror = () => { URL.revokeObjectURL(url); reject(new Error("The browser could not rasterize the SVG.")); };
       image.src = url;
     });
   }
+  async function savePNG(filename = "diagram.png", scale = 2) { download(await toPNGBlob(scale), filename); }
   render();
   return {
-    render, toSVGString, saveSVG, savePNG, saveSource,
+    render, toSVGString, toPNGBlob, saveSVG, savePNG, saveSource,
     get source() { return currentSource; },
     get layout() { return currentLayout; },
   };
