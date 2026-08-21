@@ -321,7 +321,12 @@ function nodeAnnotationControls(node) {
     const target = `data-node-annotation-line="${node.lineNumber}" data-node-annotation-position="${position}"`;
     return `<details class="annotation-editor"><summary>${position === "below" ? "Below" : "Above"}</summary><label>Text<textarea data-node-annotation-text ${target} rows="2">${escapeHtml(annotation.text)}</textarea></label><label>Color<span class="inspector-color"><input type="color" data-node-annotation-color-picker="${position}" value="${hex}"><input ${target} data-node-annotation-field="color" value="${escapeHtml(annotation.color ?? "")}" placeholder="CSS color"></span></label><label>Font family<input ${target} data-node-annotation-field="font-family" value="${escapeHtml(annotation.fontFamily ?? "")}" placeholder="inherit"></label><div class="inspector-grid"><label>Size<input ${target} data-node-annotation-field="font-size" type="number" min="1" value="${annotation.fontSize ?? 12}"></label><label>Weight<select ${target} data-node-annotation-field="font-weight">${["normal","500","600","bold"].map((v) => option(v, annotation.fontWeight ?? "normal")).join("")}</select></label><label>Style<select ${target} data-node-annotation-field="font-style">${["normal","italic","oblique"].map((v) => option(v, annotation.fontStyle ?? "normal")).join("")}</select></label><label>Decoration<select ${target} data-node-annotation-field="text-decoration">${["none","underline","line-through","overline"].map((v) => option(v, annotation.textDecoration ?? "none")).join("")}</select></label></div></details>`;
   }).join("");
-  return `<details><summary>Annotations</summary>${fields}</details>`;
+  const fieldsWithVisibility = fields.replace(/<summary>(Above|Below)<\/summary>/g, (_match, label) => {
+    const position = label.toLowerCase();
+    const annotation = node.annotations.find((item) => item.position === position);
+    return `<summary>${label}</summary><label class="inspector-switch inspector-switch-compact"><span>Hidden</span><input data-node-annotation-hidden type="checkbox" data-node-annotation-line="${node.lineNumber}" data-node-annotation-position="${position}" data-annotation-line="${annotation?.lineNumber ?? ""}"${annotation?.hidden ? " checked" : ""}></label>`;
+  });
+  return `<details><summary>Annotations</summary>${fieldsWithVisibility}</details>`;
 }
 
 function imageControls(node = null) {
@@ -1272,6 +1277,14 @@ inspectorContent.addEventListener("change", (event) => {
   }
   if (event.target.matches("[data-node-annotation-field]")) {
     setSource(setNodeAnnotationField(source.value, Number(event.target.dataset.nodeAnnotationLine), event.target.dataset.nodeAnnotationPosition, event.target.dataset.nodeAnnotationField, event.target.value));
+    return;
+  }
+  if (event.target.matches("[data-node-annotation-hidden]")) {
+    const annotationLine = Number(event.target.dataset.annotationLine);
+    const nextSource = event.target.checked
+      ? setNodeAnnotationField(source.value, Number(event.target.dataset.nodeAnnotationLine), event.target.dataset.nodeAnnotationPosition, "hidden", "")
+      : annotationLine > 0 ? removeDeclarationField(source.value, annotationLine, "hidden") : source.value;
+    if (nextSource !== source.value) setSource(nextSource);
     return;
   }
   if (event.target.matches("[data-annotation-text]")) {
