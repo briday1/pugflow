@@ -2,7 +2,7 @@ import { createBlockDiagram, parseDiagram } from "./pugflow.mjs";
 import { appendDiagramNode, appendFlowNode, appendMergeNode, ensureGraphComponents, indentSourceSelection, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, setAnnotationOffsetField, setAnnotationText, setDeclarationOffsetField, setNodeAnnotationField, setNodeAnnotationText, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
 import { attachVimMode } from "./vim-mode.mjs";
 import { attachTextEditor } from "./text-editor.mjs";
-import { arrangeNodeOffsets, cleanupAlignmentOffsets } from "./layout.mjs";
+import { arrangeNodeOffsets, cleanupAlignmentOffsets, independentMoveOffsets } from "./layout.mjs";
 import { pugDefinitionsToStyleSheet } from "./style-sheet.mjs";
 
 const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the preview update
@@ -850,11 +850,11 @@ function persistElementMove(change) {
   const draggedSelection = selections.find((item) => item.selectionKey === change.selectionKey);
   if (draggedSelection && selections.length > 1 && !["node-image", "node-image-resize", "node-label", "block-annotation"].includes(change.kind)) {
     let nextSource = source.value;
-    const operations = selections.map((selection) => {
-      if (selection.kind === "node") {
-        const node = diagram?.layout?.nodes.find((candidate) => candidate.id === selection.id);
-        return node && { line: node.lineNumber, apply: (value) => setNodeOffsetField(value, node.lineNumber, "offset", (node.offsetX ?? 0) + change.dx, (node.offsetY ?? 0) + change.dy) };
-      }
+    const selectedNodeIds = selections.filter((selection) => selection.kind === "node").map((selection) => selection.id);
+    const nodeMoves = independentMoveOffsets(diagram?.layout?.nodes ?? [], diagram?.layout?.edges ?? [], selectedNodeIds, change.dx, change.dy)
+      .map((node) => ({ line: node.lineNumber, apply: (value) => setNodeOffsetField(value, node.lineNumber, "offset", node.offsetX, node.offsetY) }));
+    const operations = [...nodeMoves, ...selections.map((selection) => {
+      if (selection.kind === "node") return null;
       if (selection.kind === "graph") {
         const graph = diagram?.layout?.groups.find((candidate) => candidate.id === selection.id);
         return graph && { line: graph.lineNumber, apply: (value) => setDeclarationOffsetField(value, graph.lineNumber, (graph.offsetX ?? 0) + change.dx, (graph.offsetY ?? 0) + change.dy) };
@@ -864,7 +864,7 @@ function persistElementMove(change) {
         return edge && { line: edge.lineNumber, apply: (value) => setStructuralOffsetField(value, edge.lineNumber, (edge.labelOffsetX ?? 0) + change.dx, (edge.labelOffsetY ?? 0) + change.dy) };
       }
       return null;
-    }).filter(Boolean).sort((a, b) => b.line - a.line);
+    }).filter(Boolean)].sort((a, b) => b.line - a.line);
     operations.forEach((operation) => { nextSource = operation.apply(nextSource); });
     if (operations.length) setSource(nextSource);
     return;
@@ -873,7 +873,11 @@ function persistElementMove(change) {
     setSource(setDeclarationOffsetField(source.value, change.lineNumber, nextX, nextY));
     return;
   }
-  if (["node", "node-label", "node-image"].includes(change.kind)) {
+  if (change.kind === "node") {
+    applyNodePositions(independentMoveOffsets(diagram?.layout?.nodes ?? [], diagram?.layout?.edges ?? [], [change.id], change.dx, change.dy));
+    return;
+  }
+  if (["node-label", "node-image"].includes(change.kind)) {
     const prefix = change.kind === "node" ? "offset" : change.kind === "node-image" ? "image-offset" : "label-offset";
     setSource(setNodeOffsetField(source.value, change.lineNumber, prefix, nextX, nextY));
     return;

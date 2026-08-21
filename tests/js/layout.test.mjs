@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
-import { arrangeNodeOffsets, cleanupAlignmentOffsets, inheritedFlowOffsets, layoutDiagram } from "../../src/pugflow/web/layout.mjs";
+import { arrangeNodeOffsets, cleanupAlignmentOffsets, independentMoveOffsets, inheritedFlowOffsets, layoutDiagram } from "../../src/pugflow/web/layout.mjs";
 import { connectionPath, connectionPathAvoidingNodes, edgeIsVisible } from "../../src/pugflow/web/pugflow.mjs";
 
 test("places parallel flows and merges in successive columns", () => {
@@ -117,6 +117,26 @@ test("positions flow descendants from their parents' rendered offsets", () => {
   assert.deepEqual(offsets.get("child"), { x: 30, y: -20 });
   assert.deepEqual(offsets.get("grandchild"), { x: 35, y: -13 });
   assert.deepEqual(offsets.get("merge"), { x: 0, y: 0 });
+});
+
+test("counter-adjusts descendants so manual node moves remain independent", () => {
+  const nodes = [
+    { id: "root", lineNumber: 1, offsetX: 30, offsetY: -20 },
+    { id: "child", lineNumber: 2, offsetX: 5, offsetY: 7 },
+    { id: "grandchild", lineNumber: 3, offsetX: 0, offsetY: 0 },
+  ];
+  const edges = [
+    { kind: "branch", from: "root", to: "child" },
+    { kind: "branch", from: "child", to: "grandchild" },
+  ];
+  assert.deepEqual(independentMoveOffsets(nodes, edges, ["root"], 10, 4).map(({ id, offsetX, offsetY }) => ({ id, offsetX, offsetY })), [
+    { id: "root", offsetX: 40, offsetY: -16 },
+    { id: "child", offsetX: -5, offsetY: 3 },
+  ]);
+  assert.deepEqual(independentMoveOffsets(nodes, edges, ["root", "child"], 10, 4).map(({ id, offsetX, offsetY }) => ({ id, offsetX, offsetY })), [
+    { id: "root", offsetX: 40, offsetY: -16 },
+    { id: "grandchild", offsetX: -10, offsetY: -4 },
+  ]);
 });
 
 test("routes explicit connections through independently selected endpoint directions", () => {
