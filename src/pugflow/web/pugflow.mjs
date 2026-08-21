@@ -513,7 +513,7 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
     "aria-label": "Edit connection",
   });
   svg.append(path);
-  if (edge.label) {
+  if (edge.label && !edge.labelHidden) {
     const offset = edge.labelPosition === "below" ? 16 : -8;
     const label = svgElement("text", {
       class: "connection-annotation",
@@ -581,10 +581,10 @@ function addDiagramFrame(svg, group, colors) {
   frame.append(svgElement("rect", {
     class: "subdiagram-frame", x: group.x, y: group.y, width: group.right - group.x, height: group.bottom - group.y,
     rx: 12, fill: group.fill, stroke: group.outline, "stroke-width": group.outlineWidth,
-    "stroke-dasharray": dashArray(group.outlineStyle),
+    "stroke-dasharray": dashArray(group.outlineStyle), "pointer-events": "stroke",
   }));
   if (group.label) {
-    const label = svgElement("text", { class: "subdiagram-label", x: group.x + 12, y: group.y + 17, fill: group.color ?? colors.text, "data-line": group.lineNumber, "data-id": group.id, "data-select-kind": "graph", "data-selection-key": `graph:${group.id}` });
+    const label = svgElement("text", { class: "subdiagram-label", x: group.x + 12, y: group.y + 17, fill: group.color ?? colors.text, "pointer-events": "none" });
     label.textContent = group.label;
     frame.append(label);
   }

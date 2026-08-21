@@ -8,7 +8,7 @@ const PORT_DISTRIBUTIONS = new Set(["shared", "distributed"]);
 const LINE_STYLES = new Set(["solid", "dashed", "dotted"]);
 const LINE_FIELDS = new Set([
   "line.arrow-style", "line.color", "line.stroke-style", "line.width",
-  "line.label", "line.label-position", "line.label-offset", "line.use", "line.hidden",
+  "line.label", "line.label-position", "line.label-offset", "line.label-hidden", "line.use", "line.hidden",
   "line.font-family", "line.font-size", "line.font-weight", "line.font-style", "line.text-decoration",
 ]);
 const LINE_DEFINITION_FIELDS = new Map([
@@ -18,6 +18,7 @@ const LINE_DEFINITION_FIELDS = new Map([
   ["width", "line.width"],
   ["label-position", "line.label-position"],
   ["label-offset", "line.label-offset"],
+  ["label-hidden", "line.label-hidden"],
   ["hidden", "line.hidden"],
   ["font-family", "line.font-family"], ["font-size", "line.font-size"],
   ["font-weight", "line.font-weight"], ["font-style", "line.font-style"],
@@ -311,6 +312,7 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
       : defaults.labelLineNumber ?? lineNumber,
     labelOffsetX: labelOffset.x,
     labelOffsetY: labelOffset.y,
+    labelHidden: effective["line.label-hidden"] !== undefined && ![false, "false", "no", "0"].includes(effective["line.label-hidden"]),
     layoutDirection: FLOW_DIRECTIONS.has(layoutDirection) ? layoutDirection : "right",
     portDistribution: PORT_DISTRIBUTIONS.has(portDistribution) ? portDistribution : "shared",
     hidden: effective["line.hidden"] !== undefined && ![false, "false", "no", "0"].includes(effective["line.hidden"]),

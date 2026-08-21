@@ -407,6 +407,7 @@ test("parses persistent node, annotation, and connection-label offsets", () => {
     "    .entry",
     "      .line.label moved",
     "      .line.label-offset (7, -2)",
+    "      .line.label-hidden",
     "      node.label Child",
   ].join("\n");
   const result = parseDiagram(source);
@@ -420,6 +421,7 @@ test("parses persistent node, annotation, and connection-label offsets", () => {
   assert.equal(result.nodes[0].annotations[0].offsetY, 6);
   assert.equal(result.edges[0].labelOffsetX, 7);
   assert.equal(result.edges[0].labelOffsetY, -2);
+  assert.equal(result.edges[0].labelHidden, true);
 });
 
 test("rejects non-tuple offsets", () => {

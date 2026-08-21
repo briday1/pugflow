@@ -324,9 +324,10 @@ function nodeAnnotationControls(node) {
   const fieldsWithVisibility = fields.replace(/<summary>(Above|Below)<\/summary>/g, (_match, label) => {
     const position = label.toLowerCase();
     const annotation = node.annotations.find((item) => item.position === position);
-    return `<summary>${label}</summary><label class="inspector-switch inspector-switch-compact"><span>Hidden</span><input data-node-annotation-hidden type="checkbox" data-node-annotation-line="${node.lineNumber}" data-node-annotation-position="${position}" data-annotation-line="${annotation?.lineNumber ?? ""}"${annotation?.hidden ? " checked" : ""}></label>`;
+    return `<summary><span>${label}</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-node-annotation-hidden type="checkbox" data-node-annotation-line="${node.lineNumber}" data-node-annotation-position="${position}" data-annotation-line="${annotation?.lineNumber ?? ""}"${annotation?.hidden ? " checked" : ""}></label></summary>`;
   });
-  return `<details><summary>Annotations</summary>${fieldsWithVisibility}</details>`;
+  const allHidden = node.annotations.length && node.annotations.every((annotation) => annotation.hidden);
+  return `<details class="annotations-editor"><summary><span>Annotations</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-node-annotations-hidden type="checkbox"${allHidden ? " checked" : ""}></label></summary>${fieldsWithVisibility}</details>`;
 }
 
 function imageControls(node = null) {
@@ -412,6 +413,8 @@ function renderInspector() {
   const lineTypes = [...`${pugSource}\n${cssSource}`.matchAll(/^@line\s+([\w-]+)/gm)].map((match) => match[1]);
   const sharedType = edges.every((candidate) => candidate?.lineType === edge?.lineType) ? edge?.lineType ?? "" : "";
   inspectorContent.innerHTML = `<h3>${edges.length} connector${edges.length === 1 ? "" : "s"}</h3><label>Type<select data-line-type><option value="">Choose…</option>${lineTypes.map((name) => `<option value="${escapeHtml(name)}"${sharedType === name ? " selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><details open><summary>Line appearance <small>local overrides</small></summary>${colorControl("Color", "color", edge?.color, "line")}<label>Width<input data-line-field="width" type="number" min="0.5" step="0.5" value="${edge?.width ?? 2}"></label><label>Stroke<select data-line-field="stroke-style">${["solid","dashed","dotted"].map((value) => `<option${edge?.style === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Arrow<select data-line-field="arrow-style">${["forward","backward","both","none"].map((value) => `<option${edge?.direction === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details>`;
+  inspectorContent.querySelector("h3")?.insertAdjacentHTML("beforeend", `<label class="inspector-switch inspector-switch-heading"><span>Hidden</span><input data-line-hidden type="checkbox"${edges.length && edges.every((item) => item?.hidden) ? " checked" : ""}></label>`);
+  inspectorContent.insertAdjacentHTML("beforeend", `<details><summary><span>Annotation</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-line-annotation-hidden type="checkbox"${edges.length && edges.every((item) => item?.labelHidden) ? " checked" : ""}></label></summary><label>Text<input data-line-field="label" value="${escapeHtml(edge?.label ?? "")}"></label></details>`);
   inspectorContent.insertAdjacentHTML("beforeend", textControls("line", edge ?? {}));
 }
 
@@ -1148,6 +1151,7 @@ document.querySelector(".preview").addEventListener("keydown", (event) => {
 document.querySelector("#close-inspector").addEventListener("click", () => { selections = []; paintSelections(); renderInspector(); });
 document.querySelector("#delete-selection").addEventListener("click", deleteCanvasSelection);
 inspectorContent.addEventListener("click", (event) => {
+  if (event.target.matches("summary input[type='checkbox']")) event.stopPropagation();
   const graphMode = event.target.closest("[data-graph-add]")?.dataset.graphAdd;
   if (graphMode) {
     openGraphBuilder(graphMode, selectedNodes().map((node) => node.id));
@@ -1287,6 +1291,16 @@ inspectorContent.addEventListener("change", (event) => {
     if (nextSource !== source.value) setSource(nextSource);
     return;
   }
+  if (event.target.matches("[data-node-annotations-hidden]")) {
+    let nextSource = source.value;
+    [...nodes[0].annotations].sort((a, b) => b.lineNumber - a.lineNumber).forEach((annotation) => {
+      nextSource = event.target.checked
+        ? setStructuralField(nextSource, annotation.lineNumber, "hidden", "")
+        : removeDeclarationField(nextSource, annotation.lineNumber, "hidden");
+    });
+    if (nextSource !== source.value) setSource(nextSource);
+    return;
+  }
   if (event.target.matches("[data-annotation-text]")) {
     setSource(setAnnotationText(source.value, Number(event.target.dataset.annotationText), event.target.value));
     return;
@@ -1345,6 +1359,23 @@ inspectorContent.addEventListener("change", (event) => {
     return;
   }
   const lineField = event.target.dataset.lineField;
+  if (event.target.matches("[data-line-hidden], [data-line-annotation-hidden]")) {
+    const field = event.target.matches("[data-line-hidden]") ? "hidden" : "label-hidden";
+    const operations = selections.filter((item) => item.kind === "line").map((item) => {
+      const selectedEdge = diagram.layout.edges.find((candidate) => candidate.from === item.from && candidate.to === item.to);
+      const target = currentGraph.nodes.find((candidate) => candidate.id === selectedEdge.to);
+      return { edge: selectedEdge, lineNumber: selectedEdge.kind === "branch" ? target.lineNumber : selectedEdge.lineNumber };
+    }).sort((a, b) => b.lineNumber - a.lineNumber);
+    let nextSource = source.value;
+    operations.forEach(({ edge: selectedEdge, lineNumber }) => {
+      const sourceField = `line.${field}`;
+      nextSource = event.target.checked
+        ? selectedEdge.kind === "branch" ? setNodeField(nextSource, lineNumber, sourceField, "") : setStructuralField(nextSource, lineNumber, sourceField, "")
+        : selectedEdge.kind === "branch" ? removeNodeField(nextSource, lineNumber, sourceField) : removeDeclarationField(nextSource, lineNumber, sourceField);
+    });
+    setSource(nextSource);
+    return;
+  }
   if (event.target.matches("[data-line-type]")) {
     const lineType = event.target.value;
     if (!lineType) return;
