@@ -820,6 +820,28 @@ function acceptCompletion() {
 function persistElementMove(change) {
   const nextX = change.currentX + change.dx;
   const nextY = change.currentY + change.dy;
+  const draggedSelection = selections.find((item) => item.selectionKey === change.selectionKey);
+  if (draggedSelection && selections.length > 1 && !["node-image", "node-image-resize", "node-label", "block-annotation"].includes(change.kind)) {
+    let nextSource = source.value;
+    const operations = selections.map((selection) => {
+      if (selection.kind === "node") {
+        const node = diagram?.layout?.nodes.find((candidate) => candidate.id === selection.id);
+        return node && { line: node.lineNumber, apply: (value) => setNodeOffsetField(value, node.lineNumber, "offset", (node.offsetX ?? 0) + change.dx, (node.offsetY ?? 0) + change.dy) };
+      }
+      if (selection.kind === "graph") {
+        const graph = diagram?.layout?.groups.find((candidate) => candidate.id === selection.id);
+        return graph && { line: graph.lineNumber, apply: (value) => setDeclarationOffsetField(value, graph.lineNumber, (graph.offsetX ?? 0) + change.dx, (graph.offsetY ?? 0) + change.dy) };
+      }
+      if (selection.kind === "line") {
+        const edge = diagram?.layout?.edges.find((candidate) => candidate.from === selection.from && candidate.to === selection.to && candidate.lineNumber === selection.lineNumber);
+        return edge && { line: edge.lineNumber, apply: (value) => setStructuralOffsetField(value, edge.lineNumber, (edge.labelOffsetX ?? 0) + change.dx, (edge.labelOffsetY ?? 0) + change.dy) };
+      }
+      return null;
+    }).filter(Boolean).sort((a, b) => b.line - a.line);
+    operations.forEach((operation) => { nextSource = operation.apply(nextSource); });
+    if (operations.length) setSource(nextSource);
+    return;
+  }
   if (change.kind === "graph") {
     setSource(setDeclarationOffsetField(source.value, change.lineNumber, nextX, nextY));
     return;
@@ -1358,6 +1380,9 @@ sourceFile.addEventListener("change", async () => {
   if (pug) pugSource = await pug.text();
   if (pug) pugFileName = pug.name;
   if (css) { cssSource = await css.text(); cssFileName = css.name; }
+  canvasUndo = [];
+  canvasRedo = [];
+  selections = [];
   updateSourceFileNames();
   source.value = activeDocument === "pug" ? pugSource : cssSource;
   highlightSource();

@@ -740,26 +740,36 @@ function renderSvg(container, graph, options) {
         event.preventDefault();
         const start = pointFor(event);
         const element = target.dataset.dragKind === "node" ? target.closest(".entry") : target;
-        const ghost = element.cloneNode(true);
-        ghost.classList.remove("dragging");
-        ghost.classList.add("drag-origin");
-        for (const item of [ghost, ...ghost.querySelectorAll("[data-line], [tabindex], [data-drag-kind]")]) {
-          item.removeAttribute("data-line");
-          item.removeAttribute("data-drag-kind");
-          item.removeAttribute("tabindex");
-          item.removeAttribute("role");
-        }
-        element.parentNode.insertBefore(ghost, element);
+        const selectionKey = target.closest?.("[data-selection-key]")?.dataset.selectionKey ?? null;
+        const groupDrag = selectionKey && element.classList.contains("selected-element")
+          && !["node-image", "node-image-resize", "node-label", "block-annotation"].includes(target.dataset.dragKind);
+        const elements = groupDrag
+          ? [...svg.querySelectorAll(".entry.selected-element, g[data-drag-kind='graph'].selected-element, text[data-drag-kind='connection-label'].selected-element")]
+          : [element];
+        const ghosts = elements.map((movingElement) => {
+          const ghost = movingElement.cloneNode(true);
+          ghost.classList.remove("dragging", "selected-element");
+          ghost.classList.add("drag-origin");
+          for (const item of [ghost, ...ghost.querySelectorAll("[data-line], [tabindex], [data-drag-kind]")]) {
+            item.removeAttribute("data-line");
+            item.removeAttribute("data-drag-kind");
+            item.removeAttribute("tabindex");
+            item.removeAttribute("role");
+          }
+          movingElement.parentNode.insertBefore(ghost, movingElement);
+          return ghost;
+        });
         drag = {
           pointerId: event.pointerId,
           target,
-          element,
-          ghost,
+          elements,
+          ghosts,
+          selectionKey,
           start,
           dx: 0,
           dy: 0,
         };
-        drag.element.classList.add("dragging");
+        drag.elements.forEach((movingElement) => movingElement.classList.add("dragging"));
         svg.setPointerCapture(event.pointerId);
       });
       svg.addEventListener("pointermove", (event) => {
@@ -773,18 +783,21 @@ function renderSvg(container, graph, options) {
         }
         drag.dx = dx;
         drag.dy = dy;
-        drag.element.setAttribute("transform", `translate(${drag.dx} ${drag.dy})`);
+        drag.elements.forEach((movingElement) => movingElement.setAttribute("transform", `translate(${drag.dx} ${drag.dy})`));
       });
       const finishDrag = (event) => {
         if (!drag || drag.pointerId !== event.pointerId) return;
         const completed = drag;
         drag = null;
-        completed.element.removeAttribute("transform");
-        completed.element.classList.remove("dragging");
-        completed.ghost.remove();
+        completed.elements.forEach((movingElement) => {
+          movingElement.removeAttribute("transform");
+          movingElement.classList.remove("dragging");
+        });
+        completed.ghosts.forEach((ghost) => ghost.remove());
         if (Math.hypot(completed.dx, completed.dy) > 2) {
           options.onElementMove({
             kind: completed.target.dataset.dragKind,
+            selectionKey: completed.selectionKey,
             id: completed.target.dataset.id ?? null,
             lineNumber: Number(completed.target.dataset.offsetLine ?? completed.target.dataset.line),
             currentX: Number(completed.target.dataset.currentX ?? 0),
@@ -801,9 +814,11 @@ function renderSvg(container, graph, options) {
       svg.addEventListener("pointerup", finishDrag);
       svg.addEventListener("pointercancel", (event) => {
         if (!drag || drag.pointerId !== event.pointerId) return;
-        drag.element.removeAttribute("transform");
-        drag.element.classList.remove("dragging");
-        drag.ghost.remove();
+        drag.elements.forEach((movingElement) => {
+          movingElement.removeAttribute("transform");
+          movingElement.classList.remove("dragging");
+        });
+        drag.ghosts.forEach((ghost) => ghost.remove());
         drag = null;
       });
     }
