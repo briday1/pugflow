@@ -349,7 +349,7 @@ dialog::backdrop { background: rgb(15 23 42 / .48); backdrop-filter: blur(2px); 
 #diagram.preview-invalid > svg { opacity: .22; filter: grayscale(.65); }
 #diagram.preview-invalid::after { content: attr(data-error); position: absolute; z-index: 4; top: 18px; left: 50%; translate: -50% 0; padding: 8px 12px; border: 1px solid var(--danger); border-radius: 7px; color: var(--danger); background: var(--panel); box-shadow: 0 5px 18px var(--shadow); font-size: 11px; font-weight: 750; white-space: nowrap; }
 .canvas-inspector { position: absolute; z-index: 8; top: 12px; right: 12px; width: 250px; max-height: calc(100% - 24px); overflow: auto; padding: 13px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--panel); box-shadow: 0 8px 25px var(--shadow); }
-.canvas-inspector h3 { margin: 0 0 10px; font-size: 13px; color: var(--heading); }
+.canvas-inspector h3 { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 10px; font-size: 13px; color: var(--heading); }
 .inspector-drag-handle { margin: -13px -13px 10px; padding: 9px 12px; border-bottom: 1px solid var(--border); border-radius: 9px 9px 0 0; color: var(--heading); background: var(--surface-soft); font-size: 11px; font-weight: 750; cursor: move; user-select: none; }
 .canvas-inspector details { margin: 8px 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
 .canvas-inspector summary { color: var(--heading); font-size: 11px; font-weight: 700; cursor: pointer; }
@@ -358,6 +358,7 @@ dialog::backdrop { background: rgb(15 23 42 / .48); backdrop-filter: blur(2px); 
 .canvas-inspector details > summary { margin: 0 -9px; padding: 9px; }
 .inspector-switch { flex-direction: row !important; align-items: center; justify-content: space-between; padding: 4px 0; }
 .inspector-switch-compact { width: fit-content; gap: 7px !important; margin: 4px 0 1px auto !important; padding: 0; }
+.inspector-switch-heading { gap: 7px !important; margin: 0 !important; padding: 0; color: var(--muted) !important; font-size: 9px !important; font-weight: 600; }
 .inspector-switch input[type="checkbox"] { appearance: none; width: 27px !important; min-height: 15px; height: 15px; margin: 0; padding: 0; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
 .inspector-switch input[type="checkbox"]::before { content: ""; display: block; width: 9px; height: 9px; margin: 2px; border-radius: 50%; background: var(--muted); transition: translate .15s ease, background .15s ease; }
 .inspector-switch input[type="checkbox"]:checked { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 28%, var(--surface)); }
