@@ -100,11 +100,11 @@ const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the p
       | Reusable styles and multiline labels
     .annotation
       .above
-        .offset (114.1, 0)
+        .offset (140, 0)
         .blue_note
         | Block and connection annotations
       .below Auto width, fixed width, and math
-        .offset (120, 22.2)
+        .offset (125.9, -0.8)
     .flow
       .direction right
       .path_node
@@ -117,14 +117,14 @@ const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the p
           .line
             .label solid
           .id one
-          .offset (40.7, 0)
+          .offset (-56, -50.3)
           .label Rounded block
         .square_node
           .warning_line
             .label both directions
             .label-position below
           .id two
-          .offset (8.9, -55.6)
+          .offset (23.2, -56.3)
           .label Square block
           .annotation
             .above Annotation above
@@ -142,16 +142,16 @@ const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the p
           .dotted_line
           .round_node
             .id three
-            .offset (-363.1, -112)
+            .offset (-363.1, -106)
             .label Round $\\sqrt{x}$
         .flow
-          .direction down
-          .ports distributed
+          .direction right
+          .ports shared
           .dotted_line
           .node
             .quiet_line
               .label no arrow
-            .offset (356.2, 45.2)
+            .offset (202.1, -5.2)
             .label Automatic wrapping makes a block taller when its label becomes long
 
     .flow
@@ -189,11 +189,9 @@ const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the p
           .below Merge target
         .flow
           .direction right
-          .output_node
-            .output_line
-            .label Final output
           .node
             .id archived
+            .offset (-85.2, 0)
             .label Archived
 
     .connect
