@@ -348,7 +348,8 @@ dialog::backdrop { background: rgb(15 23 42 / .48); backdrop-filter: blur(2px); 
 #diagram.preview-invalid { position: relative; min-height: 100%; }
 #diagram.preview-invalid > svg { opacity: .22; filter: grayscale(.65); }
 #diagram.preview-invalid::after { content: attr(data-error); position: absolute; z-index: 4; top: 18px; left: 50%; translate: -50% 0; padding: 8px 12px; border: 1px solid var(--danger); border-radius: 7px; color: var(--danger); background: var(--panel); box-shadow: 0 5px 18px var(--shadow); font-size: 11px; font-weight: 750; white-space: nowrap; }
-.canvas-inspector { position: absolute; z-index: 8; top: 12px; right: 12px; width: 250px; max-height: calc(100% - 24px); overflow: auto; padding: 13px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--panel); box-shadow: 0 8px 25px var(--shadow); }
+.canvas-inspector { position: absolute; z-index: 8; top: 12px; right: 12px; width: 250px; max-width: calc(100% - 24px); max-height: calc(100% - 24px); overflow: auto; padding: 13px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--panel); box-shadow: 0 8px 25px var(--shadow); }
+.canvas-inspector.has-scrollbar { width: 266px; scrollbar-gutter: stable; }
 .canvas-inspector h3 { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 10px; font-size: 13px; color: var(--heading); }
 .inspector-drag-handle { margin: -13px -13px 10px; padding: 9px 12px; border-bottom: 1px solid var(--border); border-radius: 9px 9px 0 0; color: var(--heading); background: var(--surface-soft); font-size: 11px; font-weight: 750; cursor: move; user-select: none; }
 .canvas-inspector details { margin: 8px 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
@@ -384,7 +385,8 @@ dialog::backdrop { background: rgb(15 23 42 / .48); backdrop-filter: blur(2px); 
 #diagram svg .entry.selected-element .label-box, #diagram svg .connector.selected-element { stroke: var(--accent); }
 #diagram svg .connector.selected-element { filter: drop-shadow(0 0 3px var(--accent)); }
 #diagram svg [data-select-kind="graph"].selected-element > .subdiagram-frame { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 4; }
-#diagram svg .interactive .subdiagram-frame:hover { stroke: color-mix(in srgb, var(--accent) 62%, transparent); stroke-width: 2; }
+#diagram svg .interactive .subdiagram-frame { transition: stroke .2s ease, stroke-width .2s ease, filter .2s ease; }
+#diagram svg .interactive [data-select-kind="graph"]:has(> .subdiagram-hit:hover) > .subdiagram-frame { stroke: color-mix(in srgb, var(--accent) 62%, transparent); stroke-width: 2; filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 25%, transparent)); }
 #diagram svg .image-resize-handles { display: none; }
 #diagram svg .entry.selected-element .image-resize-handles { display: block !important; }
 #diagram svg .image-resize-frame { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }

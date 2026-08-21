@@ -513,8 +513,12 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
     "aria-label": "Edit connection",
   });
   svg.append(path);
-  if (edge.label && !edge.labelHidden) {
-    const offset = edge.labelPosition === "below" ? 16 : -8;
+  const annotations = [
+    { text: edge.annotationAbove, position: "above", hidden: edge.annotationAboveHidden, lineNumber: edge.annotationAboveLineNumber },
+    { text: edge.annotationBelow, position: "below", hidden: edge.annotationBelowHidden, lineNumber: edge.annotationBelowLineNumber },
+  ];
+  annotations.filter((annotation) => annotation.text && !annotation.hidden).forEach((annotation) => {
+    const offset = annotation.position === "below" ? 16 : -8;
     const label = svgElement("text", {
       class: "connection-annotation",
       x: route.labelX + edge.labelOffsetX,
@@ -523,7 +527,7 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
       "font-family": edge.fontFamily ?? colors.font,
       "font-size": edge.fontSize, "font-weight": edge.fontWeight,
       "font-style": edge.fontStyle, "text-decoration": edge.textDecoration,
-      "data-line": edge.labelLineNumber,
+      "data-line": annotation.lineNumber,
       "data-offset-line": edge.lineNumber,
       "data-drag-kind": "connection-label",
       "data-select-kind": "line",
@@ -534,11 +538,11 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
       "data-current-y": edge.labelOffsetY,
       role: "link",
       tabindex: 0,
-      "aria-label": "Move or edit connection annotation " + formatMath(edge.label),
+      "aria-label": `Move or edit ${annotation.position} connection annotation ` + formatMath(annotation.text),
     });
-    label.textContent = formatMath(edge.label);
+    label.textContent = formatMath(annotation.text);
     svg.append(label);
-  }
+  });
 }
 
 export function edgeIsVisible(edge, nodesById) {
@@ -552,7 +556,7 @@ function layoutOptionsForLabels(edges, colors, requested = {}) {
   const context = canvas.getContext("2d");
   const widestLabel = Math.max(0, ...edges.map((edge) => {
     context.font = `${edge.fontStyle ?? "normal"} ${edge.fontWeight ?? "normal"} ${edge.fontSize ?? 12}px ${edge.fontFamily ?? colors.font}`;
-    return context.measureText(formatMath(edge.label ?? "")).width;
+    return Math.max(context.measureText(formatMath(edge.annotationAbove ?? "")).width, context.measureText(formatMath(edge.annotationBelow ?? "")).width);
   }));
   return {
     ...requested,
@@ -579,9 +583,13 @@ function diagramBounds(groups, nodesById) {
 function addDiagramFrame(svg, group, colors) {
   const frame = svgElement("g", { "data-line": group.lineNumber, "data-id": group.id, "data-select-kind": "graph", "data-selection-key": `graph:${group.id}`, "data-drag-kind": "graph", "data-current-x": group.offsetX ?? 0, "data-current-y": group.offsetY ?? 0 });
   frame.append(svgElement("rect", {
+    class: "subdiagram-hit", x: group.x, y: group.y, width: group.right - group.x, height: group.bottom - group.y,
+    rx: 12, fill: "none", stroke: "transparent", "stroke-width": 16, "pointer-events": "stroke",
+  }));
+  frame.append(svgElement("rect", {
     class: "subdiagram-frame", x: group.x, y: group.y, width: group.right - group.x, height: group.bottom - group.y,
     rx: 12, fill: group.fill, stroke: group.outline, "stroke-width": group.outlineWidth,
-    "stroke-dasharray": dashArray(group.outlineStyle), "pointer-events": "stroke",
+    "stroke-dasharray": dashArray(group.outlineStyle), "pointer-events": "none",
   }));
   if (group.label) {
     const label = svgElement("text", { class: "subdiagram-label", x: group.x + 12, y: group.y + 17, fill: group.color ?? colors.text, "pointer-events": "none" });

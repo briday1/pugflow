@@ -360,8 +360,8 @@ Set connector properties in a flow's `.line` group. Override an incoming connect
       .arrow-style both
       .stroke-style dashed
       .width 3
-      .label synchronizes
-      .label-position below
+      .annotation-above synchronizes
+      .annotation-below retry path
     .label Peer
 ```
 
@@ -371,8 +371,9 @@ Set connector properties in a flow's `.line` group. Override an incoming connect
 | `.color` | Any SVG/CSS color |
 | `.stroke-style` | `solid`, `dashed`, `dotted` |
 | `.width` | Positive number |
-| `.label` | Visible connection text |
-| `.label-position` | `above`, `below` |
+| `.annotation-above` | Annotation above the connector |
+| `.annotation-below` | Annotation below the connector |
+| `.annotation-above-hidden`, `.annotation-below-hidden` | Hide either annotation independently |
 | `.label-offset` | Manual `(x, y)` offset |
 
 ## Inline math

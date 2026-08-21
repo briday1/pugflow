@@ -8,7 +8,9 @@ const PORT_DISTRIBUTIONS = new Set(["shared", "distributed"]);
 const LINE_STYLES = new Set(["solid", "dashed", "dotted"]);
 const LINE_FIELDS = new Set([
   "line.arrow-style", "line.color", "line.stroke-style", "line.width",
-  "line.label", "line.label-position", "line.label-offset", "line.label-hidden", "line.use", "line.hidden",
+  "line.label", "line.label-position", "line.label-offset", "line.label-hidden",
+  "line.annotation-above", "line.annotation-below", "line.annotation-above-hidden", "line.annotation-below-hidden",
+  "line.use", "line.hidden",
   "line.font-family", "line.font-size", "line.font-weight", "line.font-style", "line.text-decoration",
 ]);
 const LINE_DEFINITION_FIELDS = new Map([
@@ -19,6 +21,8 @@ const LINE_DEFINITION_FIELDS = new Map([
   ["label-position", "line.label-position"],
   ["label-offset", "line.label-offset"],
   ["label-hidden", "line.label-hidden"],
+  ["annotation-above", "line.annotation-above"], ["annotation-below", "line.annotation-below"],
+  ["annotation-above-hidden", "line.annotation-above-hidden"], ["annotation-below-hidden", "line.annotation-below-hidden"],
   ["hidden", "line.hidden"],
   ["font-family", "line.font-family"], ["font-size", "line.font-size"],
   ["font-weight", "line.font-weight"], ["font-style", "line.font-style"],
@@ -313,6 +317,16 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
     labelOffsetX: labelOffset.x,
     labelOffsetY: labelOffset.y,
     labelHidden: effective["line.label-hidden"] !== undefined && ![false, "false", "no", "0"].includes(effective["line.label-hidden"]),
+    annotationAbove: effective["line.annotation-above"] ?? (effective["line.label-position"] !== "below" ? effective["line.label"] ?? "" : ""),
+    annotationBelow: effective["line.annotation-below"] ?? (effective["line.label-position"] === "below" ? effective["line.label"] ?? "" : ""),
+    annotationAboveLineNumber: attrs.__lines?.["line.annotation-above"] ?? attrs.__lines?.["line.label"] ?? lineNumber,
+    annotationBelowLineNumber: attrs.__lines?.["line.annotation-below"] ?? attrs.__lines?.["line.label"] ?? lineNumber,
+    annotationAboveHidden: effective["line.annotation-above-hidden"] !== undefined
+      ? ![false, "false", "no", "0"].includes(effective["line.annotation-above-hidden"])
+      : effective["line.annotation-above"] === undefined && effective["line.label-hidden"] !== undefined,
+    annotationBelowHidden: effective["line.annotation-below-hidden"] !== undefined
+      ? ![false, "false", "no", "0"].includes(effective["line.annotation-below-hidden"])
+      : effective["line.annotation-below"] === undefined && effective["line.label-hidden"] !== undefined,
     layoutDirection: FLOW_DIRECTIONS.has(layoutDirection) ? layoutDirection : "right",
     portDistribution: PORT_DISTRIBUTIONS.has(portDistribution) ? portDistribution : "shared",
     hidden: effective["line.hidden"] !== undefined && ![false, "false", "no", "0"].includes(effective["line.hidden"]),
@@ -364,9 +378,9 @@ function connectionAttributesFor(container, errors, extras = [], rejectInline = 
   for (const child of container.children.filter((item) => allowed.has(item.type))) {
     if (Object.keys(child.attrs).length) errors.push(`Line ${child.lineNumber}: .${child.type} takes plain text, not attributes.`);
     if (attributes[child.type] !== undefined) errors.push(`Line ${child.lineNumber}: duplicate .${child.type} field.`);
-    attributes[child.type] = child.type === "line.label" ? textFor(child, errors) : child.text.trim();
+    attributes[child.type] = ["line.label", "line.annotation-above", "line.annotation-below"].includes(child.type) ? textFor(child, errors) : child.text.trim();
     lines[child.type] = child.lineNumber;
-    if (child.type !== "line.label" && child.children.length) errors.push(`Line ${child.lineNumber}: .${child.type} must stay on one line.`);
+    if (!["line.label", "line.annotation-above", "line.annotation-below"].includes(child.type) && child.children.length) errors.push(`Line ${child.lineNumber}: .${child.type} must stay on one line.`);
   }
   Object.defineProperty(attributes, "__lines", { value: lines });
   return attributes;
