@@ -83,10 +83,10 @@
     <dialog id="save-export-dialog">
       <form method="dialog" id="save-export-form">
         <div class="dialog-title"><div><small>EXPORT</small><h2>Save diagram</h2></div></div>
-        <p class="export-help">Choose a format. Raster resolution applies only to PNG.</p>
+        <p class="export-help">Choose an export format.</p>
         <div class="builder-grid">
           <label>Format<select id="save-export-format"><option value="png">PNG image</option><option value="svg">SVG vector</option></select></label>
-          <label id="save-export-resolution-row">PNG resolution<select id="save-export-resolution"><option value="1">1× standard</option><option value="2" selected>2× high DPI</option><option value="3">3× extra high DPI</option></select></label>
+          <label id="save-export-dpi-row">PNG resolution<select id="save-export-dpi"><option value="96">96 DPI</option><option value="150">150 DPI</option><option value="300" selected>300 DPI</option><option value="600">600 DPI</option></select></label>
         </div>
         <div class="dialog-actions"><button value="cancel">Cancel</button><button class="primary" value="default">Save</button></div>
       </form>

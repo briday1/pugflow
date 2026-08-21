@@ -45,6 +45,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { min-width: 900px; min-height: 100vh; margin: 0; }
 button, select, textarea { font: inherit; }
 button, select { cursor: pointer; }

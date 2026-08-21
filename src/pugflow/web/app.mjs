@@ -1479,13 +1479,15 @@ document.querySelector("#copy-png").addEventListener("click", async () => {
 });
 const saveExportDialog = document.querySelector("#save-export-dialog");
 const saveExportFormat = document.querySelector("#save-export-format");
+const saveExportDpiRow = document.querySelector("#save-export-dpi-row");
+const saveExportDpi = document.querySelector("#save-export-dpi");
 document.querySelector("#open-save-export").addEventListener("click", () => saveExportDialog.showModal());
-saveExportFormat.addEventListener("change", () => { document.querySelector("#save-export-resolution-row").hidden = saveExportFormat.value !== "png"; });
+saveExportFormat.addEventListener("change", () => { saveExportDpiRow.hidden = saveExportFormat.value !== "png"; });
 document.querySelector("#save-export-form").addEventListener("submit", (event) => {
   if (event.submitter?.value === "cancel" || !diagram) return;
   event.preventDefault();
   if (saveExportFormat.value === "svg") diagram.saveSVG(filename("svg"));
-  else diagram.savePNG(filename("png"), Number(document.querySelector("#save-export-resolution").value));
+  else diagram.savePNG(filename("png"), Number(saveExportDpi.value) / 96);
   saveExportDialog.close();
 });
 
