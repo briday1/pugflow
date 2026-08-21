@@ -376,16 +376,22 @@ Set connector properties in a flow's `.line` group. Override an incoming connect
 | `.annotation-above-hidden`, `.annotation-below-hidden` | Hide either annotation independently |
 | `.label-offset` | Manual `(x, y)` offset |
 
-## Inline math
+## Math
 
-Use `$...$` inside block or annotation text. Math is converted to portable Unicode SVG text, so exports do not depend on web fonts or a network connection.
+Use `$...$` for inline math and `$$...$$` for a display equation on its own line. Pugflow uses a bundled MathJax renderer to produce real TeX as SVG paths, including in nodes, node annotations, and connection annotations. Equation dimensions participate in node sizing and diagram layout, and SVG/PNG/CLI exports remain self-contained and offline.
 
 ```pug
 .node
   .label Transfer $x_i^2 \\rightarrow y_i$
 ```
 
-The built-in lightweight subset supports Greek letters, common operators such as `\times`, `\leq`, `\sum`, and `\rightarrow`, superscripts/subscripts, `\sqrt{...}`, and `\frac{...}{...}`. It intentionally is not a complete TeX engine; unsupported commands remain visible rather than silently disappearing.
+Display math can be mixed with ordinary multiline labels:
+
+```pug
+.label
+  | Quadratic formula
+  | $$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
+```
 
 ## Embed in another page
 

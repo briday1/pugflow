@@ -120,7 +120,7 @@
       .color #2563eb
       | Annotation above
     .below Annotation below</code></pre>
-<p>Inline <code>$...$</code> supports a portable TeX-like subset: Greek letters, common operators, superscripts/subscripts, <code>\sqrt{...}</code>, and <code>\frac{...}{...}</code>.</p>
+<p>Use <code>$...$</code> for inline math and <code>$$...$$</code> for display math. Pugflow bundles MathJax and renders real TeX as self-contained SVG paths in nodes, node annotations, and line annotations. Equations are measured during layout and work in offline SVG, PNG, and CLI exports.</p>
 
 <h2 id="images">Images and shadows</h2><pre><code>.node
   .label Profile

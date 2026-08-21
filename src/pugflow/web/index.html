@@ -91,6 +91,7 @@
         <div class="dialog-actions"><button value="cancel">Cancel</button><button class="primary" value="default">Save</button></div>
       </form>
     </dialog>
-    <script type="module" src="app.mjs"></script>
+    <script>window.MathJax = { svg: { fontCache: "none" }, startup: { typeset: false } };</script>
+    <script type="module">const script = document.createElement("script"); script.src = "vendor/mathjax/tex-svg-full.js"; await new Promise((resolve, reject) => { script.onload = resolve; script.onerror = reject; document.head.append(script); }); await window.MathJax.startup.promise; await import("./app.mjs");</script>
   </body>
 </html>

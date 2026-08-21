@@ -30,4 +30,4 @@ where = ["src"]
 include = ["pugflow*"]
 
 [tool.setuptools.package-data]
-pugflow = ["web/*"]
+pugflow = ["web/*", "web/vendor/mathjax/*"]

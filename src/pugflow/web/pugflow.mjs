@@ -1,14 +1,8 @@
 import { parseDiagram } from "./parser.mjs";
 import { DEFAULT_LAYOUT, inheritedFlowOffsets, layoutDiagram } from "./layout.mjs";
+import { containsMath, layoutRichText, mathSvg } from "./math-render.mjs";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const MATH_SYMBOLS = {
-  alpha: "α", beta: "β", gamma: "γ", delta: "δ", epsilon: "ε", theta: "θ", lambda: "λ", mu: "μ", pi: "π", rho: "ρ", sigma: "σ", tau: "τ", phi: "φ", omega: "ω",
-  Gamma: "Γ", Delta: "Δ", Theta: "Θ", Lambda: "Λ", Pi: "Π", Sigma: "Σ", Phi: "Φ", Omega: "Ω",
-  times: "×", cdot: "·", pm: "±", leq: "≤", geq: "≥", neq: "≠", approx: "≈", infty: "∞", sum: "∑", prod: "∏", int: "∫", partial: "∂", nabla: "∇", rightarrow: "→", leftarrow: "←", leftrightarrow: "↔",
-};
-const SUPERSCRIPT = { "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "+": "⁺", "-": "⁻", "=": "⁼", "(": "⁽", ")": "⁾", n: "ⁿ", i: "ⁱ" };
-const SUBSCRIPT = { "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉", "+": "₊", "-": "₋", "=": "₌", "(": "₍", ")": "₎", a: "ₐ", e: "ₑ", h: "ₕ", i: "ᵢ", j: "ⱼ", k: "ₖ", l: "ₗ", m: "ₘ", n: "ₙ", o: "ₒ", p: "ₚ", r: "ᵣ", s: "ₛ", t: "ₜ", x: "ₓ" };
 
 function svgElement(name, attributes = {}) {
   const element = document.createElementNS(SVG_NS, name);
@@ -39,21 +33,6 @@ function figureColors(container, figure = {}) {
   return colors;
 }
 
-function mapScript(value, table) {
-  return [...value].map((character) => table[character] ?? character).join("");
-}
-
-/** Lightweight inline TeX conversion for portable SVG text. */
-export function formatMath(text) {
-  return text.replace(/\$([^$]+)\$/g, (_match, expression) => expression
-    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "($1)/($2)")
-    .replace(/\\sqrt\{([^{}]+)\}/g, "√($1)")
-    .replace(/\^\{([^{}]+)\}|\^([\w+\-=()])/g, (_all, group, single) => mapScript(group ?? single, SUPERSCRIPT))
-    .replace(/_\{([^{}]+)\}|_([\w+\-=()])/g, (_all, group, single) => mapScript(group ?? single, SUBSCRIPT))
-    .replace(/\\([A-Za-z]+)/g, (_all, command) => MATH_SYMBOLS[command] ?? `\\${command}`)
-    .replace(/[{}]/g, ""));
-}
-
 function wrapText(text, maxWidth, measure) {
   const output = [];
   for (const explicitLine of text.split("\n")) {
@@ -69,6 +48,20 @@ function wrapText(text, maxWidth, measure) {
   return output;
 }
 
+function richTextLayout(text, style, colors, maxWidth = Infinity) {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  const fontSize = style.fontSize ?? 12;
+  context.font = `${style.fontStyle ?? "normal"} ${style.fontWeight ?? "normal"} ${fontSize}px ${style.fontFamily ?? colors.font}`;
+  return layoutRichText(text, { fontSize, maxWidth, measureText: (value) => context.measureText(value).width });
+}
+
+function measuredAnnotation(annotation, colors) {
+  if (!containsMath(annotation.text)) return { ...annotation, rich: false, renderHeight: 16 };
+  const richLayout = richTextLayout(annotation.text, annotation, colors);
+  return { ...annotation, rich: true, richLayout, renderHeight: Math.max(16, richLayout.height) };
+}
+
 function measureNodes(nodes, colors) {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
@@ -77,31 +70,40 @@ function measureNodes(nodes, colors) {
 
   return nodes.map((node) => {
     context.font = `${node.style.fontStyle} ${node.style.fontWeight} ${node.style.fontSize}px ${node.style.fontFamily ?? colors.font}`;
-    const label = formatMath(node.label);
+    const label = node.label;
     const requestedWidth = node.style.width;
     const initialLines = label.split("\n");
     const imageOnly = Boolean(node.style.image) && !label.trim();
     const imageWidth = node.style.image ? node.style.imageWidth + node.style.imagePadding * 2 : 0;
     const imageHeight = node.style.image ? node.style.imageHeight + node.style.imagePadding * 2 : 0;
-    const naturalWidth = imageOnly ? imageWidth : Math.max(Math.max(...initialLines.map(measure), 70) + 32, imageWidth);
-    const width = requestedWidth === "auto" ? Math.max(imageWidth, Math.min(300, Math.max(110, naturalWidth))) : Math.max(requestedWidth, imageWidth);
-    const lines = wrapText(label, Math.max(36, width - 30), measure);
+    const rich = containsMath(label);
+    const unconstrainedRich = rich ? layoutRichText(label, { fontSize: node.style.fontSize, measureText: measure }) : null;
+    const naturalWidth = imageOnly ? imageWidth : Math.max(rich ? unconstrainedRich.width + 32 : Math.max(...initialLines.map(measure), 70) + 32, imageWidth);
+    let width = requestedWidth === "auto" ? Math.max(imageWidth, Math.min(420, Math.max(110, naturalWidth))) : Math.max(requestedWidth, imageWidth);
+    const richLayout = rich ? layoutRichText(label, { fontSize: node.style.fontSize, maxWidth: Math.max(36, width - 30), measureText: measure }) : null;
+    if (rich && richLayout.width > width - 30) width = richLayout.width + 30;
+    const lines = rich ? richLayout.lines : wrapText(label, Math.max(36, width - 30), measure);
     const lineHeight = Math.ceil(node.style.fontSize * 1.2);
-    const naturalHeight = imageOnly ? imageHeight : Math.max(42, lines.length * lineHeight + 20, imageHeight);
+    const textHeight = rich ? richLayout.height : lines.length * lineHeight;
+    const naturalHeight = imageOnly ? imageHeight : Math.max(42, textHeight + 20, imageHeight);
     const height = node.style.height === "auto" ? naturalHeight : Math.max(node.style.height, imageHeight);
-    const above = node.annotations.filter((annotation) => annotation.position === "above").map((annotation) => ({ ...annotation, text: formatMath(annotation.text) }));
-    const below = node.annotations.filter((annotation) => annotation.position === "below").map((annotation) => ({ ...annotation, text: formatMath(annotation.text) }));
-    const aboveHeight = above.length ? above.length * 16 + 7 : 0;
-    const belowHeight = below.length ? below.length * 16 + 7 : 0;
-    return { ...node, width, height, lines, lineHeight, above, below, aboveHeight, belowHeight, layoutHeight: height };
+    const above = node.annotations.filter((annotation) => annotation.position === "above").map((annotation) => measuredAnnotation(annotation, colors));
+    const below = node.annotations.filter((annotation) => annotation.position === "below").map((annotation) => measuredAnnotation(annotation, colors));
+    const aboveHeight = above.length ? above.reduce((sum, annotation) => sum + annotation.renderHeight, 7) : 0;
+    const belowHeight = below.length ? below.reduce((sum, annotation) => sum + annotation.renderHeight, 7) : 0;
+    return { ...node, width, height, lines, lineHeight, rich, textHeight, above, below, aboveHeight, belowHeight, layoutHeight: height };
   });
 }
 
 function boxTop(node) { return node.y; }
 function centerY(node) { return boxTop(node) + node.height / 2; }
-function annotationY(node, annotation, index) {
-  if (annotation.position === "above") return boxTop(node) - 7 - (node.above.length - index - 1) * 16 + annotation.offsetY;
-  return boxTop(node) + node.height + 17 + index * 16 + annotation.offsetY;
+function annotationTop(node, annotation, index) {
+  if (annotation.position === "above") {
+    const followingHeight = node.above.slice(index).reduce((sum, item) => sum + item.renderHeight, 0);
+    return boxTop(node) - 7 - followingHeight + annotation.offsetY;
+  }
+  const precedingHeight = node.below.slice(0, index).reduce((sum, item) => sum + item.renderHeight, 0);
+  return boxTop(node) + node.height + 7 + precedingHeight + annotation.offsetY;
 }
 function edgeColor(edge, colors) { return edge.color === "merge" ? colors.merge : edge.color ?? colors.label; }
 function dashArray(style) { return style === "dashed" ? "8 6" : style === "dotted" ? "2 5" : null; }
@@ -148,6 +150,80 @@ function shapeElement(node, colors, defs) {
   return svgElement("rect", { ...common, x: node.x, y: top, width: node.width, height: node.height, rx: radius });
 }
 
+function addRichLabel(group, node, colors, x, top, anchor, textColor) {
+  const label = svgElement("g", {
+    class: "label rich-label",
+    "data-line": node.lineNumber, "data-id": node.id, "data-drag-kind": "node-label",
+    "data-select-kind": "node", "data-selection-key": `node:${node.id}`,
+    "data-current-x": node.labelOffsetX, "data-current-y": node.labelOffsetY,
+    role: "link", tabindex: 0, "aria-label": "Move or edit label " + node.label.replace(/\n/g, " "),
+  });
+  let rowTop = top + (node.height - node.textHeight) / 2 + node.labelOffsetY;
+  node.lines.forEach((line) => {
+    let cursor = anchor === "start" ? x : anchor === "end" ? x - line.width : x - line.width / 2;
+    line.runs.forEach((run) => {
+      if (run.kind === "math") label.append(mathSvg(run, { x: cursor, y: rowTop + (line.height - run.height) / 2, color: textColor }));
+      else {
+        const text = svgElement("text", {
+          x: cursor, y: rowTop + line.height / 2, fill: textColor,
+          "font-family": node.style.fontFamily ?? colors.font, "font-size": node.style.fontSize,
+          "font-weight": node.style.fontWeight, "font-style": node.style.fontStyle,
+          "text-decoration": node.style.textDecoration, "dominant-baseline": "middle",
+        });
+        text.textContent = run.text;
+        label.append(text);
+      }
+      cursor += run.width;
+    });
+    rowTop += line.height;
+  });
+  group.append(label);
+}
+
+function addBlockAnnotation(group, node, annotation, index, colors) {
+  const x = node.x + node.width / 2 + annotation.offsetX;
+  const top = annotationTop(node, annotation, index);
+  const attributes = {
+    class: "block-annotation", "data-line": annotation.lineNumber, "data-id": node.id,
+    "data-select-kind": "node", "data-selection-key": `node:${node.id}`,
+    "data-drag-kind": "block-annotation", "data-current-x": annotation.offsetX,
+    "data-current-y": annotation.offsetY, role: "link", tabindex: 0,
+    "aria-label": "Move or edit annotation " + annotation.text,
+  };
+  if (!annotation.rich) {
+    const text = svgElement("text", {
+      ...attributes, x, y: top + 12, fill: annotation.color ?? colors.annotation,
+      "font-family": annotation.fontFamily ?? colors.font, "font-size": annotation.fontSize,
+      "font-weight": annotation.fontWeight, "font-style": annotation.fontStyle,
+      "text-decoration": annotation.textDecoration,
+    });
+    text.textContent = annotation.text;
+    group.append(text);
+    return;
+  }
+  const wrapper = svgElement("g", attributes);
+  let rowTop = top;
+  annotation.richLayout.lines.forEach((line) => {
+    let cursor = x - line.width / 2;
+    line.runs.forEach((run) => {
+      if (run.kind === "math") wrapper.append(mathSvg(run, { x: cursor, y: rowTop + (line.height - run.height) / 2, color: annotation.color ?? colors.annotation }));
+      else {
+        const text = svgElement("text", {
+          x: cursor, y: rowTop + line.height / 2, fill: annotation.color ?? colors.annotation,
+          "font-family": annotation.fontFamily ?? colors.font, "font-size": annotation.fontSize,
+          "font-weight": annotation.fontWeight, "font-style": annotation.fontStyle,
+          "text-decoration": annotation.textDecoration, "dominant-baseline": "middle",
+        });
+        text.textContent = run.text;
+        wrapper.append(text);
+      }
+      cursor += run.width;
+    });
+    rowTop += line.height;
+  });
+  group.append(wrapper);
+}
+
 function addNode(svg, node, colors, defs) {
   const group = svgElement("g", {
     class: `entry ${node.kind === "merge" ? "merge-entry" : ""}`.trim(),
@@ -159,29 +235,7 @@ function addNode(svg, node, colors, defs) {
     "aria-label": `Edit ${node.label.replace(/\n/g, " ")}`,
   });
   const top = boxTop(node);
-  node.above.filter((annotation) => !annotation.hidden).forEach((annotation, index) => {
-    const text = svgElement("text", {
-      class: "block-annotation",
-      x: node.x + node.width / 2 + annotation.offsetX,
-      y: annotationY(node, annotation, index),
-      fill: annotation.color ?? colors.annotation,
-      "font-family": annotation.fontFamily ?? colors.font,
-      "font-size": annotation.fontSize, "font-weight": annotation.fontWeight,
-      "font-style": annotation.fontStyle, "text-decoration": annotation.textDecoration,
-      "data-line": annotation.lineNumber,
-      "data-id": node.id,
-      "data-select-kind": "node",
-      "data-selection-key": `node:${node.id}`,
-      "data-drag-kind": "block-annotation",
-      "data-current-x": annotation.offsetX,
-      "data-current-y": annotation.offsetY,
-      role: "link",
-      tabindex: 0,
-      "aria-label": "Move or edit annotation " + annotation.text,
-    });
-    text.textContent = annotation.text;
-    group.append(text);
-  });
+  node.above.filter((annotation) => !annotation.hidden).forEach((annotation, index) => addBlockAnnotation(group, node, annotation, index, colors));
   const shape = shapeElement(node, colors, defs);
   group.append(shape);
   if (node.style.image) {
@@ -239,6 +293,8 @@ function addNode(svg, node, colors, defs) {
   const anchor = node.style.align === "left" ? "start" : node.style.align === "right" ? "end" : "middle";
   const baseX = node.style.align === "left" ? node.x + 16 : node.style.align === "right" ? node.x + node.width - 16 : node.x + node.width / 2;
   const x = baseX + node.labelOffsetX;
+  if (node.rich) addRichLabel(group, node, colors, x, top, anchor, textColor);
+  else {
   const text = svgElement("text", {
     class: "label",
     x,
@@ -266,29 +322,8 @@ function addNode(svg, node, colors, defs) {
     text.append(span);
   });
   group.append(text);
-  node.below.filter((annotation) => !annotation.hidden).forEach((annotation, index) => {
-    const annotationText = svgElement("text", {
-      class: "block-annotation",
-      x: node.x + node.width / 2 + annotation.offsetX,
-      y: annotationY(node, annotation, index),
-      fill: annotation.color ?? colors.annotation,
-      "font-family": annotation.fontFamily ?? colors.font,
-      "font-size": annotation.fontSize, "font-weight": annotation.fontWeight,
-      "font-style": annotation.fontStyle, "text-decoration": annotation.textDecoration,
-      "data-line": annotation.lineNumber,
-      "data-id": node.id,
-      "data-select-kind": "node",
-      "data-selection-key": `node:${node.id}`,
-      "data-drag-kind": "block-annotation",
-      "data-current-x": annotation.offsetX,
-      "data-current-y": annotation.offsetY,
-      role: "link",
-      tabindex: 0,
-      "aria-label": "Move or edit annotation " + annotation.text,
-    });
-    annotationText.textContent = annotation.text;
-    group.append(annotationText);
-  });
+  }
+  node.below.filter((annotation) => !annotation.hidden).forEach((annotation, index) => addBlockAnnotation(group, node, annotation, index, colors));
   svg.append(group);
 }
 
@@ -519,28 +554,50 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
   ];
   annotations.filter((annotation) => annotation.text && !annotation.hidden).forEach((annotation) => {
     const offset = annotation.position === "below" ? 16 : -8;
+    const rich = containsMath(annotation.text);
+    const richLayout = rich ? richTextLayout(annotation.text, edge, colors) : null;
+    const x = route.labelX + edge.labelOffsetX;
+    const baseline = route.labelY + offset + edge.labelOffsetY;
+    const common = {
+      class: "connection-annotation", "data-line": annotation.lineNumber,
+      "data-offset-line": edge.lineNumber, "data-drag-kind": "connection-label",
+      "data-select-kind": "line", "data-selection-key": `line:${edge.from}:${edge.to}:${edge.lineNumber}`,
+      "data-from": edge.from, "data-to": edge.to, "data-current-x": edge.labelOffsetX,
+      "data-current-y": edge.labelOffsetY, role: "link", tabindex: 0,
+      "aria-label": `Move or edit ${annotation.position} connection annotation ` + annotation.text,
+    };
+    if (rich) {
+      const wrapper = svgElement("g", common);
+      let rowTop = annotation.position === "above" ? baseline - richLayout.height : baseline;
+      richLayout.lines.forEach((line) => {
+        let cursor = x - line.width / 2;
+        line.runs.forEach((run) => {
+          if (run.kind === "math") wrapper.append(mathSvg(run, { x: cursor, y: rowTop + (line.height - run.height) / 2, color }));
+          else {
+            const text = svgElement("text", {
+              x: cursor, y: rowTop + line.height / 2, fill: color,
+              "font-family": edge.fontFamily ?? colors.font, "font-size": edge.fontSize,
+              "font-weight": edge.fontWeight, "font-style": edge.fontStyle,
+              "text-decoration": edge.textDecoration, "dominant-baseline": "middle",
+            });
+            text.textContent = run.text;
+            wrapper.append(text);
+          }
+          cursor += run.width;
+        });
+        rowTop += line.height;
+      });
+      svg.append(wrapper);
+      return;
+    }
     const label = svgElement("text", {
-      class: "connection-annotation",
-      x: route.labelX + edge.labelOffsetX,
-      y: route.labelY + offset + edge.labelOffsetY,
+      ...common, x, y: baseline,
       fill: color,
       "font-family": edge.fontFamily ?? colors.font,
       "font-size": edge.fontSize, "font-weight": edge.fontWeight,
       "font-style": edge.fontStyle, "text-decoration": edge.textDecoration,
-      "data-line": annotation.lineNumber,
-      "data-offset-line": edge.lineNumber,
-      "data-drag-kind": "connection-label",
-      "data-select-kind": "line",
-      "data-selection-key": `line:${edge.from}:${edge.to}:${edge.lineNumber}`,
-      "data-from": edge.from,
-      "data-to": edge.to,
-      "data-current-x": edge.labelOffsetX,
-      "data-current-y": edge.labelOffsetY,
-      role: "link",
-      tabindex: 0,
-      "aria-label": `Move or edit ${annotation.position} connection annotation ` + formatMath(annotation.text),
     });
-    label.textContent = formatMath(annotation.text);
+    label.textContent = annotation.text;
     svg.append(label);
   });
 }
@@ -556,7 +613,8 @@ function layoutOptionsForLabels(edges, colors, requested = {}) {
   const context = canvas.getContext("2d");
   const widestLabel = Math.max(0, ...edges.map((edge) => {
     context.font = `${edge.fontStyle ?? "normal"} ${edge.fontWeight ?? "normal"} ${edge.fontSize ?? 12}px ${edge.fontFamily ?? colors.font}`;
-    return Math.max(context.measureText(formatMath(edge.annotationAbove ?? "")).width, context.measureText(formatMath(edge.annotationBelow ?? "")).width);
+    const measure = (value) => containsMath(value) ? richTextLayout(value, edge, colors).width : context.measureText(value).width;
+    return Math.max(measure(edge.annotationAbove ?? ""), measure(edge.annotationBelow ?? ""));
   }));
   return {
     ...requested,
@@ -645,8 +703,8 @@ function renderSvg(container, graph, options) {
     boxTop(node),
     boxTop(node) + node.height,
     boxTop(node) + node.height / 2 + node.labelOffsetY,
-    ...node.above.map((annotation, index) => annotationY(node, annotation, index)),
-    ...node.below.map((annotation, index) => annotationY(node, annotation, index)),
+    ...node.above.map((annotation, index) => annotationTop(node, annotation, index)),
+    ...node.below.map((annotation, index) => annotationTop(node, annotation, index) + annotation.renderHeight),
   ]);
   const viewX = extentX.length ? Math.min(...extentX.map((value) => value - 60), ...groups.map((group) => group.x - 20)) : 0;
   const viewY = extentY.length ? Math.min(...extentY.map((value) => value - 40), ...groups.map((group) => group.y - 20)) : 0;
