@@ -252,6 +252,16 @@ test("cleans up small flow kinks by updating target offsets", () => {
   ]);
 });
 
+test("cleans visible kinks without treating above annotations as node geometry", () => {
+  const nodes = [
+    { id: "root", x: 0, y: 100, width: 220, height: 78, aboveHeight: 23, offsetX: 0, offsetY: 0, lineNumber: 2 },
+    { id: "path-a", x: 300, y: 101.7, width: 190, height: 78, aboveHeight: 0, offsetX: -19.5, offsetY: 1.7, lineNumber: 8 },
+  ];
+  assert.deepEqual(cleanupAlignmentOffsets(nodes, [{ from: "root", to: "path-a", kind: "branch", layoutDirection: "right" }]), [
+    { id: "path-a", lineNumber: 8, offsetX: -19.5, offsetY: 0 },
+  ]);
+});
+
 test("distributes rendered positions while preserving existing offsets", () => {
   const nodes = [
     { id: "a", x: 10, y: 0, width: 80, height: 20, offsetX: 10, offsetY: 0 },

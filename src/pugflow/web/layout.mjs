@@ -284,7 +284,7 @@ export function cleanupAlignmentOffsets(nodes, edges, tolerance = 12) {
   const byId = new Map(nodes.map((node) => [node.id, { ...node }]));
   const changed = new Map();
   const centerX = (node) => node.x + node.width / 2;
-  const centerY = (node) => node.y + (node.aboveHeight ?? 0) + node.height / 2;
+  const centerY = (node) => node.y + node.height / 2;
   edges.filter((edge) => edge.kind === "branch").forEach((edge) => {
     const source = byId.get(edge.from);
     const target = byId.get(edge.to);
@@ -296,6 +296,8 @@ export function cleanupAlignmentOffsets(nodes, edges, tolerance = 12) {
     else target.y += difference;
     target.offsetX = (target.offsetX ?? 0) + (vertical ? difference : 0);
     target.offsetY = (target.offsetY ?? 0) + (vertical ? 0 : difference);
+    if (Math.abs(target.offsetX) < 0.0001) target.offsetX = 0;
+    if (Math.abs(target.offsetY) < 0.0001) target.offsetY = 0;
     changed.set(target.id, { id: target.id, lineNumber: target.lineNumber, offsetX: target.offsetX, offsetY: target.offsetY });
   });
   return [...changed.values()];
@@ -305,13 +307,13 @@ export function arrangeNodeOffsets(nodes, action) {
   const targets = nodes.map((node) => ({ ...node }));
   if (targets.length < 2) return targets;
   const centerX = (node) => node.x + node.width / 2;
-  const centerY = (node) => node.y + (node.aboveHeight ?? 0) + node.height / 2;
+  const centerY = (node) => node.y + node.height / 2;
   if (["left", "center", "right", "top", "middle", "bottom"].includes(action)) {
     const horizontalAlignment = ["left", "center", "right"].includes(action);
     const read = action === "left" ? (node) => node.x
       : action === "right" ? (node) => node.x + node.width
-        : action === "top" ? (node) => node.y + (node.aboveHeight ?? 0)
-          : action === "bottom" ? (node) => node.y + (node.aboveHeight ?? 0) + node.height
+        : action === "top" ? (node) => node.y
+          : action === "bottom" ? (node) => node.y + node.height
             : action === "center" ? centerX : centerY;
     const goal = targets.reduce((sum, node) => sum + read(node), 0) / targets.length;
     targets.forEach((node) => {
@@ -322,7 +324,7 @@ export function arrangeNodeOffsets(nodes, action) {
     return targets;
   }
   const horizontal = action === "horizontal";
-  const start = (node) => horizontal ? node.x : node.y + (node.aboveHeight ?? 0);
+  const start = (node) => horizontal ? node.x : node.y;
   const size = (node) => horizontal ? node.width : node.height;
   targets.sort((a, b) => start(a) - start(b));
   const first = start(targets[0]);
