@@ -1037,6 +1037,21 @@ function fitCanvasZoom() {
   setCanvasZoom(Math.min(availableWidth / width, availableHeight / height) * 100);
 }
 
+function zoomCanvasAt(clientX, clientY, percent) {
+  const svg = canvas.querySelector("svg");
+  if (!svg || percent === canvasZoomPercent) return;
+  const before = svg.getBoundingClientRect();
+  const anchorX = before.width ? (clientX - before.left) / before.width : 0.5;
+  const anchorY = before.height ? (clientY - before.top) / before.height : 0.5;
+  setCanvasZoom(percent);
+  const after = svg.getBoundingClientRect();
+  canvasShell.scrollBy({
+    left: after.left + after.width * anchorX - clientX,
+    top: after.top + after.height * anchorY - clientY,
+    behavior: "auto",
+  });
+}
+
 function setSource(value, recordHistory = true) {
   if (activeDocument !== "pug") activateDocument("pug");
   if (recordHistory && value !== pugSource) {
@@ -1150,6 +1165,14 @@ canvasZoom.addEventListener("change", () => setCanvasZoom(Number(canvasZoom.valu
 document.querySelector("#zoom-out").addEventListener("click", () => setCanvasZoom(canvasZoomPercent - 25));
 document.querySelector("#zoom-in").addEventListener("click", () => setCanvasZoom(canvasZoomPercent + 25));
 document.querySelector("#zoom-fit").addEventListener("click", fitCanvasZoom);
+canvasShell.addEventListener("wheel", (event) => {
+  const mouseWheel = event.deltaMode !== WheelEvent.DOM_DELTA_PIXEL
+    || (Math.abs(event.deltaX) < 1 && Math.abs(event.deltaY) >= 80);
+  if (!event.ctrlKey && !mouseWheel) return;
+  event.preventDefault();
+  const magnitude = event.ctrlKey ? Math.min(20, Math.max(5, Math.abs(event.deltaY) * 0.25)) : 10;
+  zoomCanvasAt(event.clientX, event.clientY, canvasZoomPercent + (event.deltaY < 0 ? magnitude : -magnitude));
+}, { passive: false });
 document.querySelector("#add-diagram").addEventListener("click", () => openGraphBuilder("diagram"));
 document.querySelector("#add-node").addEventListener("click", () => openGraphBuilder(currentGraph.nodes.length ? "flow" : "diagram"));
 document.querySelector("#add-flow").addEventListener("click", () => openGraphBuilder("flow"));
