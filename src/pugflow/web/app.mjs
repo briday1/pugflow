@@ -142,7 +142,7 @@ const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the p
           .dotted_line
           .round_node
             .id three
-            .offset (-363.1, -106)
+            .offset (-416.6, -96)
             .label Round $\\sqrt{x}$
         .flow
           .direction right
@@ -151,7 +151,7 @@ const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the p
           .node
             .quiet_line
               .label no arrow
-            .offset (202.1, -5.2)
+            .offset (361, -4.4)
             .label Automatic wrapping makes a block taller when its label becomes long
 
     .flow
