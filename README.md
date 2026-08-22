@@ -2,6 +2,8 @@
 
 A source-first diagram editor and command-line renderer. Diagrams stay editable as readable `.pug` files, reusable presentation can live in a `.css` file, and SVG/PNG are export formats.
 
+**[Try the online editor on GitHub Pages →](https://briday1.github.io/pugflow/)**
+
 ## Install as a Python application
 
 For development, install the checkout in editable mode:
