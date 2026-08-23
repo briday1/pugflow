@@ -12,6 +12,11 @@ function svgElement(name, attributes = {}) {
   return element;
 }
 
+export function constrainDragDelta(dx, dy, constrained) {
+  if (!constrained) return { dx, dy };
+  return Math.abs(dx) >= Math.abs(dy) ? { dx, dy: 0 } : { dx: 0, dy };
+}
+
 function cssVariables(element) {
   const styles = getComputedStyle(element);
   const read = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
@@ -887,12 +892,11 @@ function renderSvg(container, graph, options) {
       svg.addEventListener("pointermove", (event) => {
         if (!drag || drag.pointerId !== event.pointerId) return;
         const point = pointFor(event);
-        let dx = point.x - drag.start.x;
-        let dy = point.y - drag.start.y;
-        if (event.shiftKey) {
-          if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
-          else dx = 0;
-        }
+        const { dx, dy } = constrainDragDelta(
+          point.x - drag.start.x,
+          point.y - drag.start.y,
+          event.metaKey || event.ctrlKey || event.shiftKey,
+        );
         drag.dx = dx;
         drag.dy = dy;
         drag.elements.forEach((movingElement) => movingElement.setAttribute("transform", `translate(${drag.dx} ${drag.dy})`));

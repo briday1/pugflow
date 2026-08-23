@@ -2,7 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets, independentMoveOffsets, inheritedFlowOffsets, layoutDiagram } from "../../src/pugflow/web/layout.mjs";
-import { connectionPath, connectionPathAvoidingNodes, edgeIsVisible } from "../../src/pugflow/web/pugflow.mjs";
+import { connectionPath, connectionPathAvoidingNodes, constrainDragDelta, edgeIsVisible } from "../../src/pugflow/web/pugflow.mjs";
+
+test("constrains modified drags to their dominant axis", () => {
+  assert.deepEqual(constrainDragDelta(35, 12, true), { dx: 35, dy: 0 });
+  assert.deepEqual(constrainDragDelta(8, -24, true), { dx: 0, dy: -24 });
+  assert.deepEqual(constrainDragDelta(8, -24, false), { dx: 8, dy: -24 });
+});
 
 test("places parallel flows and merges in successive columns", () => {
   const graph = parseDiagram([
@@ -284,16 +290,46 @@ test("cleans visible kinks without treating above annotations as node geometry",
   ]);
 });
 
-test("reroutes large bends without removing deliberate offsets", () => {
+test("aligns large flow jogs by changing offsets without changing connector faces", () => {
   const nodes = [
-    { id: "retry", x: 100, y: 100, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 4 },
-    { id: "receipt", x: 382, y: 177.7, width: 160, height: 60, offsetX: 122, offsetY: -22.3, lineNumber: 9 },
+    { id: "revise", x: 100, y: 100, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 4 },
+    { id: "publish", x: 382, y: 174.7, width: 160, height: 60, offsetX: -11.8, offsetY: -74.7, lineNumber: 9 },
   ];
-  assert.deepEqual(cleanupAlignmentOffsets(nodes, [{ from: "retry", to: "receipt", kind: "branch", declarationKind: "node", layoutDirection: "down", lineNumber: 8 }]), [
-    { kind: "route", from: "retry", to: "receipt", lineNumber: 8, declarationKind: "node", direction: "right" },
+  const edge = { from: "revise", to: "publish", kind: "merge", declarationKind: "node", layoutDirection: "right", sourceDirection: "right", targetLayoutDirection: "right" };
+  assert.deepEqual(cleanupAlignmentOffsets(nodes, [edge]), [
+    { kind: "offset", id: "publish", lineNumber: 9, offsetX: -11.8, offsetY: -149.4 },
   ]);
-  assert.deepEqual(nodes[1].offsetX, 122);
-  assert.deepEqual(nodes[1].offsetY, -22.3);
+  assert.equal(edge.sourceDirection, "right");
+  assert.equal(edge.targetLayoutDirection, "right");
+});
+
+test("leaves offsets unchanged when connector faces use different axes", () => {
+  const nodes = [
+    { id: "payment", x: 100, y: 100, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 4 },
+    { id: "approve", x: 382, y: 177.7, width: 160, height: 60, offsetX: -174.7, offsetY: -5.9, lineNumber: 9 },
+  ];
+  const edge = { from: "payment", to: "approve", kind: "branch", layoutDirection: "down", sourceDirection: "right", targetLayoutDirection: "down" };
+  assert.deepEqual(cleanupAlignmentOffsets(nodes, [edge]), []);
+  assert.equal(nodes[1].offsetX, -174.7);
+  assert.equal(nodes[1].offsetY, -5.9);
+});
+
+test("does not move an unoffset sibling branch while cleaning a nested merge path", () => {
+  const nodes = [
+    { id: "review", x: 0, y: 100, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 2 },
+    { id: "revise", x: 260, y: 100, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 6 },
+    { id: "accept", x: 260, y: 188, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 10 },
+    { id: "publish", x: 508.2, y: 174.7, width: 160, height: 60, offsetX: -11.8, offsetY: -74.7, lineNumber: 14 },
+  ];
+  const edges = [
+    { from: "review", to: "revise", kind: "branch", declarationKind: "node", layoutDirection: "right", sourceDirection: "right" },
+    { from: "review", to: "accept", kind: "branch", declarationKind: "node", layoutDirection: "right", sourceDirection: "right" },
+    { from: "revise", to: "publish", kind: "merge", declarationKind: "node", layoutDirection: "right", sourceDirection: "right" },
+    { from: "accept", to: "publish", kind: "merge", declarationKind: "flow", layoutDirection: "right", sourceDirection: "right", targetLayoutDirection: "right" },
+  ];
+  assert.deepEqual(cleanupAlignmentOffsets(nodes, edges), [
+    { kind: "offset", id: "publish", lineNumber: 14, offsetX: -11.8, offsetY: -149.4 },
+  ]);
 });
 
 test("distributes rendered positions while preserving existing offsets", () => {

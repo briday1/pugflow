@@ -281,34 +281,27 @@ export function independentMoveOffsets(nodes, edges, selectedIds, dx, dy) {
   });
 }
 
-export function cleanupAlignmentOffsets(nodes, edges, tolerance = 12) {
+export function cleanupAlignmentOffsets(nodes, edges) {
   const byId = new Map(nodes.map((node) => [node.id, { ...node }]));
   const changed = new Map();
   const centerX = (node) => node.x + node.width / 2;
   const centerY = (node) => node.y + node.height / 2;
-  edges.filter((edge) => edge.kind === "branch").forEach((edge) => {
+  edges.filter((edge) => edge.kind === "branch" || edge.kind === "merge" && edge.declarationKind === "node").forEach((edge) => {
     const source = byId.get(edge.from);
     const target = byId.get(edge.to);
     if (!source || !target || source.hidden || target.hidden) return;
-    const vertical = edge.layoutDirection === "up" || edge.layoutDirection === "down";
+    const sourceDirection = edge.sourceDirection ?? edge.layoutDirection;
+    const targetDirection = edge.targetLayoutDirection ?? edge.layoutDirection;
+    if (sourceDirection !== targetDirection) return;
+    const vertical = sourceDirection === "up" || sourceDirection === "down";
+    const perpendicularOffset = vertical ? target.offsetX ?? 0 : target.offsetY ?? 0;
+    if (Math.abs(perpendicularOffset) < 0.05) return;
     const difference = vertical ? centerX(source) - centerX(target) : centerY(source) - centerY(target);
     if (Math.abs(difference) < 0.05) return;
-    const perpendicularOffset = vertical ? target.offsetX ?? 0 : target.offsetY ?? 0;
-    if (Math.abs(difference) > tolerance && Math.abs(perpendicularOffset) > tolerance) {
-      const direction = vertical
-        ? (centerX(target) > centerX(source) ? "right" : "left")
-        : (centerY(target) > centerY(source) ? "down" : "up");
-      changed.set(`edge:${edge.from}:${edge.to}:${edge.lineNumber}`, {
-        kind: "route", from: edge.from, to: edge.to, lineNumber: edge.lineNumber,
-        declarationKind: edge.declarationKind, direction,
-      });
-      return;
-    }
-    if (Math.abs(difference) > tolerance) return;
     if (vertical) target.x += difference;
     else target.y += difference;
-    target.offsetX = (target.offsetX ?? 0) + (vertical ? difference : 0);
-    target.offsetY = (target.offsetY ?? 0) + (vertical ? 0 : difference);
+    target.offsetX = Math.round(((target.offsetX ?? 0) + (vertical ? difference : 0)) * 10) / 10;
+    target.offsetY = Math.round(((target.offsetY ?? 0) + (vertical ? 0 : difference)) * 10) / 10;
     if (Math.abs(target.offsetX) < 0.0001) target.offsetX = 0;
     if (Math.abs(target.offsetY) < 0.0001) target.offsetY = 0;
     changed.set(target.id, { kind: "offset", id: target.id, lineNumber: target.lineNumber, offsetX: target.offsetX, offsetY: target.offsetY });

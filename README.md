@@ -317,7 +317,7 @@ The block still participates in measurement and layout, so every other block kee
 
 ## Click, locate, and manually offset
 
-Click a block, block label, annotation, connection, or connection label in the preview to select its exact declaration in the editor. Drag boxes and text when the automatic result needs a visual nudge; the editor writes the resulting offsets back into the source. A translucent ghost marks the original position while dragging. Hold Shift to constrain movement to the dominant horizontal or vertical axis.
+Click a block, block label, annotation, connection, or connection label in the preview to select its exact declaration in the editor. Drag boxes and text when the automatic result needs a visual nudge; the editor writes the resulting offsets back into the source. A translucent ghost marks the original position while dragging. Hold Cmd on macOS or Ctrl on other platforms to constrain movement to the dominant horizontal or vertical axis; Shift remains supported as an alternative.
 
 Selecting a node or connector also opens the canvas inspector. Ctrl-click (Cmd-click on macOS) toggles additional items into the selection. The inspector shows only controls applicable to every selected item. Select any two or more nodes and use **Group as Graph** to create a new canvas-level graph with a `.members` list. Every inspector operation edits the Pug source directly.
 
@@ -335,7 +335,7 @@ Use **+ New** above the canvas to add a Graph, Node, or Flow without hand-writin
 
 Offsets affect only the rendered position. The node's automatic layout slot remains fixed.
 
-Use **Clean up** above the canvas after manual positioning to straighten small connector jogs. It snaps nearly aligned flow nodes (within 12 pixels) to a shared centerline and writes the corrected `.offset` tuples back into the source. Larger offsets are treated as intentional and remain unchanged.
+Use **Clean up** above the canvas after manual positioning to align connected flow nodes. It writes corrected `.offset` tuples back into the source without changing connector faces. Connections whose endpoint faces use different axes are left alone.
 
 Nodes support SVG drop shadows through `.shadow-color`, `.shadow-offset-x`, `.shadow-offset-y`, `.shadow-blur`, and `.shadow-opacity`. A shadow is enabled when `shadow-color` is present; these fields work in `@node` definitions, diagram defaults, local nodes, and the canvas inspector.
 

@@ -76,6 +76,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /Graph Layer<select data-graph-field="layer-order"/);
   assert.match(app, /graphSelections\.length > 1[\s\S]*Align \/ distribute[\s\S]*return;/);
   assert.match(renderer, /event\.shiftKey \|\| event\.ctrlKey \|\| event\.metaKey/);
+  assert.match(renderer, /event\.metaKey \|\| event\.ctrlKey \|\| event\.shiftKey/);
   assert.match(html, /id="color-picker-popup"[^>]*hidden/);
   assert.match(html, /id="color-picker-saturation"[^>]*canvas|<canvas id="color-picker-saturation"/);
   assert.match(html, /id="color-picker-hue" type="range"/);
@@ -135,7 +136,8 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /setStructuralField\(nextSource, group\.lineNumber, "layer"/);
   assert.match(app, /const targetGraph = sourceGraph/);
   assert.doesNotMatch(app, /removeNodeFields\(nextSource, node\.lineNumber, \["offset", "label-offset"\]\)/);
-  assert.match(app, /change\.kind === "route"/);
+  assert.doesNotMatch(app, /change\.kind === "route"/);
+  assert.match(app, /cleanupAlignmentOffsets[\s\S]*setNodeOffsetField/);
   assert.match(renderer, /Math\.max\(sourceLayer, targetLayer\)/);
   assert.match(renderer, /class: "diagram-layer"/);
   assert.ok(renderer.indexOf('class: "connector-layer"') < renderer.indexOf('class: "graph-node-layer"'));

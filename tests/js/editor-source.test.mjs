@@ -148,6 +148,21 @@ test("switches reusable line types while clearing appearance overrides", () => {
   assert.doesNotMatch(incoming, /\.stroke-style dotted/);
 });
 
+test("updates connector faces inside an existing nested node line block", () => {
+  const source = "#canvas\n  graph\n    .node\n      .id root\n      .label Root\n      .flow\n        .node\n          .line\n            .source-face right\n            .target-face left\n          .id child\n          .offset (-174.7, -69.5)\n          .label Child";
+  const parsed = parseDiagram(source);
+  const child = parsed.nodes.find((node) => node.id === "child");
+  let updated = setNodeField(source, child.lineNumber, "line.source-face", "bottom");
+  const shifted = parseDiagram(updated).nodes.find((node) => node.id === "child");
+  updated = setNodeField(updated, shifted.lineNumber, "line.target-face", "top");
+  const result = parseDiagram(updated);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.edges[0].sourceFace, "bottom");
+  assert.equal(result.edges[0].targetFace, "top");
+  assert.equal(updated.match(/\.source-face/g)?.length, 1);
+  assert.equal(updated.match(/\.target-face/g)?.length, 1);
+});
+
 test("builds a typed flow node inside the selected parent", () => {
   const source = "#diagram\n  .node\n    .id root\n    .label Root";
   const updated = appendFlowNode(source, 4, { direction: "down", ports: "distributed", nodeType: "card", lineType: "warning", id: "child", label: "Child" });

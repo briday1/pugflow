@@ -1266,20 +1266,7 @@ function cleanupDiagram() {
   const changes = cleanupAlignmentOffsets(diagram.layout.nodes, diagram.layout.edges);
   let nextSource = source.value;
   [...changes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((change) => {
-    if (change.kind === "route") {
-      if (change.declarationKind === "node") {
-        const target = currentGraph.nodes.find((node) => node.id === change.to);
-        const faces = { up: ["top", "bottom"], right: ["right", "left"], down: ["bottom", "top"], left: ["left", "right"] };
-        if (target) {
-          nextSource = setNodeField(nextSource, target.lineNumber, "line.source-face", faces[change.direction][0]);
-          const shiftedTarget = parseDiagram(nextSource, cssSource).nodes.find((node) => node.id === change.to);
-          if (shiftedTarget) nextSource = setNodeField(nextSource, shiftedTarget.lineNumber, "line.target-face", faces[change.direction][1]);
-        }
-      } else {
-        nextSource = setStructuralField(nextSource, change.lineNumber, "from-direction", change.direction);
-        nextSource = setStructuralField(nextSource, change.lineNumber, "to-direction", change.direction);
-      }
-    } else nextSource = setNodeOffsetField(nextSource, change.lineNumber, "offset", change.offsetX, change.offsetY);
+    nextSource = setNodeOffsetField(nextSource, change.lineNumber, "offset", change.offsetX, change.offsetY);
   });
   if (nextSource === source.value) {
     status.textContent = "Diagram is already clean.";
@@ -1287,9 +1274,7 @@ function cleanupDiagram() {
     return;
   }
   setSource(nextSource);
-  const routes = changes.filter((change) => change.kind === "route").length;
-  const nodes = changes.length - routes;
-  status.textContent = `Cleaned up ${routes ? `${routes} connector${routes === 1 ? "" : "s"}` : ""}${routes && nodes ? " and " : ""}${nodes ? `${nodes} node${nodes === 1 ? "" : "s"}` : ""}.`;
+  status.textContent = `Cleaned up ${changes.length} node${changes.length === 1 ? "" : "s"}.`;
   status.className = "status ready";
 }
 

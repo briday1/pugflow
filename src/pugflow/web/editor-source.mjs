@@ -314,6 +314,20 @@ export function setNodeField(value, labelLineNumber, field, fieldValue) {
     let removeTo = existing + 1;
     while (removeTo < lines.length && indentationWidth(lines[removeTo]) > indentationWidth(lines[existing])) removeTo += 1;
     lines.splice(existing, removeTo - existing, replacement);
+  } else if (field.startsWith("line.")) {
+    const lineIndex = lines.findIndex((line, index) => index > range.start && index < range.end
+      && indentationWidth(line) === indentationWidth(range.fieldIndent) && line.trim() === ".line");
+    if (lineIndex >= 0) {
+      const nestedIndent = range.fieldIndent + "  ";
+      const nestedField = field.slice(5);
+      const nestedPattern = new RegExp("^" + escapeRegExp(nestedIndent) + "\\." + escapeRegExp(nestedField) + "(?:\\s|$)");
+      let lineEnd = lineIndex + 1;
+      while (lineEnd < range.end && indentationWidth(lines[lineEnd]) > indentationWidth(range.fieldIndent)) lineEnd += 1;
+      const nestedExisting = lines.findIndex((line, index) => index > lineIndex && index < lineEnd && nestedPattern.test(line));
+      const nestedReplacement = nestedIndent + "." + nestedField + (fieldValue === "" ? "" : " " + fieldValue);
+      if (nestedExisting >= 0) lines[nestedExisting] = nestedReplacement;
+      else lines.splice(lineIndex + 1, 0, nestedReplacement);
+    } else lines.splice(range.start + 1, 0, replacement);
   } else lines.splice(range.start + 1, 0, replacement);
   return lines.join("\n");
 }
