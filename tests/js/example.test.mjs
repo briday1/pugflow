@@ -29,7 +29,7 @@ test("the built-in showcase presents two simple independent branch-and-merge gra
     assert.equal(edge?.targetFace, "top");
   }
   const approval = result.edges.find((edge) => edge.from === "payment" && edge.to === "approve");
-  assert.equal(approval?.sourceFace, "bottom");
+  assert.equal(approval?.sourceFace, "right");
   assert.equal(approval?.targetFace, "left");
   const receiptEdges = result.edges.filter((edge) => edge.to === "receipt");
   assert.deepEqual(receiptEdges.map((edge) => edge.from), ["retry", "approve"]);

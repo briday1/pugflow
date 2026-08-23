@@ -88,7 +88,7 @@ const EXAMPLE_DOCUMENT = `// Two simple, independent branching and merging flows
             .direction down
             .step
               .line
-                .source-face bottom
+                .source-face right
                 .target-face left
               .id approve
               .label Approve order
