@@ -4,6 +4,7 @@ import { attachVimMode } from "./vim-mode.mjs";
 import { attachTextEditor } from "./text-editor.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets, independentMoveOffsets } from "./layout.mjs";
 import { pugDefinitionsToStyleSheet } from "./style-sheet.mjs";
+import { appendReusableStyle, reusableStyleDeclarations } from "./reusable-style.mjs";
 
 const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the preview update
 @node primary_node
@@ -249,6 +250,12 @@ const builderLabel = document.querySelector("#builder-label");
 const builderDiagramId = document.querySelector("#builder-diagram-id");
 const builderDiagramLabel = document.querySelector("#builder-diagram-label");
 const builderError = document.querySelector("#builder-error");
+const styleBuilder = document.querySelector("#style-builder");
+const styleBuilderForm = document.querySelector("#style-builder-form");
+const styleBuilderKind = document.querySelector("#style-builder-kind");
+const styleBuilderName = document.querySelector("#style-builder-name");
+const styleBuilderPreview = document.querySelector("#style-builder-preview");
+const styleBuilderError = document.querySelector("#style-builder-error");
 const PANEL_WIDTH_KEY = "pugflow-panel-width-v1";
 const PANEL_COLLAPSED_KEY = "pugflow-panel-collapsed-v1";
 const THEME_KEY = "pugflow-theme-v1";
@@ -266,6 +273,7 @@ let pugFileName = launchParams.get("pug_name") ?? (launchParams.get("demo") === 
 let cssFileName = launchParams.get("css_name") ?? (launchParams.get("demo") === "1" ? "demo.css" : "");
 let hasCssDocument = Boolean(cssFileName || cssSource);
 let canvasZoomPercent = 100;
+let pendingReusableStyle = null;
 if (launchParams.get("project") === "1") {
   [pugSource, cssSource] = await Promise.all([
     fetch("/__project.pug").then((response) => response.ok ? response.text() : "#canvas"),
@@ -374,22 +382,46 @@ function graphParent(group, groups = currentGraph.groups) {
 
 function connectedItemsControls(node) {
   const edges = (diagram?.layout?.edges ?? []).filter((edge) => edge.from === node.id || edge.to === node.id);
-  if (!edges.length) return '<details><summary>Connections</summary><p class="inspector-empty">No connected items.</p></details>';
+  if (!edges.length) return '<details><summary>Flows</summary><p class="inspector-empty">No flows.</p></details>';
   const faceForSource = { up: "top", right: "right", down: "bottom", left: "left" };
   const faceForTarget = { down: "top", left: "right", up: "bottom", right: "left" };
   const options = (values, selected) => values.map((value) => `<option value="${value}"${value === selected ? " selected" : ""}>${value}</option>`).join("");
-  return `<details class="connections-editor"><summary>Connections <small>${edges.length}</small></summary>${edges.map((edge) => {
+  return `<details class="connections-editor"><summary>Flows <small>${edges.length}</small></summary>${edges.map((edge) => {
     const outgoing = edge.from === node.id;
     const other = outgoing ? edge.to : edge.from;
     const sourceFace = edge.sourceFace ?? faceForSource[edge.sourceDirection ?? edge.layoutDirection] ?? "right";
     const targetFace = edge.targetFace ?? faceForTarget[edge.targetLayoutDirection ?? edge.layoutDirection] ?? "left";
     const key = `${edge.from}|${edge.to}|${edge.lineNumber}`;
-    return `<section class="connection-editor"><strong>${outgoing ? "To" : "From"} ${escapeHtml(other)}</strong><div class="inspector-grid"><label>Leaves source<select data-connected-field="source-face" data-connected-edge="${escapeHtml(key)}">${options(["top","right","bottom","left"], sourceFace)}</select></label><label>Enters target<select data-connected-field="target-face" data-connected-edge="${escapeHtml(key)}">${options(["top","right","bottom","left"], targetFace)}</select></label><label>Arrow<select data-connected-field="arrow-style" data-connected-edge="${escapeHtml(key)}">${options(["forward","backward","both","none"], edge.direction)}</select></label><label>Width<input data-connected-field="width" data-connected-edge="${escapeHtml(key)}" type="number" min="0.5" step="0.5" value="${edge.width}"></label><label>Roundness<input data-connected-field="roundness" data-connected-edge="${escapeHtml(key)}" type="number" min="0" step="1" value="${edge.roundness ?? 9}"></label></div></section>`;
+    return `<section class="connection-editor"><strong>${outgoing ? "To" : "From"} ${escapeHtml(other)}</strong><div class="inspector-grid"><label>Leaves source<select data-connected-field="source-face" data-connected-edge="${escapeHtml(key)}">${options(["top","right","bottom","left"], sourceFace)}</select></label><label>Enters target<select data-connected-field="target-face" data-connected-edge="${escapeHtml(key)}">${options(["top","right","bottom","left"], targetFace)}</select></label></div></section>`;
   }).join("")}</details>`;
 }
 
 function reusableNames(kind) {
   return [...new Set([...`${pugSource}\n${cssSource}`.matchAll(new RegExp(`^@${kind}\\s+([\\w-]+)`, "gm"))].map((match) => match[1]))];
+}
+
+function suggestedReusableName(kind) {
+  const selection = selections[0];
+  const base = kind === "node" ? `${selection?.id ?? "custom"}_node`
+    : kind === "line" ? `${selection?.from ?? "custom"}_${selection?.to ?? "line"}_line`
+      : "custom_note";
+  const normalized = base.replace(/[^a-zA-Z0-9_-]/g, "_").replace(/^[^a-zA-Z]+/, "") || `custom_${kind}`;
+  const used = new Set(reusableNames(kind));
+  if (!used.has(normalized)) return normalized;
+  let suffix = 2;
+  while (used.has(`${normalized}_${suffix}`)) suffix += 1;
+  return `${normalized}_${suffix}`;
+}
+
+function openReusableStyleBuilder(kind, model) {
+  const declarations = reusableStyleDeclarations(kind, model);
+  pendingReusableStyle = { kind, declarations };
+  styleBuilderKind.textContent = kind;
+  styleBuilderName.value = suggestedReusableName(kind);
+  styleBuilderPreview.textContent = declarations.map(([property, value]) => `${property}: ${value};`).join("\n");
+  styleBuilderError.textContent = "";
+  styleBuilder.showModal();
+  styleBuilderName.select();
 }
 
 function syncInspectorScrollbarWidth() {
@@ -435,14 +467,15 @@ function renderInspector() {
     tidyInspectorSections();
     inspectorContent.insertAdjacentHTML("beforeend", nodeAnnotationControls(node));
     inspectorContent.insertAdjacentHTML("beforeend", connectedItemsControls(node));
-    inspectorContent.insertAdjacentHTML("beforeend", '<button type="button" class="inspector-primary-action" data-graph-add="flow">+ Add flow</button>');
+    inspectorContent.insertAdjacentHTML("beforeend", '<button type="button" data-build-style="node">Save as reusable node type…</button>');
+    inspectorContent.insertAdjacentHTML("beforeend", '<button type="button" class="inspector-primary-action" data-graph-add="flow">+ Add Flow</button>');
     return;
   }
   const annotationSelections = selections.filter((item) => item.kind === "annotation");
   if (annotationSelections.length === selections.length) {
     const annotations = annotationSelections.map((selection) => currentGraph.nodes.flatMap((node) => node.annotations).find((annotation) => annotation.lineNumber === selection.lineNumber)).filter(Boolean);
     const annotation = annotations[0] ?? {};
-    inspectorContent.innerHTML = `<h3>${annotations.length} annotation${annotations.length === 1 ? "" : "s"}</h3><label>Text<textarea data-selected-annotation-text rows="2">${escapeHtml(annotation.text ?? "")}</textarea></label>${fontOptions("annotation", annotation)}<label>Offset<input value="(${annotation.offsetX ?? 0}, ${annotation.offsetY ?? 0})" readonly></label>`;
+    inspectorContent.innerHTML = `<h3>${annotations.length} annotation${annotations.length === 1 ? "" : "s"}</h3><label>Text<textarea data-selected-annotation-text rows="2">${escapeHtml(annotation.text ?? "")}</textarea></label>${fontOptions("annotation", annotation)}<label>Offset<input value="(${annotation.offsetX ?? 0}, ${annotation.offsetY ?? 0})" readonly></label><button type="button" data-build-style="annotation">Save as reusable annotation type…</button>`;
     return;
   }
   const edges = selections.filter((item) => item.kind === "line").map((item) => diagram.layout.edges.find((edge) => edge.from === item.from && edge.to === item.to));
@@ -459,6 +492,7 @@ function renderInspector() {
   };
   const allAnnotationsHidden = edges.length && edges.every((item) => item?.annotationAboveHidden && item?.annotationBelowHidden);
   inspectorContent.insertAdjacentHTML("beforeend", `<details class="annotations-editor"><summary><span>Annotations</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-line-annotations-hidden type="checkbox"${allAnnotationsHidden ? " checked" : ""}></label></summary>${connectorAnnotation("above")}${connectorAnnotation("below")}</details>`);
+  inspectorContent.insertAdjacentHTML("beforeend", '<button type="button" data-build-style="line">Save as reusable line type…</button>');
 }
 
 function suggestedNodeId() {
@@ -567,7 +601,9 @@ function setSourcePanelCollapsed(collapsed, persist = true) {
   sourcePanel.setAttribute("aria-hidden", String(collapsed));
   sourcePanel.inert = collapsed;
   sourceToggle.setAttribute("aria-expanded", String(!collapsed));
-  sourceToggle.textContent = collapsed ? "Show source" : "Hide source";
+  sourceToggle.textContent = collapsed ? "›" : "‹";
+  sourceToggle.setAttribute("aria-label", collapsed ? "Show source panel" : "Hide source panel");
+  sourceToggle.title = collapsed ? "Show source panel" : "Hide source panel";
   if (persist) localStorage.setItem(PANEL_COLLAPSED_KEY, String(collapsed));
 }
 
@@ -611,9 +647,16 @@ window.addEventListener("resize", () => {
 });
 
 function applyTheme(preference) {
-  const resolved = preference === "system" ? (systemDark.matches ? "dark" : "light") : preference;
+  const selected = ["system", "light", "dark"].includes(preference) ? preference : "system";
+  const resolved = selected === "system" ? (systemDark.matches ? "dark" : "light") : selected;
   document.documentElement.dataset.theme = resolved;
-  themeSelect.value = preference;
+  document.documentElement.style.colorScheme = resolved;
+  themeSelect.value = selected;
+  if (diagram) {
+    diagram.render(pugSource, cssSource);
+    applyCanvasZoom();
+    paintSelections();
+  }
 }
 
 applyTheme(localStorage.getItem(THEME_KEY) ?? "system");
@@ -621,9 +664,11 @@ themeSelect.addEventListener("change", () => {
   localStorage.setItem(THEME_KEY, themeSelect.value);
   applyTheme(themeSelect.value);
 });
-systemDark.addEventListener("change", () => {
+const handleSystemThemeChange = () => {
   if (themeSelect.value === "system") applyTheme("system");
-});
+};
+if (systemDark.addEventListener) systemDark.addEventListener("change", handleSystemThemeChange);
+else systemDark.addListener(handleSystemThemeChange);
 
 let renderedLineCount = 0;
 let lastEditorCaret = 0;
@@ -1277,6 +1322,24 @@ inspectorContent.addEventListener("click", (event) => {
     nodeImageFile.click();
     return;
   }
+  const styleKind = event.target.closest("[data-build-style]")?.dataset.buildStyle;
+  if (styleKind === "node") {
+    const node = selectedNodes()[0];
+    if (node) openReusableStyleBuilder(styleKind, node.style);
+    return;
+  }
+  if (styleKind === "line") {
+    const selection = selections.find((item) => item.kind === "line");
+    const edge = diagram?.layout?.edges.find((item) => item.from === selection?.from && item.to === selection?.to);
+    if (edge) openReusableStyleBuilder(styleKind, edge);
+    return;
+  }
+  if (styleKind === "annotation") {
+    const selection = selections.find((item) => item.kind === "annotation");
+    const annotation = currentGraph.nodes.flatMap((node) => node.annotations).find((item) => item.lineNumber === selection?.lineNumber);
+    if (annotation) openReusableStyleBuilder(styleKind, annotation);
+    return;
+  }
   const action = event.target.closest("[data-arrange]")?.dataset.arrange;
   if (action) arrangeSelection(action);
   const field = event.target.closest("[data-remove-field]")?.dataset.removeField;
@@ -1333,6 +1396,24 @@ graphBuilderForm.addEventListener("submit", (event) => {
   graphBuilder.close();
   setSource(nextSource);
   selectCreatedNode(id);
+});
+styleBuilderForm.addEventListener("submit", (event) => {
+  if (event.submitter?.value === "cancel") return;
+  event.preventDefault();
+  if (!pendingReusableStyle) return;
+  const name = styleBuilderName.value.trim();
+  try {
+    cssSource = appendReusableStyle(cssSource, pendingReusableStyle.kind, name, pendingReusableStyle.declarations);
+    cssFileName ||= "Untitled.css";
+    hasCssDocument = true;
+    pendingReusableStyle = null;
+    styleBuilder.close();
+    updateSourceFileNames();
+    activateDocument("css");
+    showCanvasToast(`Added @${styleBuilderKind.textContent} ${name} to CSS`);
+  } catch (error) {
+    styleBuilderError.textContent = error.message;
+  }
 });
 nodeImageFile.addEventListener("change", () => {
   const file = nodeImageFile.files?.[0];
@@ -1622,3 +1703,4 @@ document.querySelector("#save-export-form").addEventListener("submit", (event) =
 updateSourceFileNames();
 highlightSource();
 update();
+window.addEventListener("pugflow-math-ready", update);

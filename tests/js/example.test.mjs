@@ -46,7 +46,10 @@ test("editor exposes source files, collapsible source, nesting, and connection c
   assert.match(app, /data-graph-parent/);
   assert.match(app, /data-connected-field="source-face"/);
   assert.match(app, /data-connected-field="target-face"/);
-  assert.match(app, /data-connected-field="arrow-style"/);
-  assert.match(app, /data-connected-field="width"/);
+  assert.match(app, /<summary>Flows <small>/);
+  assert.match(app, />\+ Add Flow<\/button>/);
+  assert.doesNotMatch(app, /<summary>Connections/);
+  assert.doesNotMatch(app, /data-connected-field="arrow-style"/);
+  assert.doesNotMatch(app, /data-connected-field="width"/);
   assert.doesNotMatch(app, /<summary>Typography<\/summary>/);
 });

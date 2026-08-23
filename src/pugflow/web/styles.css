@@ -42,6 +42,11 @@
   --code-bg: #223241;
   --selection: rgba(112, 175, 231, .28);
   --shadow: rgba(0, 0, 0, .38);
+  --diagram-background: #101922;
+  --diagram-label: #f4f8fb;
+  --diagram-text: #d6e2ec;
+  --diagram-merge: #d6e2ec;
+  --diagram-annotation: #a4b6c5;
 }
 
 * { box-sizing: border-box; }
@@ -81,10 +86,31 @@ nav .primary { border-color: var(--accent); color: #fff; background: var(--accen
 nav .primary:hover { background: var(--accent-hover); }
 nav label, .editor-actions label { color: var(--faint); font-size: 10px; }
 
-main { --panel-width: 430px; height: calc(100vh - 70px); display: grid; grid-template-columns: var(--panel-width) 9px minmax(0, 1fr); transition: grid-template-columns .2s ease; }
+main { --panel-width: 430px; position: relative; height: calc(100vh - 70px); display: grid; grid-template-columns: var(--panel-width) 9px minmax(0, 1fr); transition: grid-template-columns .2s ease; }
 main.source-collapsed { grid-template-columns: 0 0 minmax(0, 1fr); }
 aside { display: flex; min-height: 0; flex-direction: column; padding: 22px 20px 16px; border-right: 1px solid var(--border); background: var(--panel); }
 main.source-collapsed aside { visibility: hidden; overflow: hidden; padding-inline: 0; border-right: 0; pointer-events: none; }
+.source-toggle {
+  position: absolute;
+  z-index: 7;
+  top: 50%;
+  left: calc(var(--panel-width) - 13px);
+  width: 27px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  color: var(--accent);
+  background: var(--panel);
+  box-shadow: 0 3px 10px var(--shadow);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  translate: 0 -50%;
+  transition: left .2s ease, background .12s ease;
+}
+.source-toggle:hover, .source-toggle:focus-visible { border-color: var(--accent); background: var(--code-bg); outline: none; }
+main.source-collapsed .source-toggle { left: 8px; }
 .panel-resizer {
   position: relative;
   z-index: 5;
@@ -403,7 +429,6 @@ dialog::backdrop { background: rgb(15 23 42 / .48); backdrop-filter: blur(2px); 
 #diagram svg .interactive .subdiagram-selection-outline { opacity: 0; transition: opacity .2s ease; }
 #diagram svg .interactive [data-select-kind="graph"]:hover > .subdiagram-selection-outline,
 #diagram svg .interactive [data-select-kind="graph"]:focus > .subdiagram-selection-outline { opacity: .68; }
-#diagram svg .interactive [data-select-kind="graph"].selected-element > .subdiagram-selection-outline { opacity: 1; }
 #diagram svg .interactive [data-select-kind="graph"]:has(> .subdiagram-hit:hover) > .subdiagram-frame { stroke: color-mix(in srgb, var(--accent) 62%, transparent); stroke-width: 2; filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 25%, transparent)); }
 #diagram svg .image-resize-handles { display: none; }
 #diagram svg .entry.selected-element .image-resize-handles { display: block !important; }

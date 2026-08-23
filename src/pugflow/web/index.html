@@ -15,7 +15,6 @@
         <div><strong>Pugflow</strong><small>Readable source, polished diagrams</small></div>
       </div>
       <nav>
-        <button id="toggle-source" type="button" aria-controls="source-panel" aria-expanded="true">Hide source</button>
         <label class="theme-control">Theme
           <select id="theme" aria-label="Application theme">
             <option value="system">System</option>
@@ -49,7 +48,6 @@
           </div>
         </div>
         <div class="source-tabs" role="tablist" aria-label="Source documents"><button class="active" data-source-tab="pug" role="tab" aria-selected="true">Pug</button><button data-source-tab="css" role="tab" aria-selected="false">CSS</button></div>
-        <p class="help">The tabs identify the files being edited. Use <strong>File</strong> to create, open, or download the current Pug and optional CSS.</p>
         <div class="editor-shell">
           <div class="current-line" id="current-line" aria-hidden="true"></div>
           <div class="line-numbers" id="line-numbers" aria-hidden="true"></div>
@@ -61,6 +59,8 @@
         <p class="editor-hint" id="editor-hint"><span>Ctrl+Space for completions · Tab accepts or indents</span><span class="editor-hint-actions"><strong id="vim-status" hidden></strong><a class="docs-link" href="docs.html" target="_blank" rel="noopener">Open Documentation</a></span></p>
         <p class="status" id="status" role="status"></p>
       </aside>
+
+      <button class="source-toggle" id="toggle-source" type="button" aria-controls="source-panel" aria-expanded="true" aria-label="Hide source panel" title="Hide source panel">‹</button>
 
       <div class="panel-resizer" id="panel-resizer" role="separator" aria-label="Resize source panel" aria-controls="source-panel" aria-orientation="vertical" tabindex="0"></div>
 
@@ -102,7 +102,17 @@
         <div class="dialog-actions"><button value="cancel">Cancel</button><button class="primary" value="default">Save</button></div>
       </form>
     </dialog>
+    <dialog id="style-builder">
+      <form method="dialog" id="style-builder-form">
+        <div class="dialog-title"><div><small>CSS TYPE BUILDER</small><h2>Save reusable <span id="style-builder-kind">node</span> type</h2></div></div>
+        <p>Capture this canvas element’s current appearance in the CSS document.</p>
+        <label>Type name<input id="style-builder-name" required pattern="[A-Za-z][A-Za-z0-9_-]*"></label>
+        <label>Properties<textarea id="style-builder-preview" rows="9" readonly></textarea></label>
+        <p class="dialog-error" id="style-builder-error" role="alert"></p>
+        <div class="dialog-actions"><button value="cancel">Cancel</button><button class="primary" value="default">Add to CSS</button></div>
+      </form>
+    </dialog>
     <script>window.MathJax = { svg: { fontCache: "none" }, startup: { typeset: false } };</script>
-    <script type="module">const script = document.createElement("script"); script.src = "vendor/mathjax/tex-svg-full.js"; await new Promise((resolve, reject) => { script.onload = resolve; script.onerror = reject; document.head.append(script); }); await window.MathJax.startup.promise; await import("./app.mjs");</script>
+    <script type="module">import("./app.mjs"); const script = document.createElement("script"); script.src = "vendor/mathjax/tex-svg-full.js"; script.onload = async () => { await window.MathJax.startup.promise; window.dispatchEvent(new Event("pugflow-math-ready")); }; script.onerror = () => console.error("The bundled math renderer could not be loaded."); document.head.append(script);</script>
   </body>
 </html>
