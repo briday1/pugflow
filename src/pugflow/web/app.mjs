@@ -163,13 +163,14 @@ const colorPickerPopup = document.querySelector("#color-picker-popup");
 const colorPickerSaturation = document.querySelector("#color-picker-saturation");
 const colorPickerMarker = document.querySelector("#color-picker-marker");
 const colorPickerHue = document.querySelector("#color-picker-hue");
+const colorPickerAlpha = document.querySelector("#color-picker-alpha");
+const colorPickerAlphaValue = document.querySelector("#color-picker-alpha-value");
 const colorPickerValue = document.querySelector("#color-picker-value");
 const colorPickerH = document.querySelector("#color-picker-h");
 const colorPickerS = document.querySelector("#color-picker-s");
 const colorPickerV = document.querySelector("#color-picker-v");
 const colorPickerPreview = document.querySelector("#color-picker-preview");
 const colorPickerSummary = document.querySelector("#color-picker-summary");
-const colorPickerPopupNone = document.querySelector("#color-picker-popup-none");
 const currentLine = document.querySelector("#current-line");
 const vimBlockCursor = document.querySelector("#vim-block-cursor");
 const completionMenu = document.querySelector("#completion-menu");
@@ -289,6 +290,7 @@ let applyPopupColor = null;
 let popupHue = 0;
 let popupSaturation = 0;
 let popupBrightness = 0;
+let popupAlpha = 1;
 function rgbToHsv(hex) {
   const [r, g, b] = [1, 3, 5].map((index) => parseInt(hex.slice(index, index + 2), 16) / 255);
   const max = Math.max(r, g, b), min = Math.min(r, g, b), delta = max - min;
@@ -302,6 +304,16 @@ function hsvToHex(h, s, v) {
   const match = v - chroma;
   return `#${[r, g, b].map((channel) => Math.round((channel + match) * 255).toString(16).padStart(2, "0")).join("")}`;
 }
+function colorToHsva(value) {
+  const match = String(value).match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+  if (!match) return null;
+  const expanded = match[1].length <= 4 ? [...match[1]].map((digit) => digit + digit).join("") : match[1];
+  return { ...rgbToHsv(`#${expanded.slice(0, 6)}`), a: expanded.length === 8 ? parseInt(expanded.slice(6), 16) / 255 : 1 };
+}
+function pickerColor() {
+  const opaque = hsvToHex(popupHue, popupSaturation, popupBrightness);
+  return popupAlpha >= 0.999 ? opaque : `${opaque}${Math.round(popupAlpha * 255).toString(16).padStart(2, "0")}`;
+}
 function paintColorSurface() {
   const context = colorPickerSaturation.getContext("2d");
   context.fillStyle = `hsl(${popupHue} 100% 50%)`;
@@ -314,16 +326,19 @@ function paintColorSurface() {
   context.fillStyle = black; context.fillRect(0, 0, colorPickerSaturation.width, colorPickerSaturation.height);
 }
 function syncColorPicker({ apply = false, repaint = false } = {}) {
-  const color = hsvToHex(popupHue, popupSaturation, popupBrightness);
-  colorPickerPopup.classList.remove("none");
+  const opaqueColor = hsvToHex(popupHue, popupSaturation, popupBrightness);
+  const color = pickerColor();
   colorPickerHue.value = String(Math.round(popupHue));
   colorPickerH.value = String(Math.round(popupHue));
   colorPickerS.value = String(Math.round(popupSaturation * 100));
   colorPickerV.value = String(Math.round(popupBrightness * 100));
+  colorPickerAlpha.value = String(Math.round(popupAlpha * 100));
+  colorPickerAlphaValue.value = `${Math.round(popupAlpha * 100)}%`;
   colorPickerValue.value = color;
   colorPickerValue.setAttribute("aria-invalid", "false");
-  colorPickerPreview.style.backgroundColor = color;
-  colorPickerSummary.value = `H ${Math.round(popupHue)}° · S ${Math.round(popupSaturation * 100)}% · V ${Math.round(popupBrightness * 100)}%`;
+  colorPickerPreview.style.setProperty("--preview-color", color);
+  colorPickerAlpha.style.setProperty("--alpha-color", opaqueColor);
+  colorPickerSummary.value = `H ${Math.round(popupHue)}° · S ${Math.round(popupSaturation * 100)}% · V ${Math.round(popupBrightness * 100)}% · A ${Math.round(popupAlpha * 100)}%`;
   colorPickerMarker.style.left = `${popupSaturation * 100}%`;
   colorPickerMarker.style.top = `${(1 - popupBrightness) * 100}%`;
   colorPickerMarker.style.setProperty("--marker-color", popupBrightness > 0.55 ? "#111" : "#fff");
@@ -332,11 +347,15 @@ function syncColorPicker({ apply = false, repaint = false } = {}) {
   if (apply) applyPopupColor?.(color);
 }
 function openColorPickerPopup(trigger, value, apply) {
-  const color = /^#[0-9a-f]{6}$/i.test(value) ? value : "#000000";
-  const hsv = rgbToHsv(color);
-  popupHue = hsv.h;
-  popupSaturation = hsv.s;
-  popupBrightness = hsv.v;
+  const hsva = colorToHsva(value);
+  if (hsva) {
+    popupHue = hsva.h;
+    popupSaturation = hsva.s;
+    popupBrightness = hsva.v;
+    popupAlpha = hsva.a;
+  } else {
+    popupAlpha = ["none", "transparent"].includes(String(value).toLowerCase()) ? 0 : 1;
+  }
   applyPopupColor = apply;
   colorPickerPopup.hidden = false;
   syncColorPicker({ repaint: true });
@@ -348,6 +367,10 @@ function openColorPickerPopup(trigger, value, apply) {
 colorPickerHue.addEventListener("input", () => {
   popupHue = Number(colorPickerHue.value);
   syncColorPicker({ apply: true, repaint: true });
+});
+colorPickerAlpha.addEventListener("input", () => {
+  popupAlpha = Number(colorPickerAlpha.value) / 100;
+  syncColorPicker({ apply: true });
 });
 function chooseSaturationAndValue(clientX, clientY) {
   const bounds = colorPickerSaturation.getBoundingClientRect();
@@ -380,14 +403,15 @@ colorPickerSaturation.addEventListener("keydown", (event) => {
   syncColorPicker({ apply: true });
 });
 colorPickerValue.addEventListener("input", () => {
-  if (!/^#[0-9a-f]{6}$/i.test(colorPickerValue.value)) {
+  const hsva = colorToHsva(colorPickerValue.value);
+  if (!hsva) {
     colorPickerValue.setAttribute("aria-invalid", "true");
     return;
   }
-  const hsv = rgbToHsv(colorPickerValue.value);
-  popupHue = hsv.h;
-  popupSaturation = hsv.s;
-  popupBrightness = hsv.v;
+  popupHue = hsva.h;
+  popupSaturation = hsva.s;
+  popupBrightness = hsva.v;
+  popupAlpha = hsva.a;
   syncColorPicker({ apply: true, repaint: true });
 });
 function updatePickerFromHsvFields() {
@@ -397,12 +421,6 @@ function updatePickerFromHsvFields() {
   syncColorPicker({ apply: true, repaint: true });
 }
 [colorPickerH, colorPickerS, colorPickerV].forEach((input) => input.addEventListener("input", updatePickerFromHsvFields));
-colorPickerPopupNone.addEventListener("click", () => {
-  applyPopupColor?.("transparent");
-  colorPickerPopup.classList.add("none");
-  colorPickerPreview.style.backgroundColor = "transparent";
-  colorPickerValue.value = "transparent";
-});
 document.addEventListener("pointerdown", (event) => {
   if (!colorPickerPopup.hidden && !colorPickerPopup.contains(event.target) && !event.target.closest("[data-color-popup]")) colorPickerPopup.hidden = true;
 });
@@ -410,7 +428,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !colorPickerPopup.hidden) colorPickerPopup.hidden = true;
 });
 function colorControl(label, field, value, scope = "node") {
-  const hex = /^#[0-9a-f]{6}$/i.test(value ?? "") ? value : "#000000";
+  const hex = /^#[0-9a-f]{3,4}$/i.test(value ?? "") || /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(value ?? "") ? value : "#00000000";
   const noColor = ["none", "transparent"].includes(String(value ?? "").toLowerCase());
   return `<label>${label}<span class="inspector-color"><button class="color-popup-trigger${noColor ? " none" : ""}" type="button" data-color-popup="${scope}:${field}" style="--swatch:${hex}" aria-label="Choose ${label.toLowerCase()}"></button><input data-${scope}-field="${field}" data-color-text="${scope}:${field}" value="${escapeHtml(value ?? "")}" placeholder="CSS color"></span></label>`;
 }
@@ -424,7 +442,7 @@ function nodeAnnotationControls(node) {
   const option = (value, current) => `<option value="${value}"${String(current) === value ? " selected" : ""}>${value}</option>`;
   const fields = node.annotations.map((annotation, index) => {
     const position = annotation.position;
-    const hex = /^#[0-9a-f]{6}$/i.test(annotation.color ?? "") ? annotation.color : "#000000";
+    const hex = /^#[0-9a-f]{3,4}$/i.test(annotation.color ?? "") || /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(annotation.color ?? "") ? annotation.color : "#00000000";
     const colorKey = `node-annotation:${annotation.lineNumber}`;
     const noColor = ["none", "transparent"].includes(String(annotation.color ?? "").toLowerCase());
     const target = `data-annotation-line="${annotation.lineNumber}"`;
@@ -972,7 +990,7 @@ function updateEditorChrome() {
 
 function renderColorDecorators() {
   const swatches = [];
-  const pattern = /#[\da-fA-F]{6}\b|#[\da-fA-F]{3}\b|\b(?:transparent|none)\b/gi;
+  const pattern = /#[\da-fA-F]{8}\b|#[\da-fA-F]{6}\b|#[\da-fA-F]{4}\b|#[\da-fA-F]{3}\b|\b(?:transparent|none)\b/gi;
   for (const match of source.value.matchAll(pattern)) {
     const before = source.value.slice(0, match.index);
     const lineStart = before.lastIndexOf("\n") + 1;
@@ -982,7 +1000,7 @@ function renderColorDecorators() {
     decorator.type = "button";
     const noColor = /^(?:transparent|none)$/i.test(match[0]);
     decorator.className = `color-decorator color-popup-trigger${noColor ? " none" : ""}`;
-    const color = !noColor && match[0].length === 4
+    const color = !noColor && [4, 5].includes(match[0].length)
       ? "#" + [...match[0].slice(1)].map((digit) => digit + digit).join("")
       : match[0];
     decorator.dataset.colorPopup = "source";

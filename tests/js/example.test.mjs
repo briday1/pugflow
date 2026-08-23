@@ -62,14 +62,15 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(html, /id="color-picker-popup"[^>]*hidden/);
   assert.match(html, /id="color-picker-saturation"[^>]*canvas|<canvas id="color-picker-saturation"/);
   assert.match(html, /id="color-picker-hue" type="range"/);
+  assert.match(html, /id="color-picker-alpha" type="range"/);
   assert.match(html, /id="color-picker-h" type="number"/);
   assert.match(html, /id="color-picker-s" type="number"/);
   assert.match(html, /id="color-picker-v" type="number"/);
   assert.match(html, /id="color-picker-marker"/);
-  assert.match(html, /id="color-picker-popup-none"[^>]*>[\s\S]*?None<\/button>/);
+  assert.doesNotMatch(html, /id="color-picker-popup-none"/);
   assert.doesNotMatch(html, /color-picker-popup-input[^>]*type="color"/);
-  assert.match(app, /applyPopupColor\?\.\("transparent"\)/);
-  assert.doesNotMatch(app, /applyPopupColor\?\.\("transparent"\); colorPickerPopup\.hidden = true/);
+  assert.match(app, /popupAlpha/);
+  assert.match(app, /Math\.round\(popupAlpha \* 255\)/);
   assert.match(app, /transparent\|none[\s\S]*renderColorDecorators|renderColorDecorators[\s\S]*transparent\|none/);
   assert.match(app, /openColorPickerPopup\([^,]+, color, replaceColor\)/);
   assert.match(app, /"sbd-color"/);

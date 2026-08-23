@@ -152,12 +152,13 @@
       <div class="color-picker-heading"><span id="color-picker-preview" aria-hidden="true"></span><strong>Color</strong><output id="color-picker-summary">H 0° · S 0% · V 0%</output></div>
       <div class="color-picker-surface-wrap"><canvas id="color-picker-saturation" width="260" height="180" tabindex="0" role="slider" aria-label="Saturation and value" aria-valuetext="Saturation 0%, value 0%"></canvas><span id="color-picker-marker" aria-hidden="true"></span></div>
       <label class="color-picker-hue"><span>Hue</span><input id="color-picker-hue" type="range" min="0" max="359" value="0" aria-label="Hue"></label>
+      <label class="color-picker-alpha"><span>Opacity</span><input id="color-picker-alpha" type="range" min="0" max="100" value="100" aria-label="Opacity"><output id="color-picker-alpha-value">100%</output></label>
       <div class="color-picker-hsv">
         <label><span>H</span><input id="color-picker-h" type="number" min="0" max="359" step="1" aria-label="Hue degrees"></label>
         <label><span>S</span><input id="color-picker-s" type="number" min="0" max="100" step="1" aria-label="Saturation percent"></label>
         <label><span>V</span><input id="color-picker-v" type="number" min="0" max="100" step="1" aria-label="Value percent"></label>
       </div>
-      <div class="color-picker-actions"><input id="color-picker-value" spellcheck="false" aria-label="Hex color" maxlength="7"><button id="color-picker-popup-none" type="button"><span aria-hidden="true"></span>None</button></div>
+      <div class="color-picker-actions"><input id="color-picker-value" spellcheck="false" aria-label="Hex color, optionally with alpha" maxlength="9"></div>
     </div>
     <script>window.MathJax = { svg: { fontCache: "none" }, startup: { typeset: false } };</script>
     <script type="module">const appReady = import("./app.mjs"); const script = document.createElement("script"); script.src = "vendor/mathjax/tex-svg-full.js"; script.onload = async () => { await window.MathJax.startup.promise; await appReady; window.dispatchEvent(new Event("pugflow-math-ready")); }; script.onerror = () => console.error("The bundled math renderer could not be loaded."); document.head.append(script);</script>
