@@ -123,6 +123,7 @@ test("lays out a horizontal branch and merge compactly and symmetrically", () =>
   const centerY = (node) => node.y + node.height / 2;
   assert.equal(placed.get("revise").x - (placed.get("review").x + placed.get("review").width), 60);
   assert.equal(placed.get("publish").x - (placed.get("revise").x + placed.get("revise").width), 60);
+  assert.equal(centerY(placed.get("review")), (centerY(placed.get("revise")) + centerY(placed.get("accept"))) / 2);
   assert.equal(centerY(placed.get("publish")), (centerY(placed.get("revise")) + centerY(placed.get("accept"))) / 2);
   assert.equal(placed.get("accept").y - (placed.get("revise").y + placed.get("revise").height), DEFAULT_LAYOUT.verticalGutter);
   assert.deepEqual(cleanupAlignmentOffsets(layout.nodes, layout.edges), []);
