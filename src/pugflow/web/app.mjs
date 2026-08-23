@@ -72,6 +72,9 @@ const EXAMPLE_DOCUMENT = `// Two simple, independent branching and merging flows
       .flow
         .direction down
         .decision
+          .line
+            .source-face bottom
+            .target-face top
           .id payment
           .label Payment valid?
           .flow

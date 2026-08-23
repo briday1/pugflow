@@ -21,7 +21,7 @@ test("the built-in showcase presents two simple independent branch-and-merge gra
   assert.ok(result.edges.every((edge) => ownership.get(edge.from) === ownership.get(edge.to)));
   assert.ok(result.edges.filter((edge) => ownership.get(edge.from) === "checkout").every((edge) => edge.layoutDirection === "down"));
   assert.ok(result.edges.filter((edge) => ownership.get(edge.from) === "publishing").every((edge) => edge.layoutDirection === "right"));
-  for (const [from, to] of [["payment", "retry"], ["retry", "receipt"]]) {
+  for (const [from, to] of [["cart", "payment"], ["payment", "retry"], ["retry", "receipt"]]) {
     const edge = result.edges.find((candidate) => candidate.from === from && candidate.to === to);
     assert.equal(edge?.sourceFace, "bottom");
     assert.equal(edge?.targetFace, "top");
