@@ -123,20 +123,22 @@ test("lays out a horizontal branch and merge compactly and symmetrically", () =>
   assert.deepEqual(cleanupAlignmentOffsets(layout.nodes, layout.edges), []);
 });
 
-test("lays out equivalent flows identically regardless of their original declaration direction", () => {
+test("uses flow direction for layout independently of connector faces", () => {
   const nodes = ["payment", "approve"].map((id) => ({ id, width: 160, height: 60 }));
-  const changedNestedFlow = [{
+  const downwardFlowWithSideFaces = [{
     from: "payment", to: "approve", kind: "branch",
     layoutDirection: "down", sourceDirection: "right", targetLayoutDirection: "right",
   }];
-  const freshlyCreatedFlow = [{
+  const rightwardFlowWithSideFaces = [{
     from: "payment", to: "approve", kind: "branch",
     layoutDirection: "right", sourceDirection: "right", targetLayoutDirection: "right",
   }];
-  assert.deepEqual(
-    layoutDiagram(nodes, changedNestedFlow).nodes.map(({ id, x, y }) => ({ id, x, y })),
-    layoutDiagram(nodes, freshlyCreatedFlow).nodes.map(({ id, x, y }) => ({ id, x, y })),
-  );
+  const downward = new Map(layoutDiagram(nodes, downwardFlowWithSideFaces).nodes.map((node) => [node.id, node]));
+  const rightward = new Map(layoutDiagram(nodes, rightwardFlowWithSideFaces).nodes.map((node) => [node.id, node]));
+  assert.ok(downward.get("approve").y > downward.get("payment").y);
+  assert.equal(downward.get("approve").x, downward.get("payment").x);
+  assert.ok(rightward.get("approve").x > rightward.get("payment").x);
+  assert.equal(rightward.get("approve").y, rightward.get("payment").y);
 });
 
 test("routes merge connections with rounded orthogonal bends", () => {

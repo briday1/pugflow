@@ -12,7 +12,13 @@ const VECTORS = Object.freeze({
 });
 
 function edgeLayoutDirection(edge) {
-  return edge.sourceDirection ?? edge.layoutDirection ?? "right";
+  return edge.layoutDirection ?? "right";
+}
+
+function edgePortDirection(edge) {
+  return edge.kind === "merge"
+    ? edge.targetLayoutDirection ?? edge.layoutDirection ?? "right"
+    : edge.sourceDirection ?? edge.layoutDirection ?? "right";
 }
 
 function cellKey(x, y) {
@@ -97,13 +103,13 @@ function assignConnectionPorts(edges, cells) {
   const groups = new Map();
   edges.forEach((edge, sourceOrder) => {
     const endpoint = edge.kind === "merge" ? edge.to : edge.from;
-    const key = `${edge.kind}|${endpoint}|${edgeLayoutDirection(edge)}`;
+    const key = `${edge.kind}|${endpoint}|${edgePortDirection(edge)}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push({ edge, sourceOrder });
   });
   const assignments = new Map();
   groups.forEach((group) => {
-    const direction = edgeLayoutDirection(group[0].edge);
+    const direction = edgePortDirection(group[0].edge);
     const vertical = direction === "up" || direction === "down";
     group.sort((a, b) => {
       const aCell = cells.get(a.edge.kind === "merge" ? a.edge.from : a.edge.to);
