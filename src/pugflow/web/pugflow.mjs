@@ -481,6 +481,14 @@ export function connectionPathAvoidingNodes(source, target, kind, direction, nod
     .filter((node) => node.id !== source.id && node.id !== target.id && !node.hidden)
     .map((node) => ({ left: node.x - 12, right: node.x + node.width + 12, top: boxTop(node) - 12, bottom: boxTop(node) + node.height + 12 }));
   if (!obstacles.length || segmentClear(start, end, obstacles) && (start.x === end.x || start.y === end.y)) return basic;
+  if (kind === "merge" && !vertical && !targetVertical) {
+    const bendX = start.x + (end.x - start.x) * 0.58;
+    const bendStart = { x: bendX, y: start.y };
+    const bendEnd = { x: bendX, y: end.y };
+    if (segmentClear(start, bendStart, obstacles)
+      && segmentClear(bendStart, bendEnd, obstacles)
+      && segmentClear(bendEnd, end, obstacles)) return basic;
+  }
 
   const xValues = [...new Set([startLead.x, endLead.x, ...obstacles.flatMap((box) => [box.left, box.right])])];
   const yValues = [...new Set([startLead.y, endLead.y, ...obstacles.flatMap((box) => [box.top, box.bottom])])];

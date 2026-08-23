@@ -324,6 +324,17 @@ test("routes merge inputs to separate ports on the target face", () => {
   assert.notEqual(upper.d, lower.d);
 });
 
+test("uses one mirrored x bend for equal-span horizontal merge sources", () => {
+  const upper = { id: "upper", x: 0, y: 0, width: 100, height: 40 };
+  const lower = { id: "lower", x: 0, y: 100, width: 100, height: 40 };
+  const target = { id: "target", x: 300, y: 50, width: 100, height: 40 };
+  const nodes = [upper, lower, target];
+  const upperRoute = connectionPathAvoidingNodes(upper, target, "merge", "right", nodes);
+  const lowerRoute = connectionPathAvoidingNodes(lower, target, "merge", "right", nodes);
+  assert.match(upperRoute.d, /Q 216 20 216 29/);
+  assert.match(lowerRoute.d, /Q 216 120 216 111/);
+});
+
 test("supports shared merge ports and distributed flow source ports", () => {
   const nodes = ["root", "upper", "lower", "combined"].map((id) => ({ id, width: 100, height: 60 }));
   const edges = [
