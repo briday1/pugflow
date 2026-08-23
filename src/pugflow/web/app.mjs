@@ -284,7 +284,10 @@ function updateSourceFileNames() {
 
 function storeActiveDocument() {
   if (activeDocument === "pug") pugSource = source.value;
-  else cssSource = source.value;
+  else {
+    cssSource = source.value;
+    if (cssSource) hasCssDocument = true;
+  }
 }
 
 function activateDocument(kind) {
