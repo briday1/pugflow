@@ -10,9 +10,9 @@ test("constrains modified drags to their dominant axis", () => {
   assert.deepEqual(constrainDragDelta(8, -24, false), { dx: 8, dy: -24 });
 });
 
-test("uses compact horizontal and roomier vertical flow spacing", () => {
-  assert.equal(DEFAULT_LAYOUT.horizontalGutter, 72);
-  assert.equal(DEFAULT_LAYOUT.verticalGutter, 48);
+test("uses compact horizontal and vertical flow spacing", () => {
+  assert.equal(DEFAULT_LAYOUT.horizontalGutter, 60);
+  assert.equal(DEFAULT_LAYOUT.verticalGutter, 40);
 });
 
 test("places parallel flows and merges in successive columns", () => {
@@ -94,16 +94,20 @@ test("places multiple directional flows without collisions", () => {
 });
 
 test("centers same-direction sibling branches around their source", () => {
-  const nodes = ["payment", "retry", "approve"].map((id) => ({ id, width: 160, height: 60 }));
+  const nodes = [
+    { id: "payment", width: 160, height: 60 },
+    { id: "retry", width: 120, height: 60 },
+    { id: "approve", width: 180, height: 60 },
+  ];
   const edges = [
     { from: "payment", to: "retry", kind: "branch", layoutDirection: "down", sourceDirection: "down", targetLayoutDirection: "down" },
     { from: "payment", to: "approve", kind: "branch", layoutDirection: "down", sourceDirection: "down", targetLayoutDirection: "down" },
   ];
   const placed = new Map(layoutDiagram(nodes, edges).nodes.map((node) => [node.id, node]));
   const centerX = (node) => node.x + node.width / 2;
-  assert.equal(centerX(placed.get("payment")), (centerX(placed.get("retry")) + centerX(placed.get("approve"))) / 2);
+  assert.equal(centerX(placed.get("payment")), (placed.get("retry").x + placed.get("approve").x + placed.get("approve").width) / 2);
   assert.equal(placed.get("retry").y, placed.get("approve").y);
-  assert.notEqual(placed.get("retry").x, placed.get("approve").x);
+  assert.equal(placed.get("approve").x - (placed.get("retry").x + placed.get("retry").width), DEFAULT_LAYOUT.horizontalGutter);
 });
 
 test("lays out a horizontal branch and merge compactly and symmetrically", () => {
@@ -117,9 +121,10 @@ test("lays out a horizontal branch and merge compactly and symmetrically", () =>
   const layout = layoutDiagram(nodes, edges);
   const placed = new Map(layout.nodes.map((node) => [node.id, node]));
   const centerY = (node) => node.y + node.height / 2;
-  assert.equal(placed.get("revise").x - (placed.get("review").x + placed.get("review").width), 72);
-  assert.equal(placed.get("publish").x - (placed.get("revise").x + placed.get("revise").width), 72);
+  assert.equal(placed.get("revise").x - (placed.get("review").x + placed.get("review").width), 60);
+  assert.equal(placed.get("publish").x - (placed.get("revise").x + placed.get("revise").width), 60);
   assert.equal(centerY(placed.get("publish")), (centerY(placed.get("revise")) + centerY(placed.get("accept"))) / 2);
+  assert.equal(placed.get("accept").y - (placed.get("revise").y + placed.get("revise").height), DEFAULT_LAYOUT.verticalGutter);
   assert.deepEqual(cleanupAlignmentOffsets(layout.nodes, layout.edges), []);
 });
 
@@ -453,9 +458,7 @@ test("prefers the small outgoing merge kink over a deliberate incoming bend", ()
     y: node.y + node.offsetY + (inherited.get(node.id)?.y ?? 0),
   }));
   assert.deepEqual(graph.errors, []);
-  assert.deepEqual(cleanupAlignmentOffsets(visual, base.edges), [
-    { kind: "offset", id: "approve", lineNumber: 29, offsetX: -232, offsetY: 103 },
-  ]);
+  assert.deepEqual(cleanupAlignmentOffsets(visual, base.edges), []);
 });
 
 test("preserves a centered multi-source merge during cleanup", () => {

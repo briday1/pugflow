@@ -515,7 +515,15 @@ test("supports framed diagram components and cross-component connections", () =>
     "  graph",
     "    .id left-graph",
     "    .label Inputs",
+    "    .label-position outside",
+    "    .align center",
     "    .fill #f8fafc",
+    "    .color #334155",
+    "    .font-family Georgia",
+    "    .font-size 18",
+    "    .font-weight bold",
+    "    .font-style italic",
+    "    .text-decoration underline",
     "    .outline #2563eb",
     "    .node",
     "      .id left",
@@ -533,7 +541,18 @@ test("supports framed diagram components and cross-component connections", () =>
   assert.equal(result.groups.length, 2);
   assert.deepEqual(result.groups[0].nodeIds, ["left"]);
   assert.equal(result.groups[0].label, "Inputs");
+  assert.equal(result.groups[0].labelPosition, "outside");
+  assert.equal(result.groups[0].align, "center");
   assert.equal(result.groups[0].fill, "#f8fafc");
+  assert.equal(result.groups[0].color, "#334155");
+  assert.equal(result.groups[0].fontFamily, "Georgia");
+  assert.equal(result.groups[0].fontSize, 18);
+  assert.equal(result.groups[0].fontWeight, "bold");
+  assert.equal(result.groups[0].fontStyle, "italic");
+  assert.equal(result.groups[0].textDecoration, "underline");
+  assert.equal(result.groups[1].labelPosition, "inside");
+  assert.equal(result.groups[1].align, "left");
+  assert.equal(result.groups[1].fontSize, 13);
   assert.equal(result.edges[0].from, "left");
   assert.equal(result.edges[0].to, "right");
 });

@@ -668,6 +668,10 @@ function compileMarkup(tree) {
     const layerText = field("layer");
     const layer = layerText === undefined || layerText === "" ? 0 : Number(layerText);
     if (!Number.isInteger(layer)) errors.push(`Line ${component.lineNumber}: graph.layer must be an integer.`);
+    const labelPosition = field("label-position") || "inside";
+    const align = field("align") || "left";
+    if (!["inside", "outside"].includes(labelPosition)) errors.push(`Line ${component.lineNumber}: graph.label-position must be inside or outside.`);
+    if (!["left", "center", "right"].includes(align)) errors.push(`Line ${component.lineNumber}: graph.align must be left, center, or right.`);
     const hiddenField = component.children.find((child) => child.type === "hidden");
     const hidden = Boolean(hiddenField && !["false", "no", "0"].includes(hiddenField.text.trim()));
     if (hidden) {
@@ -677,8 +681,15 @@ function compileMarkup(tree) {
     const group = {
       id: field("id") || `diagram-${groups.length + 1}`,
       label: field("label") || "",
+      labelPosition: ["inside", "outside"].includes(labelPosition) ? labelPosition : "inside",
+      align: ["left", "center", "right"].includes(align) ? align : "left",
       fill: field("fill") || "transparent",
       color: field("color") || null,
+      fontFamily: field("font-family") || null,
+      fontSize: numberAttribute(field("font-size"), 13, 1, "graph.font-size", component.lineNumber, errors),
+      fontWeight: field("font-weight") || "600",
+      fontStyle: field("font-style") || "normal",
+      textDecoration: field("text-decoration") || "none",
       outline: field("outline") || "transparent",
       outlineStyle: field("outline-style") || "solid",
       outlineWidth: Number(field("outline-width") || 1.5),

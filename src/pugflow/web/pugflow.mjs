@@ -634,19 +634,30 @@ function layoutOptionsForLabels(edges, colors, requested = {}) {
   };
 }
 
-function diagramBounds(groups, nodesById) {
+function diagramBounds(groups, nodesById, colors) {
   return groups.map((group) => {
     const nodes = group.nodeIds.map((id) => nodesById.get(id)).filter(Boolean);
     if (!nodes.length) return null;
     const padding = group.padding ?? 24;
-    const titleSpace = group.label ? 22 : 0;
-    return {
+    const titleHeight = group.label ? Math.ceil((group.fontSize ?? 13) * 1.2) : 0;
+    const titleSpace = group.label && group.labelPosition !== "outside" ? titleHeight + 6 : 0;
+    const bounds = {
       ...group,
       x: Math.min(...nodes.map((node) => node.x)) - padding,
       y: Math.min(...nodes.map((node) => node.y)) - padding - titleSpace,
       right: Math.max(...nodes.map((node) => node.x + node.width)) + padding,
       bottom: Math.max(...nodes.map((node) => node.y + node.layoutHeight)) + padding,
     };
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    context.font = `${group.fontStyle ?? "normal"} ${group.fontWeight ?? "600"} ${group.fontSize ?? 13}px ${group.fontFamily ?? colors.font}`;
+    const labelWidth = group.label ? context.measureText(group.label).width : 0;
+    const labelLeft = group.align === "center" ? (bounds.x + bounds.right - labelWidth) / 2
+      : group.align === "right" ? bounds.right - 12 - labelWidth : bounds.x + 12;
+    bounds.visualTop = group.label && group.labelPosition === "outside" ? bounds.y - titleHeight - 8 : bounds.y;
+    bounds.visualLeft = Math.min(bounds.x, labelLeft);
+    bounds.visualRight = Math.max(bounds.right, labelLeft + labelWidth);
+    return bounds;
   }).filter(Boolean);
 }
 
@@ -677,23 +688,36 @@ function addDiagramFrame(parent, group, colors) {
     rx: 12, fill: "none", stroke: "var(--accent)", "stroke-width": 3, "stroke-dasharray": "7 4", "pointer-events": "none",
   }));
   if (group.label) {
-    const label = svgElement("text", { class: "subdiagram-label", x: group.x + 12, y: group.y + 17, fill: group.color ?? colors.text, "pointer-events": "none" });
+    const align = group.align ?? "left";
+    const x = align === "center" ? (group.x + group.right) / 2 : align === "right" ? group.right - 12 : group.x + 12;
+    const label = svgElement("text", {
+      class: "subdiagram-label", x,
+      y: group.labelPosition === "outside" ? group.y - 8 : group.y + (group.fontSize ?? 13) + 4,
+      fill: group.color ?? colors.text,
+      "font-family": group.fontFamily ?? colors.font,
+      "font-size": group.fontSize ?? 13,
+      "font-weight": group.fontWeight ?? "600",
+      "font-style": group.fontStyle ?? "normal",
+      "text-decoration": group.textDecoration ?? "none",
+      "text-anchor": align === "center" ? "middle" : align === "right" ? "end" : "start",
+      "pointer-events": "none",
+    });
     label.textContent = group.label;
     frame.append(label);
   }
   parent.append(frame);
 }
 
-function packGraphs(nodes, groups, gap = 80) {
+function packGraphs(nodes, groups, colors, gap = 80) {
   if (groups.length < 2) return nodes;
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  const bounds = diagramBounds(groups, byId);
+  const bounds = diagramBounds(groups, byId, colors);
   const shifts = new Map();
   let previousBottom = null;
   let anchorLeft = null;
   for (const group of bounds) {
     if (anchorLeft === null) anchorLeft = group.x;
-    const shiftY = previousBottom === null ? 0 : Math.max(0, previousBottom + gap - group.y);
+    const shiftY = previousBottom === null ? 0 : Math.max(0, previousBottom + gap - group.visualTop);
     const shiftX = anchorLeft - group.x;
     group.nodeIds.forEach((id) => shifts.set(id, { x: shiftX, y: shiftY }));
     previousBottom = group.bottom + shiftY;
@@ -710,7 +734,7 @@ function renderSvg(container, graph, options) {
     const inherited = flowOffsets.get(node.id) ?? { x: 0, y: 0 };
     return { ...node, x: node.x + node.offsetX + inherited.x, y: node.y + node.offsetY + inherited.y };
   });
-  visualNodes = packGraphs(visualNodes, graph.groups ?? []);
+  visualNodes = packGraphs(visualNodes, graph.groups ?? [], colors);
   const ownerByNode = new Map();
   (graph.groups ?? []).forEach((group) => group.nodeIds.forEach((id) => ownerByNode.set(id, group)));
   visualNodes = visualNodes.map((node) => {
@@ -718,7 +742,7 @@ function renderSvg(container, graph, options) {
     return { ...node, x: node.x + (owner?.offsetX ?? 0), y: node.y + (owner?.offsetY ?? 0) };
   });
   const byId = new Map(visualNodes.map((node) => [node.id, node]));
-  const groups = diagramBounds((graph.groups ?? []).filter((group) => !group.hidden), byId);
+  const groups = diagramBounds((graph.groups ?? []).filter((group) => !group.hidden), byId, colors);
   const extentX = visualNodes.flatMap((node) => [
     node.x,
     node.x + node.width,
@@ -732,9 +756,9 @@ function renderSvg(container, graph, options) {
     ...node.above.map((annotation, index) => annotationTop(node, annotation, index)),
     ...node.below.map((annotation, index) => annotationTop(node, annotation, index) + annotation.renderHeight),
   ]);
-  const viewX = extentX.length ? Math.min(...extentX.map((value) => value - 60), ...groups.map((group) => group.x - 20)) : 0;
-  const viewY = extentY.length ? Math.min(...extentY.map((value) => value - 40), ...groups.map((group) => group.y - 20)) : 0;
-  const viewRight = extentX.length ? Math.max(...extentX.map((value) => value + 60), ...groups.map((group) => group.right + 20)) : 1;
+  const viewX = extentX.length ? Math.min(...extentX.map((value) => value - 60), ...groups.map((group) => group.visualLeft - 20)) : 0;
+  const viewY = extentY.length ? Math.min(...extentY.map((value) => value - 40), ...groups.map((group) => group.visualTop - 20)) : 0;
+  const viewRight = extentX.length ? Math.max(...extentX.map((value) => value + 60), ...groups.map((group) => group.visualRight + 20)) : 1;
   const viewBottom = extentY.length ? Math.max(...extentY.map((value) => value + 40), ...groups.map((group) => group.bottom + 20)) : 1;
   const viewWidth = viewRight - viewX;
   const viewHeight = viewBottom - viewY;
@@ -746,7 +770,7 @@ function renderSvg(container, graph, options) {
     .label { user-select: none; }
     .block-annotation, .connection-annotation { text-anchor: middle; user-select: none; }
     .connection-annotation { paint-order: stroke; stroke: ${colors.background}; stroke-width: 4px; stroke-linejoin: round; }
-    .subdiagram-label { font: 600 13px ${colors.font}; }
+    .subdiagram-label { user-select: none; }
     .connector { fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .interactive [data-line] { cursor: pointer; }
     .interactive [data-drag-kind] { touch-action: none; }

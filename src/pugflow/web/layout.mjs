@@ -1,6 +1,6 @@
 export const DEFAULT_LAYOUT = Object.freeze({
-  horizontalGutter: 72,
-  verticalGutter: 48,
+  horizontalGutter: 60,
+  verticalGutter: 40,
   padding: 54,
 });
 
@@ -212,6 +212,47 @@ function assignCells(nodes, edges) {
   return positions;
 }
 
+function compactSiblingBranches(nodes, edges, options) {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const incomingCount = new Map();
+  edges.forEach((edge) => incomingCount.set(edge.to, (incomingCount.get(edge.to) ?? 0) + 1));
+  const groups = new Map();
+  edges.forEach((edge) => {
+    if (edge.kind !== "branch") return;
+    const key = `${edge.from}|${edgeLayoutDirection(edge)}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(edge);
+  });
+  const translatePath = (id, axis, delta, visited = new Set()) => {
+    if (visited.has(id)) return;
+    visited.add(id);
+    const node = byId.get(id);
+    if (!node) return;
+    node[axis] += delta;
+    edges.filter((edge) => edge.kind === "branch" && edge.from === id && (incomingCount.get(edge.to) ?? 0) === 1)
+      .forEach((edge) => translatePath(edge.to, axis, delta, visited));
+  };
+  groups.forEach((group) => {
+    if (group.length < 2) return;
+    const source = byId.get(group[0].from);
+    const targets = group.map((edge) => byId.get(edge.to));
+    if (!source || targets.some((target) => !target)) return;
+    const vertical = ["up", "down"].includes(edgeLayoutDirection(group[0]));
+    const axis = vertical ? "x" : "y";
+    const size = vertical ? "width" : "layoutHeight";
+    const sourceCenter = source[axis] + source[size] / 2;
+    const gutter = vertical ? options.horizontalGutter : options.verticalGutter;
+    const span = targets.reduce((total, target) => total + target[size], 0) + gutter * (targets.length - 1);
+    let cursor = sourceCenter - span / 2;
+    targets.forEach((target) => {
+      const delta = cursor - target[axis];
+      translatePath(target.id, axis, delta);
+      cursor += target[size] + gutter;
+    });
+  });
+  return nodes;
+}
+
 export function layoutDiagram(nodes, edges, overrides = {}) {
   const options = { ...DEFAULT_LAYOUT, ...overrides };
   const cells = alignTerminalMergeSources(assignCells(nodes, edges), edges);
@@ -254,6 +295,7 @@ export function layoutDiagram(nodes, edges, overrides = {}) {
       layoutHeight,
     };
   });
+  compactSiblingBranches(placed, edges, options);
 
   return { nodes: placed, edges: routedEdges, width, height, options };
 }
@@ -374,7 +416,7 @@ export function cleanupAlignmentOffsets(nodes, edges) {
       ? centerX(target) + targetPortOffset - (centerX(source) + sourcePortOffset)
       : centerY(target) + targetPortOffset - (centerY(source) + sourcePortOffset);
     const perpendicularOffset = sourceVertical ? source.offsetX ?? 0 : source.offsetY ?? 0;
-    if (Math.abs(perpendicularOffset) < 0.05 || Math.abs(difference) < 0.05 || Math.abs(difference) > 24) return;
+    if (Math.abs(perpendicularOffset) < 0.05 || Math.abs(difference) < 0.05 || Math.abs(difference) > 32) return;
     if (sourceVertical) source.x += difference;
     else source.y += difference;
     source.offsetX = Math.round(((source.offsetX ?? 0) + (sourceVertical ? difference : 0)) * 10) / 10;

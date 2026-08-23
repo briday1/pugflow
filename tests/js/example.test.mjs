@@ -76,6 +76,9 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(html, /id="toggle-source"/);
   assert.doesNotMatch(app, /data-graph-parent|data-break-out-graph|reparentGraph|Create nested graph/);
   assert.match(app, /Graph Layer<select data-graph-field="layer-order"/);
+  assert.match(app, /Title position<select data-graph-field="label-position"/);
+  assert.match(app, /Title alignment<select data-graph-field="align"/);
+  assert.match(app, /fontOptions\("graph", group\)/);
   assert.match(app, /graphSelections\.length > 1[\s\S]*Align \/ distribute[\s\S]*return;/);
   assert.match(renderer, /event\.shiftKey \|\| event\.ctrlKey \|\| event\.metaKey/);
   assert.match(renderer, /event\.metaKey \|\| event\.ctrlKey \|\| event\.shiftKey/);
