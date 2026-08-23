@@ -286,22 +286,40 @@ export function cleanupAlignmentOffsets(nodes, edges) {
   const changed = new Map();
   const centerX = (node) => node.x + node.width / 2;
   const centerY = (node) => node.y + node.height / 2;
+  const verticalDirection = (direction) => direction === "up" || direction === "down";
+  const directionSign = (direction) => direction === "left" || direction === "up" ? -1 : 1;
   edges.filter((edge) => edge.kind === "branch" || edge.kind === "merge" && edge.declarationKind === "node").forEach((edge) => {
     const source = byId.get(edge.from);
     const target = byId.get(edge.to);
     if (!source || !target || source.hidden || target.hidden) return;
     const sourceDirection = edge.sourceDirection ?? edge.layoutDirection;
     const targetDirection = edge.targetLayoutDirection ?? edge.layoutDirection;
-    if (sourceDirection !== targetDirection) return;
-    const vertical = sourceDirection === "up" || sourceDirection === "down";
-    const perpendicularOffset = vertical ? target.offsetX ?? 0 : target.offsetY ?? 0;
+    const sourceVertical = verticalDirection(sourceDirection);
+    const targetVertical = verticalDirection(targetDirection);
+    const adjustX = targetVertical;
+    const perpendicularOffset = adjustX ? target.offsetX ?? 0 : target.offsetY ?? 0;
     if (Math.abs(perpendicularOffset) < 0.05) return;
-    const difference = vertical ? centerX(source) - centerX(target) : centerY(source) - centerY(target);
+    const sourcePortOffset = (edge.sourcePortFraction ?? 0) * (sourceVertical ? source.width : source.height);
+    const targetPortOffset = (edge.targetPortFraction ?? 0) * (targetVertical ? target.width : target.height);
+    let difference;
+    if (sourceVertical) {
+      const sourcePortX = centerX(source) + sourcePortOffset;
+      const targetPortY = centerY(target) + targetPortOffset;
+      difference = targetVertical
+        ? sourcePortX - (centerX(target) + targetPortOffset)
+        : source.y + (sourceDirection === "down" ? source.height : 0) + directionSign(sourceDirection) * 24 - targetPortY;
+    } else {
+      const sourcePortY = centerY(source) + sourcePortOffset;
+      const targetPortX = centerX(target) + targetPortOffset;
+      difference = targetVertical
+        ? source.x + (sourceDirection === "right" ? source.width : 0) + directionSign(sourceDirection) * 24 - targetPortX
+        : sourcePortY - (centerY(target) + targetPortOffset);
+    }
     if (Math.abs(difference) < 0.05) return;
-    if (vertical) target.x += difference;
+    if (adjustX) target.x += difference;
     else target.y += difference;
-    target.offsetX = Math.round(((target.offsetX ?? 0) + (vertical ? difference : 0)) * 10) / 10;
-    target.offsetY = Math.round(((target.offsetY ?? 0) + (vertical ? 0 : difference)) * 10) / 10;
+    target.offsetX = Math.round(((target.offsetX ?? 0) + (adjustX ? difference : 0)) * 10) / 10;
+    target.offsetY = Math.round(((target.offsetY ?? 0) + (adjustX ? 0 : difference)) * 10) / 10;
     if (Math.abs(target.offsetX) < 0.0001) target.offsetX = 0;
     if (Math.abs(target.offsetY) < 0.0001) target.offsetY = 0;
     changed.set(target.id, { kind: "offset", id: target.id, lineNumber: target.lineNumber, offsetX: target.offsetX, offsetY: target.offsetY });

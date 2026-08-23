@@ -303,15 +303,17 @@ test("aligns large flow jogs by changing offsets without changing connector face
   assert.equal(edge.targetLayoutDirection, "right");
 });
 
-test("leaves offsets unchanged when connector faces use different axes", () => {
+test("collapses an unnecessary bend between perpendicular connector faces", () => {
   const nodes = [
     { id: "payment", x: 100, y: 100, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 4 },
     { id: "approve", x: 382, y: 177.7, width: 160, height: 60, offsetX: -174.7, offsetY: -5.9, lineNumber: 9 },
   ];
   const edge = { from: "payment", to: "approve", kind: "branch", layoutDirection: "down", sourceDirection: "right", targetLayoutDirection: "down" };
-  assert.deepEqual(cleanupAlignmentOffsets(nodes, [edge]), []);
-  assert.equal(nodes[1].offsetX, -174.7);
-  assert.equal(nodes[1].offsetY, -5.9);
+  assert.deepEqual(cleanupAlignmentOffsets(nodes, [edge]), [
+    { kind: "offset", id: "approve", lineNumber: 9, offsetX: -352.7, offsetY: -5.9 },
+  ]);
+  assert.equal(edge.sourceDirection, "right");
+  assert.equal(edge.targetLayoutDirection, "down");
 });
 
 test("does not move an unoffset sibling branch while cleaning a nested merge path", () => {

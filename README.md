@@ -335,7 +335,7 @@ Use **+ New** above the canvas to add a Graph, Node, or Flow without hand-writin
 
 Offsets affect only the rendered position. The node's automatic layout slot remains fixed.
 
-Use **Clean up** above the canvas after manual positioning to align connected flow nodes. It writes corrected `.offset` tuples back into the source without changing connector faces. Connections whose endpoint faces use different axes are left alone.
+Use **Clean up** above the canvas after manual positioning to align connected flow nodes and collapse unnecessary connector bends. It writes corrected `.offset` tuples back into the source without changing connector faces or moving untouched sibling branches.
 
 Nodes support SVG drop shadows through `.shadow-color`, `.shadow-offset-x`, `.shadow-offset-y`, `.shadow-blur`, and `.shadow-opacity`. A shadow is enabled when `shadow-color` is present; these fields work in `@node` definitions, diagram defaults, local nodes, and the canvas inspector.
 
