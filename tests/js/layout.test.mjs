@@ -1,13 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
-import { arrangeNodeOffsets, cleanupAlignmentOffsets, independentMoveOffsets, inheritedFlowOffsets, layoutDiagram } from "../../src/pugflow/web/layout.mjs";
+import { arrangeNodeOffsets, cleanupAlignmentOffsets, DEFAULT_LAYOUT, independentMoveOffsets, inheritedFlowOffsets, layoutDiagram } from "../../src/pugflow/web/layout.mjs";
 import { connectionPath, connectionPathAvoidingNodes, constrainDragDelta, edgeIsVisible } from "../../src/pugflow/web/pugflow.mjs";
 
 test("constrains modified drags to their dominant axis", () => {
   assert.deepEqual(constrainDragDelta(35, 12, true), { dx: 35, dy: 0 });
   assert.deepEqual(constrainDragDelta(8, -24, true), { dx: 0, dy: -24 });
   assert.deepEqual(constrainDragDelta(8, -24, false), { dx: 8, dy: -24 });
+});
+
+test("uses compact horizontal and roomier vertical flow spacing", () => {
+  assert.equal(DEFAULT_LAYOUT.horizontalGutter, 72);
+  assert.equal(DEFAULT_LAYOUT.verticalGutter, 48);
 });
 
 test("places parallel flows and merges in successive columns", () => {
@@ -99,6 +104,23 @@ test("centers same-direction sibling branches around their source", () => {
   assert.equal(centerX(placed.get("payment")), (centerX(placed.get("retry")) + centerX(placed.get("approve"))) / 2);
   assert.equal(placed.get("retry").y, placed.get("approve").y);
   assert.notEqual(placed.get("retry").x, placed.get("approve").x);
+});
+
+test("lays out a horizontal branch and merge compactly and symmetrically", () => {
+  const nodes = ["review", "revise", "accept", "publish"].map((id) => ({ id, width: 160, height: 60 }));
+  const edges = [
+    { from: "review", to: "revise", kind: "branch", layoutDirection: "right", sourceDirection: "right" },
+    { from: "review", to: "accept", kind: "branch", layoutDirection: "right", sourceDirection: "right" },
+    { from: "revise", to: "publish", kind: "merge", declarationKind: "node", layoutDirection: "right", sourceDirection: "right" },
+    { from: "accept", to: "publish", kind: "merge", declarationKind: "flow", layoutDirection: "right", sourceDirection: "right" },
+  ];
+  const layout = layoutDiagram(nodes, edges);
+  const placed = new Map(layout.nodes.map((node) => [node.id, node]));
+  const centerY = (node) => node.y + node.height / 2;
+  assert.equal(placed.get("revise").x - (placed.get("review").x + placed.get("review").width), 72);
+  assert.equal(placed.get("publish").x - (placed.get("revise").x + placed.get("revise").width), 72);
+  assert.equal(centerY(placed.get("publish")), (centerY(placed.get("revise")) + centerY(placed.get("accept"))) / 2);
+  assert.deepEqual(cleanupAlignmentOffsets(layout.nodes, layout.edges), []);
 });
 
 test("lays out equivalent flows identically regardless of their original declaration direction", () => {
@@ -358,7 +380,83 @@ test("collapses an unnecessary bend between perpendicular connector faces", () =
   assert.equal(edge.targetLayoutDirection, "down");
 });
 
-test("does not move an unoffset sibling branch while cleaning a nested merge path", () => {
+test("cleans an incoming bend without collapsing sibling branches", () => {
+  const nodes = [
+    { id: "cart", x: 100, y: 100, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 2 },
+    { id: "payment", x: 104.4, y: 224.3, width: 160, height: 60, offsetX: 4.4, offsetY: 16.3, lineNumber: 8 },
+    { id: "retry", x: 119.7, y: 354, width: 160, height: 60, offsetX: 61.3, offsetY: 5.7, lineNumber: 16 },
+    { id: "approve", x: 505.8, y: 353.5, width: 160, height: 60, offsetX: -52.6, offsetY: 5.2, lineNumber: 25 },
+  ];
+  const edges = [
+    { from: "cart", to: "payment", kind: "branch", layoutDirection: "down", sourceDirection: "down", targetLayoutDirection: "down" },
+    { from: "payment", to: "retry", kind: "branch", layoutDirection: "down", sourceDirection: "down", targetLayoutDirection: "down" },
+    { from: "payment", to: "approve", kind: "branch", layoutDirection: "down", sourceDirection: "down", targetLayoutDirection: "down" },
+  ];
+  assert.deepEqual(cleanupAlignmentOffsets(nodes, edges), [
+    { kind: "offset", id: "payment", lineNumber: 8, offsetX: 0, offsetY: 16.3 },
+  ]);
+});
+
+test("prefers the small outgoing merge kink over a deliberate incoming bend", () => {
+  const graph = parseDiagram([
+    "#canvas",
+    "  .node",
+    "    .id cart",
+    "    .label Cart ready",
+    "    .flow",
+    "      .direction down",
+    "      .node",
+    "        .line",
+    "          .source-face bottom",
+    "          .target-face top",
+    "        .id payment",
+    "        .label Payment valid?",
+    "        .flow",
+    "          .direction down",
+    "          .node",
+    "            .line",
+    "              .source-face bottom",
+    "              .target-face top",
+    "            .id retry",
+    "            .label Retry payment",
+    "        .flow",
+    "          .direction down",
+    "          .node",
+    "            .line",
+    "              .source-face right",
+    "              .target-face left",
+    "            .id approve",
+    "            .offset (-244.7, 103)",
+    "            .label Approve order",
+    "  .merge",
+    "    .direction down",
+    "    .ports shared",
+    "    .line",
+    "      .source-face bottom",
+    "      .target-face top",
+    "    .source",
+    "      .ref retry",
+    "    .source",
+    "      .ref approve",
+    "    .entry",
+    "      node.id receipt",
+    "      node.offset (0, 60.4)",
+    "      node.label Send receipt",
+  ].join("\n"));
+  const base = layoutDiagram(graph.nodes.map((node) => ({ ...node, width: 160, height: 60, layoutHeight: 60 })), graph.edges);
+  const inherited = inheritedFlowOffsets(base.nodes, graph.edges);
+  const visual = base.nodes.map((node) => ({
+    ...node,
+    x: node.x + node.offsetX + (inherited.get(node.id)?.x ?? 0),
+    y: node.y + node.offsetY + (inherited.get(node.id)?.y ?? 0),
+  }));
+  assert.deepEqual(graph.errors, []);
+  assert.deepEqual(cleanupAlignmentOffsets(visual, base.edges), [
+    { kind: "offset", id: "approve", lineNumber: 29, offsetX: -232, offsetY: 103 },
+  ]);
+});
+
+test("preserves a centered multi-source merge during cleanup", () => {
   const nodes = [
     { id: "review", x: 0, y: 100, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 2 },
     { id: "revise", x: 260, y: 100, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 6 },
@@ -371,9 +469,7 @@ test("does not move an unoffset sibling branch while cleaning a nested merge pat
     { from: "revise", to: "publish", kind: "merge", declarationKind: "node", layoutDirection: "right", sourceDirection: "right" },
     { from: "accept", to: "publish", kind: "merge", declarationKind: "flow", layoutDirection: "right", sourceDirection: "right", targetLayoutDirection: "right" },
   ];
-  assert.deepEqual(cleanupAlignmentOffsets(nodes, edges), [
-    { kind: "offset", id: "publish", lineNumber: 14, offsetX: -11.8, offsetY: -149.4 },
-  ]);
+  assert.deepEqual(cleanupAlignmentOffsets(nodes, edges), []);
 });
 
 test("distributes rendered positions while preserving existing offsets", () => {

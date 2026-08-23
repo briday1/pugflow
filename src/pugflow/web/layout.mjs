@@ -1,6 +1,6 @@
 export const DEFAULT_LAYOUT = Object.freeze({
-  horizontalGutter: 100,
-  verticalGutter: 28,
+  horizontalGutter: 72,
+  verticalGutter: 48,
   padding: 54,
 });
 
@@ -306,6 +306,7 @@ export function independentMoveOffsets(nodes, edges, selectedIds, dx, dy) {
 export function cleanupAlignmentOffsets(nodes, edges) {
   const byId = new Map(nodes.map((node) => [node.id, { ...node }]));
   const changed = new Map();
+  const mergeSourceIds = new Set(edges.filter((edge) => edge.kind === "merge").map((edge) => edge.from));
   const centerX = (node) => node.x + node.width / 2;
   const centerY = (node) => node.y + node.height / 2;
   const verticalDirection = (direction) => direction === "up" || direction === "down";
@@ -314,7 +315,13 @@ export function cleanupAlignmentOffsets(nodes, edges) {
     const source = byId.get(edge.from);
     const target = byId.get(edge.to);
     if (!source || !target || source.hidden || target.hidden) return;
+    const mergeCount = edge.kind === "merge" ? edges.filter((candidate) => candidate.kind === "merge" && candidate.to === edge.to).length : 0;
+    if (mergeCount > 1) return;
     const sourceDirection = edge.sourceDirection ?? edge.layoutDirection;
+    const siblingCount = edge.kind === "branch" ? edges.filter((candidate) => candidate.kind === "branch"
+      && candidate.from === edge.from
+      && (candidate.sourceDirection ?? candidate.layoutDirection) === sourceDirection).length : 0;
+    if (siblingCount > 1 || edge.kind === "branch" && mergeSourceIds.has(edge.to)) return;
     const targetDirection = edge.targetLayoutDirection ?? edge.layoutDirection;
     const sourceVertical = verticalDirection(sourceDirection);
     const targetVertical = verticalDirection(targetDirection);
@@ -345,6 +352,30 @@ export function cleanupAlignmentOffsets(nodes, edges) {
     if (Math.abs(target.offsetX) < 0.0001) target.offsetX = 0;
     if (Math.abs(target.offsetY) < 0.0001) target.offsetY = 0;
     changed.set(target.id, { kind: "offset", id: target.id, lineNumber: target.lineNumber, offsetX: target.offsetX, offsetY: target.offsetY });
+  });
+  edges.filter((edge) => edge.kind === "merge" && edge.declarationKind === "merge").forEach((edge) => {
+    const source = byId.get(edge.from);
+    const target = byId.get(edge.to);
+    if (!source || !target || source.hidden || target.hidden) return;
+    if (edges.some((candidate) => candidate.from === edge.from && candidate.kind !== "merge")) return;
+    const sourceDirection = edge.sourceDirection ?? edge.layoutDirection;
+    const targetDirection = edge.targetLayoutDirection ?? edge.layoutDirection;
+    const sourceVertical = verticalDirection(sourceDirection);
+    if (sourceVertical !== verticalDirection(targetDirection)) return;
+    const sourcePortOffset = (edge.sourcePortFraction ?? 0) * (sourceVertical ? source.width : source.height);
+    const targetPortOffset = (edge.targetPortFraction ?? 0) * (sourceVertical ? target.width : target.height);
+    const difference = sourceVertical
+      ? centerX(target) + targetPortOffset - (centerX(source) + sourcePortOffset)
+      : centerY(target) + targetPortOffset - (centerY(source) + sourcePortOffset);
+    const perpendicularOffset = sourceVertical ? source.offsetX ?? 0 : source.offsetY ?? 0;
+    if (Math.abs(perpendicularOffset) < 0.05 || Math.abs(difference) < 0.05 || Math.abs(difference) > 24) return;
+    if (sourceVertical) source.x += difference;
+    else source.y += difference;
+    source.offsetX = Math.round(((source.offsetX ?? 0) + (sourceVertical ? difference : 0)) * 10) / 10;
+    source.offsetY = Math.round(((source.offsetY ?? 0) + (sourceVertical ? 0 : difference)) * 10) / 10;
+    if (Math.abs(source.offsetX) < 0.0001) source.offsetX = 0;
+    if (Math.abs(source.offsetY) < 0.0001) source.offsetY = 0;
+    changed.set(source.id, { kind: "offset", id: source.id, lineNumber: source.lineNumber, offsetX: source.offsetX, offsetY: source.offsetY });
   });
   return [...changed.values()];
 }
