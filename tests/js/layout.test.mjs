@@ -190,6 +190,21 @@ test("centers merge targets beyond their full source set", () => {
   assert.equal(placed.get("combined").y, sourceRows[1]);
 });
 
+test("centers a vertical merge target between two source columns", () => {
+  const nodes = ["root", "left", "right", "combined"].map((id) => ({ id, width: 100, height: 40 }));
+  const edges = [
+    { from: "root", to: "left", layoutDirection: "down", kind: "branch" },
+    { from: "root", to: "right", layoutDirection: "down", kind: "branch" },
+    { from: "left", to: "combined", layoutDirection: "down", kind: "merge" },
+    { from: "right", to: "combined", layoutDirection: "down", kind: "merge" },
+  ];
+  const placed = new Map(layoutDiagram(nodes, edges).nodes.map((node) => [node.id, node]));
+  const centerX = (node) => node.x + node.width / 2;
+  assert.equal(centerX(placed.get("combined")), (centerX(placed.get("left")) + centerX(placed.get("right"))) / 2);
+  assert.ok(placed.get("combined").y > placed.get("left").y);
+  assert.ok(placed.get("combined").y > placed.get("right").y);
+});
+
 test("assigns ordered ports when merge sources share an approach row", () => {
   const nodes = ["first", "second", "lower", "combined"].map((id) => ({ id, width: 100, height: 60 }));
   const edges = [

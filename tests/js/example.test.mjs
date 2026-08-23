@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
+import { layoutDiagram } from "../../src/pugflow/web/layout.mjs";
 import { pugDefinitionsToStyleSheet } from "../../src/pugflow/web/style-sheet.mjs";
 
 test("the built-in showcase presents two simple independent branch-and-merge graphs", () => {
@@ -14,6 +15,7 @@ test("the built-in showcase presents two simple independent branch-and-merge gra
   assert.equal(result.nodes.length, 10);
   assert.deepEqual(result.groups.map((group) => group.id), ["checkout", "publishing"]);
   assert.deepEqual(result.groups.map((group) => group.layer), [1, 0]);
+  assert.deepEqual(result.groups.map((group) => group.fill), ["#2563eb80", "#7c3aed80"]);
   assert.equal(result.edges.filter((edge) => edge.to === "receipt").length, 2);
   assert.equal(result.edges.filter((edge) => edge.to === "publish").length, 2);
   assert.ok(result.edges.filter((edge) => ["receipt", "publish"].includes(edge.to)).every((edge) => edge.kind === "merge"));
@@ -21,11 +23,25 @@ test("the built-in showcase presents two simple independent branch-and-merge gra
   assert.ok(result.edges.every((edge) => ownership.get(edge.from) === ownership.get(edge.to)));
   assert.ok(result.edges.filter((edge) => ownership.get(edge.from) === "checkout").every((edge) => edge.layoutDirection === "down"));
   assert.ok(result.edges.filter((edge) => ownership.get(edge.from) === "publishing").every((edge) => edge.layoutDirection === "right"));
-  for (const [from, to] of [["cart", "payment"], ["payment", "retry"], ["retry", "receipt"]]) {
+  for (const [from, to] of [["cart", "payment"], ["payment", "retry"]]) {
     const edge = result.edges.find((candidate) => candidate.from === from && candidate.to === to);
     assert.equal(edge?.sourceFace, "bottom");
     assert.equal(edge?.targetFace, "top");
   }
+  const approval = result.edges.find((edge) => edge.from === "payment" && edge.to === "approve");
+  assert.equal(approval?.sourceFace, "bottom");
+  assert.equal(approval?.targetFace, "left");
+  const receiptEdges = result.edges.filter((edge) => edge.to === "receipt");
+  assert.deepEqual(receiptEdges.map((edge) => edge.from), ["retry", "approve"]);
+  assert.ok(receiptEdges.every((edge) => edge.sourceFace === "bottom" && edge.targetFace === "top"));
+  const checkoutNodeIds = new Set(result.groups.find((group) => group.id === "checkout").nodeIds);
+  const checkoutLayout = layoutDiagram(
+    result.nodes.filter((node) => checkoutNodeIds.has(node.id)),
+    result.edges.filter((edge) => checkoutNodeIds.has(edge.from) && checkoutNodeIds.has(edge.to)),
+  );
+  const placed = new Map(checkoutLayout.nodes.map((node) => [node.id, node]));
+  const centerX = (node) => node.x + node.width / 2;
+  assert.equal(centerX(placed.get("receipt")), (centerX(placed.get("retry")) + centerX(placed.get("approve"))) / 2);
   const parsed = new Map(result.nodes.map((node) => [node.id, node]));
   assert.equal(parsed.get("cart")?.annotations.length, 1);
   assert.equal(parsed.get("receipt")?.annotations.length, 1);

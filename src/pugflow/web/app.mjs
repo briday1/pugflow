@@ -57,7 +57,7 @@ const EXAMPLE_DOCUMENT = `// Two simple, independent branching and merging flows
     .id checkout
     .label Checkout flow
     .layer 1
-    .fill transparent
+    .fill #2563eb80
     .color #172554
     .outline #2563eb
     .outline-width 3
@@ -85,31 +85,35 @@ const EXAMPLE_DOCUMENT = `// Two simple, independent branching and merging flows
                 .target-face top
               .id retry
               .label Retry payment
-              .flow
-                .direction down
-                .result
-                  .line
-                    .source-face bottom
-                    .target-face top
-                  .id receipt
-                  .label Send receipt
-                  .annotation
-                    .below Merge: both paths finish here
           .flow
             .direction down
             .step
+              .line
+                .source-face bottom
+                .target-face left
               .id approve
               .label Approve order
-    .flow
-      .from approve
-      .to receipt
+    .merge
       .direction down
+      .ports shared
+      .line
+        .source-face bottom
+        .target-face top
+      .source
+        .ref retry
+      .source
+        .ref approve
+      .result
+        .id receipt
+        .label Send receipt
+        .annotation
+          .below Merge: both paths finish here
 
   graph
     .id publishing
     .label Publishing flow
     .layer 0
-    .fill transparent
+    .fill #7c3aed80
     .color #2e1065
     .outline #7c3aed
     .outline-width 3
