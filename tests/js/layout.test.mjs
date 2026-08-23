@@ -101,6 +101,22 @@ test("centers same-direction sibling branches around their source", () => {
   assert.notEqual(placed.get("retry").x, placed.get("approve").x);
 });
 
+test("lays out equivalent flows identically regardless of their original declaration direction", () => {
+  const nodes = ["payment", "approve"].map((id) => ({ id, width: 160, height: 60 }));
+  const changedNestedFlow = [{
+    from: "payment", to: "approve", kind: "branch",
+    layoutDirection: "down", sourceDirection: "right", targetLayoutDirection: "right",
+  }];
+  const freshlyCreatedFlow = [{
+    from: "payment", to: "approve", kind: "branch",
+    layoutDirection: "right", sourceDirection: "right", targetLayoutDirection: "right",
+  }];
+  assert.deepEqual(
+    layoutDiagram(nodes, changedNestedFlow).nodes.map(({ id, x, y }) => ({ id, x, y })),
+    layoutDiagram(nodes, freshlyCreatedFlow).nodes.map(({ id, x, y }) => ({ id, x, y })),
+  );
+});
+
 test("routes merge connections with rounded orthogonal bends", () => {
   const source = { x: 10, y: 10, width: 100, height: 40, aboveHeight: 0 };
   const target = { x: 260, y: 100, width: 100, height: 40, aboveHeight: 0 };
@@ -222,6 +238,19 @@ test("centers a vertical merge target between two source columns", () => {
   assert.equal(centerX(placed.get("combined")), (centerX(placed.get("left")) + centerX(placed.get("right"))) / 2);
   assert.ok(placed.get("combined").y > placed.get("left").y);
   assert.ok(placed.get("combined").y > placed.get("right").y);
+});
+
+test("keeps an even merge centered after one branch changes direction", () => {
+  const nodes = ["root", "lower", "side", "combined"].map((id) => ({ id, width: 100, height: 40 }));
+  const edges = [
+    { from: "root", to: "lower", layoutDirection: "down", sourceDirection: "down", kind: "branch" },
+    { from: "root", to: "side", layoutDirection: "down", sourceDirection: "right", kind: "branch" },
+    { from: "lower", to: "combined", layoutDirection: "down", sourceDirection: "down", kind: "merge" },
+    { from: "side", to: "combined", layoutDirection: "down", sourceDirection: "down", kind: "merge" },
+  ];
+  const placed = new Map(layoutDiagram(nodes, edges).nodes.map((node) => [node.id, node]));
+  const centerX = (node) => node.x + node.width / 2;
+  assert.equal(centerX(placed.get("combined")), (centerX(placed.get("lower")) + centerX(placed.get("side"))) / 2);
 });
 
 test("assigns ordered ports when merge sources share an approach row", () => {

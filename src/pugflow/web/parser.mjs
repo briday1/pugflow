@@ -340,7 +340,7 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
       ? ![false, "false", "no", "0"].includes(effective["line.annotation-below-hidden"])
       : effective["line.annotation-below"] === undefined && effective["line.label-hidden"] !== undefined,
     layoutDirection: FLOW_DIRECTIONS.has(layoutDirection) ? layoutDirection : "right",
-    sourceDirection: sourceDirections[sourceFace] ?? defaults.sourceDirection ?? (FLOW_DIRECTIONS.has(layoutDirection) ? layoutDirection : "right"),
+    sourceDirection: sourceDirections[sourceFace] ?? (FLOW_DIRECTIONS.has(layoutDirection) ? layoutDirection : "right"),
     targetLayoutDirection: targetDirections[targetFace] ?? defaults.targetLayoutDirection ?? null,
     sourceFace: faces.has(sourceFace) ? sourceFace : null,
     targetFace: faces.has(targetFace) ? targetFace : null,

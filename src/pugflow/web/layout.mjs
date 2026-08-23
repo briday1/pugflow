@@ -11,6 +11,10 @@ const VECTORS = Object.freeze({
   up: { x: 0, y: -1 },
 });
 
+function edgeLayoutDirection(edge) {
+  return edge.sourceDirection ?? edge.layoutDirection ?? "right";
+}
+
 function cellKey(x, y) {
   return `${x},${y}`;
 }
@@ -41,9 +45,9 @@ function freeCandidate(base, direction, occupied) {
 function branchCandidate(edge, edges, source) {
   const siblings = edges.filter((candidate) => candidate.kind === "branch"
     && candidate.from === edge.from
-    && (candidate.layoutDirection ?? "right") === (edge.layoutDirection ?? "right"));
+    && edgeLayoutDirection(candidate) === edgeLayoutDirection(edge));
   if (siblings.length < 2) return null;
-  const direction = edge.layoutDirection ?? "right";
+  const direction = edgeLayoutDirection(edge);
   const vector = VECTORS[direction];
   const lane = siblings.indexOf(edge) - (siblings.length - 1) / 2;
   return vector.x
@@ -62,15 +66,17 @@ function alignTerminalMergeSources(positions, edges) {
   const groups = new Map();
   edges.forEach((edge) => {
     if (edge.kind !== "merge") return;
-    const key = `${edge.to}|${edge.layoutDirection ?? "right"}`;
+    const key = `${edge.to}|${edgeLayoutDirection(edge)}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(edge);
   });
   groups.forEach((group) => {
-    const direction = group[0].layoutDirection ?? "right";
+    const direction = edgeLayoutDirection(group[0]);
     const vector = VECTORS[direction];
     const target = positions.get(group[0].to);
     if (!target) return;
+    const perpendicular = vector.x ? target.y : target.x;
+    if (!Number.isInteger(perpendicular)) return;
     const frontier = { x: target.x - vector.x, y: target.y - vector.y };
     group.forEach((edge) => {
       const source = positions.get(edge.from);
@@ -91,13 +97,13 @@ function assignConnectionPorts(edges, cells) {
   const groups = new Map();
   edges.forEach((edge, sourceOrder) => {
     const endpoint = edge.kind === "merge" ? edge.to : edge.from;
-    const key = `${edge.kind}|${endpoint}|${edge.layoutDirection ?? "right"}`;
+    const key = `${edge.kind}|${endpoint}|${edgeLayoutDirection(edge)}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push({ edge, sourceOrder });
   });
   const assignments = new Map();
   groups.forEach((group) => {
-    const direction = group[0].edge.layoutDirection ?? "right";
+    const direction = edgeLayoutDirection(group[0].edge);
     const vertical = direction === "up" || direction === "down";
     group.sort((a, b) => {
       const aCell = cells.get(a.edge.kind === "merge" ? a.edge.from : a.edge.to);
@@ -140,7 +146,7 @@ function assignCells(nodes, edges) {
         const incoming = edges.filter((candidate) => candidate.kind === "merge" && candidate.to === edge.to);
         const sources = incoming.map((candidate) => positions.get(candidate.from));
         if (sources.some((position) => !position)) continue;
-        const direction = edge.layoutDirection ?? "right";
+        const direction = edgeLayoutDirection(edge);
         const base = direction === "left"
           ? { x: Math.min(...sources.map((position) => position.x)) - 1, y: median(sources.map((position) => position.y)) }
           : direction === "right"
@@ -155,7 +161,8 @@ function assignCells(nodes, edges) {
         continue;
       }
       const branchBase = branchCandidate(edge, edges, from);
-      const position = branchBase ? freeCandidate(branchBase, edge.layoutDirection, occupied) : freeCell(from, edge.layoutDirection, occupied);
+      const direction = edgeLayoutDirection(edge);
+      const position = branchBase ? freeCandidate(branchBase, direction, occupied) : freeCell(from, direction, occupied);
       positions.set(edge.to, position);
       occupied.add(cellKey(position.x, position.y));
       changed = true;
@@ -181,7 +188,7 @@ function assignCells(nodes, edges) {
         const incoming = edge.kind === "merge" ? edges.filter((candidate) => candidate.kind === "merge" && candidate.to === edge.to) : [];
         const sources = incoming.map((candidate) => positions.get(candidate.from));
         if (incoming.length && sources.some((position) => !position)) continue;
-        const direction = edge.layoutDirection ?? "right";
+        const direction = edgeLayoutDirection(edge);
         const branchBase = branchCandidate(edge, edges, from);
         const base = incoming.length
           ? direction === "left" ? { x: Math.min(...sources.map((position) => position.x)) - 1, y: median(sources.map((position) => position.y)) }
