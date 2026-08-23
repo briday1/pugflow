@@ -101,7 +101,9 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(styles, /::highlight\(sbd-color\)/);
   assert.match(styles, /::highlight\(sbd-number\)/);
   assert.match(diagramStyles, /--diagram-annotation: #000000/);
-  assert.match(styles, /:root\[data-theme="dark"\][\s\S]*--diagram-annotation: #000000/);
+  const darkTheme = styles.match(/:root\[data-theme="dark"\]\s*\{([^}]*)\}/)?.[1];
+  assert.ok(darkTheme, "could not locate the dark application theme");
+  assert.doesNotMatch(darkTheme, /--diagram-/);
   assert.match(renderer, /annotation: read\("--diagram-annotation", "#000000"\)/);
   assert.doesNotMatch(html, /builder-diagram-no-(?:fill|outline)/);
   assert.match(app, />Send to front<\/option><option value="back">Send to back/);

@@ -46,11 +46,6 @@
   --code-bg: #223241;
   --selection: rgba(112, 175, 231, .28);
   --shadow: rgba(0, 0, 0, .38);
-  --diagram-background: #101922;
-  --diagram-label: #f4f8fb;
-  --diagram-text: #d6e2ec;
-  --diagram-merge: #d6e2ec;
-  --diagram-annotation: #000000;
 }
 
 * { box-sizing: border-box; }
