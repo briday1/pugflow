@@ -185,7 +185,7 @@ function addBlockAnnotation(group, node, annotation, index, colors) {
   const top = annotationTop(node, annotation, index);
   const attributes = {
     class: "block-annotation", "data-line": annotation.lineNumber, "data-id": node.id,
-    "data-select-kind": "node", "data-selection-key": `node:${node.id}`,
+    "data-select-kind": "annotation", "data-selection-key": `annotation:${annotation.lineNumber}`,
     "data-drag-kind": "block-annotation", "data-current-x": annotation.offsetX,
     "data-current-y": annotation.offsetY, role: "link", tabindex: 0,
     "aria-label": "Move or edit annotation " + annotation.text,
@@ -645,12 +645,23 @@ function diagramBounds(groups, nodesById) {
   }).filter(Boolean);
 }
 
-function addDiagramFrame(svg, group, colors) {
+function addDiagramFrame(parent, group, colors) {
   const frame = svgElement("g", { "data-line": group.lineNumber, "data-id": group.id, "data-select-kind": "graph", "data-selection-key": `graph:${group.id}`, "data-drag-kind": "graph", "data-current-x": group.offsetX ?? 0, "data-current-y": group.offsetY ?? 0, role: "group", tabindex: 0, "aria-label": group.label ? `Graph: ${group.label}` : "Graph boundary" });
-  frame.append(svgElement("rect", {
+  const hit = svgElement("rect", {
     class: "subdiagram-hit", x: group.x, y: group.y, width: group.right - group.x, height: group.bottom - group.y,
-    rx: 12, fill: "none", stroke: "transparent", "stroke-width": 28, "pointer-events": "stroke",
-  }));
+    rx: 12, fill: "none", stroke: "transparent", "stroke-width": 44, "pointer-events": "stroke",
+  });
+  hit.addEventListener("pointermove", (event) => {
+    const svg = event.currentTarget.ownerSVGElement;
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const local = point.matrixTransform(svg.getScreenCTM().inverse());
+    const distance = Math.min(Math.abs(local.x - group.x), Math.abs(local.x - group.right), Math.abs(local.y - group.y), Math.abs(local.y - group.bottom));
+    frame.style.setProperty("--graph-proximity", String(Math.max(0.16, Math.min(0.82, 1 - distance / 26))));
+  });
+  hit.addEventListener("pointerleave", () => frame.style.removeProperty("--graph-proximity"));
+  frame.append(hit);
   frame.append(svgElement("rect", {
     class: "subdiagram-frame", x: group.x, y: group.y, width: group.right - group.x, height: group.bottom - group.y,
     rx: 12, fill: group.fill, stroke: group.outline, "stroke-width": group.outlineWidth,
@@ -665,27 +676,22 @@ function addDiagramFrame(svg, group, colors) {
     label.textContent = group.label;
     frame.append(label);
   }
-  svg.append(frame);
+  parent.append(frame);
 }
 
-function packSiblingGraphs(nodes, groups, gap = 80) {
-  const maximal = groups.filter((group) => !groups.some((other) => other !== group
-    && group.nodeIds.every((id) => other.nodeIds.includes(id)) && other.nodeIds.length > group.nodeIds.length));
-  if (maximal.length < 2) return nodes;
+function packGraphs(nodes, groups, gap = 80) {
+  if (groups.length < 2) return nodes;
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const bounds = diagramBounds(groups, byId);
   const shifts = new Map();
   let previousBottom = null;
   let anchorLeft = null;
-  for (const group of maximal) {
-    const members = nodes.filter((node) => group.nodeIds.includes(node.id));
-    if (!members.length) continue;
-    const top = Math.min(...members.map((node) => node.y));
-    const bottom = Math.max(...members.map((node) => node.y + node.layoutHeight));
-    const left = Math.min(...members.map((node) => node.x));
-    if (anchorLeft === null) anchorLeft = left;
-    const shiftY = previousBottom === null ? 0 : Math.max(0, previousBottom + gap - top);
-    const shiftX = anchorLeft - left;
+  for (const group of bounds) {
+    if (anchorLeft === null) anchorLeft = group.x;
+    const shiftY = previousBottom === null ? 0 : Math.max(0, previousBottom + gap - group.y);
+    const shiftX = anchorLeft - group.x;
     group.nodeIds.forEach((id) => shifts.set(id, { x: shiftX, y: shiftY }));
-    previousBottom = bottom + shiftY;
+    previousBottom = group.bottom + shiftY;
   }
   return nodes.map((node) => ({ ...node, x: node.x + (shifts.get(node.id)?.x ?? 0), y: node.y + (shifts.get(node.id)?.y ?? 0) }));
 }
@@ -696,12 +702,16 @@ function renderSvg(container, graph, options) {
   const layout = layoutDiagram(measured, graph.edges, layoutOptionsForLabels(graph.edges, colors, options.layout));
   const flowOffsets = inheritedFlowOffsets(layout.nodes, graph.edges);
   let visualNodes = layout.nodes.map((node) => {
-    const graphOffset = (graph.groups ?? []).filter((group) => group.nodeIds.includes(node.id))
-      .reduce((total, group) => ({ x: total.x + (group.offsetX ?? 0), y: total.y + (group.offsetY ?? 0) }), { x: 0, y: 0 });
     const inherited = flowOffsets.get(node.id) ?? { x: 0, y: 0 };
-    return { ...node, x: node.x + node.offsetX + inherited.x + graphOffset.x, y: node.y + node.offsetY + inherited.y + graphOffset.y };
+    return { ...node, x: node.x + node.offsetX + inherited.x, y: node.y + node.offsetY + inherited.y };
   });
-  visualNodes = packSiblingGraphs(visualNodes, graph.groups ?? []);
+  visualNodes = packGraphs(visualNodes, graph.groups ?? []);
+  const ownerByNode = new Map();
+  (graph.groups ?? []).forEach((group) => group.nodeIds.forEach((id) => ownerByNode.set(id, group)));
+  visualNodes = visualNodes.map((node) => {
+    const owner = ownerByNode.get(node.id);
+    return { ...node, x: node.x + (owner?.offsetX ?? 0), y: node.y + (owner?.offsetY ?? 0) };
+  });
   const byId = new Map(visualNodes.map((node) => [node.id, node]));
   const groups = diagramBounds((graph.groups ?? []).filter((group) => !group.hidden), byId);
   const extentX = visualNodes.flatMap((node) => [
@@ -745,13 +755,38 @@ function renderSvg(container, graph, options) {
   const defs = svgElement("defs");
   svg.append(defs);
   svg.append(svgElement("rect", { class: "diagram-background", x: viewX, y: viewY, width: viewWidth, height: viewHeight }));
-  [...groups].sort((a, b) => b.nodeIds.length - a.nodeIds.length).forEach((group) => addDiagramFrame(svg, group, colors));
+  const visibleGroups = [...groups].sort((a, b) => (a.layer ?? 0) - (b.layer ?? 0) || (a.sourceIndex ?? 0) - (b.sourceIndex ?? 0));
+  const layerNumbers = [...new Set([-1, ...visibleGroups.map((group) => group.layer ?? 0)])].sort((a, b) => a - b);
+  const layerContainers = new Map(layerNumbers.map((layerNumber) => {
+    const layer = svgElement("g", { class: "diagram-layer", "data-layer": layerNumber });
+    svg.append(layer);
+    return [layerNumber, layer];
+  }));
+  visibleGroups.forEach((group) => addDiagramFrame(layerContainers.get(group.layer ?? 0), group, colors));
+  const edgeLayers = new Map(layerNumbers.map((layerNumber) => {
+    const layer = svgElement("g", { class: "connector-layer", "data-layer": layerNumber });
+    layerContainers.get(layerNumber).append(layer);
+    return [layerNumber, layer];
+  }));
   layout.edges.forEach((edge) => {
     const source = byId.get(edge.from);
     const target = byId.get(edge.to);
-    if (edgeIsVisible(edge, byId)) addEdge(svg, defs, edge, source, target, colors, visualNodes);
+    const sourceLayer = ownerByNode.get(edge.from)?.layer ?? -1;
+    const targetLayer = ownerByNode.get(edge.to)?.layer ?? -1;
+    if (edgeIsVisible(edge, byId)) addEdge(edgeLayers.get(Math.max(sourceLayer, targetLayer)), defs, edge, source, target, colors, visualNodes);
   });
-  visualNodes.forEach((node) => { if (!node.hidden) addNode(svg, node, colors, defs); });
+  const nodeLayers = new Map();
+  visibleGroups.forEach((group) => {
+    const layer = svgElement("g", { class: "graph-node-layer", "data-graph-id": group.id, "data-layer": group.layer ?? 0 });
+    layerContainers.get(group.layer ?? 0).append(layer);
+    nodeLayers.set(group.id, layer);
+  });
+  const ungrouped = svgElement("g", { class: "graph-node-layer ungrouped-layer", "data-layer": -1 });
+  layerContainers.get(-1).append(ungrouped);
+  visualNodes.forEach((node) => {
+    const owner = ownerByNode.get(node.id);
+    if (!node.hidden) addNode(owner ? nodeLayers.get(owner.id) ?? ungrouped : ungrouped, node, colors, defs);
+  });
   Object.defineProperty(svg, "__diagramLayout", { value: { ...layout, nodes: visualNodes, groups } });
   if (options.onNodeClick || options.onElementMove) {
     svg.classList.add("interactive");
@@ -788,7 +823,7 @@ function renderSvg(container, graph, options) {
         if (!completed.moved) {
           const entry = completed.target.closest?.(".entry");
           const connector = completed.target.closest?.(".connector");
-          const additive = event.ctrlKey || event.metaKey;
+          const additive = event.shiftKey || event.ctrlKey || event.metaKey;
           const selectedTarget = completed.target.closest?.("[data-select-kind]") ?? completed.target;
           options.onElementClick?.({
             kind: selectedTarget.dataset.selectKind ?? (connector ? "line" : "node"),

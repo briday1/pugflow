@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appendDiagramNode, appendFlowNode, appendMergeNode, indentSourceSelection, removeNodeDeclaration, removeNodeReferences, removeNodeField, reparentGraph, setAnnotationOffsetField, setAnnotationText, setNodeAnnotationField, setNodeAnnotationText, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
+import { appendDiagramNode, appendFlowNode, appendFlowReference, appendMergeNode, appendNodeAnnotation, groupNodesAsGraph, indentSourceSelection, removeNodeAnnotation, removeNodeDeclaration, removeNodeReferences, removeNodeField, renameNodeReferences, setAnnotationOffsetField, setAnnotationPosition, setAnnotationText, setNodeAnnotationField, setNodeAnnotationText, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 
 test("edits inspector-backed node and connector properties", () => {
@@ -14,6 +14,14 @@ test("edits inspector-backed node and connector properties", () => {
   assert.doesNotMatch(edited, /\.fill #123456/);
   assert.doesNotMatch(edited, /\.offset/);
   assert.match(edited, /\.connect\n    \.line\.width 3/);
+});
+
+test("renames node references when an optional ID changes", () => {
+  const source = "#diagram\n  .node\n    .id old-id\n    .label Root\n  .connect\n    .from old-id\n    .to old-id\n  .merge\n    .source\n      .ref old-id";
+  const renamed = renameNodeReferences(source, "old-id", "new-id");
+  assert.match(renamed, /\.from new-id\n    \.to new-id/);
+  assert.match(renamed, /\.ref new-id/);
+  assert.doesNotMatch(renamed, /(?:\.from|\.to|\.ref) old-id/);
 });
 
 test("inserts and updates persistent node offsets beside the label", () => {
@@ -57,6 +65,23 @@ test("creates missing above and below annotations from node properties", () => {
   assert.match(below, /\.below\n          \.font-style italic/);
   assert.deepEqual(parseDiagram(below).errors, []);
   assert.equal(parseDiagram(below).nodes[0].annotations.find((item) => item.position === "above").text, "New above");
+});
+
+test("adds, repositions, and independently removes repeated node annotations", () => {
+  const source = "#canvas\n  graph\n    .node\n      .label Root";
+  const first = appendNodeAnnotation(source, 4, { position: "above", text: "First" });
+  const repeated = appendNodeAnnotation(first, parseDiagram(first).nodes[0].lineNumber, { position: "above", text: "Second" });
+  const parsed = parseDiagram(repeated);
+  assert.deepEqual(parsed.nodes[0].annotations.map(({ position, text }) => ({ position, text })), [
+    { position: "above", text: "First" },
+    { position: "above", text: "Second" },
+  ]);
+  const moved = setAnnotationPosition(repeated, parsed.nodes[0].annotations[1].lineNumber, "below");
+  assert.deepEqual(parseDiagram(moved).nodes[0].annotations.map((annotation) => annotation.position), ["above", "below"]);
+  const afterOneRemoval = removeNodeAnnotation(moved, parseDiagram(moved).nodes[0].annotations[0].lineNumber);
+  assert.match(afterOneRemoval, /\.annotation\n        \.below Second/);
+  const last = parseDiagram(afterOneRemoval).nodes[0].annotations[0];
+  assert.doesNotMatch(removeNodeAnnotation(afterOneRemoval, last.lineNumber), /\.annotation/);
 });
 
 test("preserves a custom node type when adding offsets", () => {
@@ -126,10 +151,36 @@ test("switches reusable line types while clearing appearance overrides", () => {
 test("builds a typed flow node inside the selected parent", () => {
   const source = "#diagram\n  .node\n    .id root\n    .label Root";
   const updated = appendFlowNode(source, 4, { direction: "down", ports: "distributed", nodeType: "card", lineType: "warning", id: "child", label: "Child" });
-  assert.match(updated, /    \.flow\n      \.direction down\n      \.ports distributed\n      \.warning\n      \.card\n        \.id child\n        \.label Child/);
+  assert.match(updated, /    \.flow\n      \.from-direction down\n      \.to-direction down\n      \.ports distributed\n      \.warning\n      \.card\n        \.id child\n        \.label Child/);
   const plain = appendFlowNode(source, 4, { id: "child", label: "Child" });
   assert.deepEqual(parseDiagram(plain).errors, []);
   assert.equal(parseDiagram(plain).nodes.length, 2);
+});
+
+test("writes an ID-based flow to an existing or later node", () => {
+  const source = "#canvas\n  graph\n    .node\n      .id one\n      .label One\n      .node\n        .id two\n        .label Two";
+  const updated = appendFlowReference(source, 4, { from: "two", to: "one", direction: "left" });
+  assert.match(updated, /\.flow\n        \.from two\n        \.to one\n        \.from-direction left\n        \.to-direction left/);
+  const parsed = parseDiagram(updated);
+  assert.deepEqual(parsed.errors, []);
+  assert.ok(parsed.edges.some((edge) => edge.from === "two" && edge.to === "one" && edge.explicitFlow));
+});
+
+test("groups selected nodes as a canvas-level member graph", () => {
+  const source = "#canvas\n  graph\n    .id outer\n    .node\n      .id one\n      .label One\n      .node\n        .id two\n        .label Two";
+  const grouped = groupNodesAsGraph(source, ["one", "two"], { graphId: "grouped" });
+  assert.match(grouped, /\n  graph\n    \.id grouped\n    \.members one two/);
+  const parsed = parseDiagram(grouped);
+  assert.deepEqual(parsed.errors, []);
+  assert.deepEqual(parsed.groups.find((group) => group.id === "grouped")?.nodeIds, ["one", "two"]);
+});
+
+test("regrouping nodes reassigns them from existing member graphs", () => {
+  const source = "#canvas\n  graph\n    .node\n      .id one\n      .label One\n      .node\n        .id two\n        .label Two\n      .node\n        .id three\n        .label Three\n  graph\n    .id old-group\n    .members one two";
+  const regrouped = groupNodesAsGraph(source, ["one", "three"], { graphId: "new-group" });
+  assert.match(regrouped, /\.id old-group\n    \.members two/);
+  assert.match(regrouped, /\.id new-group\n    \.members one three/);
+  assert.deepEqual(parseDiagram(regrouped).errors, []);
 });
 
 test("builds a standalone connected-diagram component", () => {
@@ -143,24 +194,24 @@ test("builds a standalone connected-diagram component", () => {
   assert.equal(graph.groups[1].rootId, "free");
 });
 
-test("inserts a nested graph only inside the selected graph", () => {
+test("new graphs are always canvas-level siblings", () => {
   const source = "#canvas\n  graph\n    .id outer\n    .node\n      .id root\n      .label Root";
-  const updated = appendDiagramNode(source, { parentGraphLineNumber: 2, diagramId: "inner", id: "child", label: "Child" });
-  assert.match(updated, /  graph\n    \.id outer[\s\S]*    graph\n      \.id inner\n      \.node\n        \.id child/);
+  const updated = appendDiagramNode(source, { diagramId: "second", id: "child", label: "Child" });
+  assert.match(updated, /\n  graph\n    \.id second\n    \.node\n      \.id child/);
   const parsed = parseDiagram(updated);
   assert.deepEqual(parsed.errors, []);
   assert.equal(parsed.groups.length, 2);
 });
 
-test("moves graph blocks into another graph and back to the canvas", () => {
-  const source = "#canvas\n  graph\n    .id outer\n    .node\n      .id root\n      .label Root\n  graph\n    .id inner\n    .node\n      .id child\n      .label Child";
-  const nested = reparentGraph(source, 7, 2);
-  assert.match(nested, /  graph\n    \.id outer[\s\S]*    graph\n      \.id inner/);
-  assert.deepEqual(parseDiagram(nested).errors, []);
-  const inner = parseDiagram(nested).groups.find((group) => group.id === "inner");
-  const unnested = reparentGraph(nested, inner.lineNumber);
-  assert.match(unnested, /\n  graph\n    \.id inner/);
-  assert.deepEqual(parseDiagram(unnested).errors, []);
+test("renames and removes exact graph member references", () => {
+  const source = "#canvas\n  graph\n    .id source\n    .node\n      .id one\n      .label One\n      .node\n        .id someone\n        .label Someone\n  graph\n    .id selected\n    .members one someone";
+  const renamed = renameNodeReferences(source, "one", "first");
+  assert.match(renamed, /\.members first someone/);
+  assert.doesNotMatch(renamed, /\.members first somefirst/);
+  const removed = removeNodeReferences(renamed, "first");
+  assert.match(removed, /\.members someone/);
+  const empty = removeNodeReferences(removed, "someone");
+  assert.doesNotMatch(empty, /\.id selected/);
 });
 
 test("appends sibling graphs after blank lines at the canvas level", () => {

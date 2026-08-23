@@ -39,7 +39,7 @@ class ServerTests(unittest.TestCase):
         status, headers, bundle = self.get("/app.mjs")
         self.assertEqual(status, 200)
         self.assertEqual(headers.get_content_type(), "text/javascript")
-        self.assertIn(b"Full feature tour", bundle)
+        self.assertIn(b"Pugflow showcase", bundle)
 
         status, headers, docs = self.get("/docs.html")
         self.assertEqual(status, 200)

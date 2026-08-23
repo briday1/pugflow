@@ -255,7 +255,7 @@ test("cleans up small flow kinks by updating target offsets", () => {
     { from: "b", to: "c", kind: "branch", layoutDirection: "right" },
   ];
   assert.deepEqual(cleanupAlignmentOffsets(nodes, edges), [
-    { id: "b", lineNumber: 5, offsetX: -97.8, offsetY: -53.4 },
+    { kind: "offset", id: "b", lineNumber: 5, offsetX: -97.8, offsetY: -53.4 },
   ]);
 });
 
@@ -265,8 +265,20 @@ test("cleans visible kinks without treating above annotations as node geometry",
     { id: "path-a", x: 300, y: 101.7, width: 190, height: 78, aboveHeight: 0, offsetX: -19.5, offsetY: 1.7, lineNumber: 8 },
   ];
   assert.deepEqual(cleanupAlignmentOffsets(nodes, [{ from: "root", to: "path-a", kind: "branch", layoutDirection: "right" }]), [
-    { id: "path-a", lineNumber: 8, offsetX: -19.5, offsetY: 0 },
+    { kind: "offset", id: "path-a", lineNumber: 8, offsetX: -19.5, offsetY: 0 },
   ]);
+});
+
+test("reroutes large bends without removing deliberate offsets", () => {
+  const nodes = [
+    { id: "retry", x: 100, y: 100, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 4 },
+    { id: "receipt", x: 382, y: 177.7, width: 160, height: 60, offsetX: 122, offsetY: -22.3, lineNumber: 9 },
+  ];
+  assert.deepEqual(cleanupAlignmentOffsets(nodes, [{ from: "retry", to: "receipt", kind: "branch", declarationKind: "node", layoutDirection: "down", lineNumber: 8 }]), [
+    { kind: "route", from: "retry", to: "receipt", lineNumber: 8, declarationKind: "node", direction: "right" },
+  ]);
+  assert.deepEqual(nodes[1].offsetX, 122);
+  assert.deepEqual(nodes[1].offsetY, -22.3);
 });
 
 test("distributes rendered positions while preserving existing offsets", () => {

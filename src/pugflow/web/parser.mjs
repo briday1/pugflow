@@ -552,6 +552,8 @@ function compileMarkup(tree) {
   const nodes = [];
   const edges = [];
   const groups = [];
+  const pendingFlows = [];
+  const memberGroups = [];
   const nodesById = new Map();
   const diagramRoot = tree.roots.find((root) => root.type === "diagram") ?? null;
   const diagramSettings = diagramRoot ? diagramSettingsFor(diagramRoot, errors) : { settings: {}, block: {} };
@@ -596,6 +598,7 @@ function compileMarkup(tree) {
     }
     const node = {
       id,
+      explicitId: requestedId ?? "",
       label,
       annotations: annotationsFor(container, errors, annotationStyles),
       style: blockStyle(attributes, labelElement.lineNumber, errors, customDefaults),
@@ -618,7 +621,7 @@ function compileMarkup(tree) {
     const label = entry.children.find((child) => child.type === "field" && child.classes.includes("label"));
     const node = createNode(entry, label);
     if (!node) return null;
-    if (parent) edges.push({ from: parent.id, to: node.id, kind: "branch", ...edgeStyle(connectionAttributesFor(entry, errors, [], true, lineStyles, knownStyles), branchDefaults, entry.lineNumber, errors, lineStyles) });
+    if (parent) edges.push({ from: parent.id, to: node.id, kind: "branch", declarationKind: "node", ...edgeStyle(connectionAttributesFor(entry, errors, [], true, lineStyles, knownStyles), branchDefaults, entry.lineNumber, errors, lineStyles) });
     processChildren(entry, node);
     return node;
   }
@@ -635,8 +638,14 @@ function compileMarkup(tree) {
   }
 
   function buildFlow(flow, parent) {
-    const defaults = edgeStyle(connectionAttributesFor(flow, errors, ["direction", "ports"], true, lineStyles, knownStyles), edgeDefaults, flow.lineNumber, errors, lineStyles);
+    const attributes = connectionAttributesFor(flow, errors, ["from", "to", "from-direction", "to-direction", "direction", "ports"], true, lineStyles, knownStyles);
+    const defaults = edgeStyle(attributes, edgeDefaults, flow.lineNumber, errors, lineStyles);
     const entries = flow.children.filter((child) => child.type === "entry");
+    if (attributes.from !== undefined || attributes.to !== undefined) {
+      if (entries.length) errors.push(`Line ${flow.lineNumber}: a referenced flow cannot also define a node; use either .from/.to or nested nodes.`);
+      pendingFlows.push({ flow, attributes, defaults });
+      return;
+    }
     if (!entries.length) {
       errors.push(`Line ${flow.lineNumber}: a flow needs at least one node.`);
       return;
@@ -647,20 +656,25 @@ function compileMarkup(tree) {
 
   function buildSubdiagram(component) {
     const entries = component.children.filter((child) => child.type === "entry");
-    if (entries.length !== 1) errors.push(`Line ${component.lineNumber}: graph needs exactly one root node.`);
+    const members = component.children.find((child) => child.type === "members")?.text.trim().split(/[\s,]+/).filter(Boolean) ?? [];
+    if (entries.length !== 1 && !members.length) errors.push(`Line ${component.lineNumber}: graph needs exactly one root node or a .members list.`);
+    if (entries.length && members.length) errors.push(`Line ${component.lineNumber}: graph cannot contain both a root node and a .members list.`);
     const before = nodes.length;
     const edgeBefore = edges.length;
     const rootNode = entries[0] ? buildEntry(entries[0], null) : null;
     if (rootNode) processChildren(component, rootNode);
     const field = (name) => component.children.find((child) => child.type === name)?.text.trim();
     const graphOffset = offsetTuple(field("offset"), "graph.offset", component.lineNumber, errors);
+    const layerText = field("layer");
+    const layer = layerText === undefined || layerText === "" ? 0 : Number(layerText);
+    if (!Number.isInteger(layer)) errors.push(`Line ${component.lineNumber}: graph.layer must be an integer.`);
     const hiddenField = component.children.find((child) => child.type === "hidden");
     const hidden = Boolean(hiddenField && !["false", "no", "0"].includes(hiddenField.text.trim()));
     if (hidden) {
       nodes.slice(before).forEach((node) => { node.hidden = true; });
       edges.slice(edgeBefore).forEach((edge) => { edge.hidden = true; });
     }
-    groups.push({
+    const group = {
       id: field("id") || `diagram-${groups.length + 1}`,
       label: field("label") || "",
       fill: field("fill") || "transparent",
@@ -673,9 +687,13 @@ function compileMarkup(tree) {
       hidden,
       offsetX: graphOffset.x,
       offsetY: graphOffset.y,
-      nodeIds: nodes.slice(before).map((node) => node.id),
+      layer: Number.isInteger(layer) ? layer : 0,
+      nodeIds: members.length ? members : nodes.slice(before).map((node) => node.id),
+      sourceIndex: groups.length,
       lineNumber: component.lineNumber,
-    });
+    };
+    groups.push(group);
+    if (members.length) memberGroups.push(group);
   }
 
   function buildMerge(merge) {
@@ -695,7 +713,7 @@ function compileMarkup(tree) {
       const sourceAttributes = connectionAttributesFor(source, errors, ["ref", "direction"], true, lineStyles, knownStyles);
       const ref = sourceAttributes.ref;
       if (!ref || !nodesById.has(ref)) return errors.push(`Line ${source.lineNumber}: merge source "${ref || "(missing)"}" has not been defined yet.`);
-      edges.push({ from: ref, to: target.id, kind: "merge", mergeId: target.id, ...edgeStyle(sourceAttributes, defaults, source.lineNumber, errors, lineStyles) });
+      edges.push({ from: ref, to: target.id, kind: "merge", declarationKind: "merge", mergeId: target.id, ...edgeStyle(sourceAttributes, defaults, source.lineNumber, errors, lineStyles) });
     });
     processChildren(targetEntry, target);
   }
@@ -712,7 +730,7 @@ function compileMarkup(tree) {
       if (!FLOW_DIRECTIONS.has(fromDirection)) errors.push(`Line ${connect.lineNumber}: from-direction must be right, left, up, or down.`);
       if (!FLOW_DIRECTIONS.has(toDirection)) errors.push(`Line ${connect.lineNumber}: to-direction must be right, left, up, or down.`);
       const style = edgeStyle(attributes, { ...edgeDefaults, portDistribution: "shared" }, connect.lineNumber, errors, lineStyles);
-      edges.push({ from, to, kind: "connection", ...style,
+      edges.push({ from, to, kind: "connection", declarationKind: "connect", ...style,
         layoutDirection: FLOW_DIRECTIONS.has(fromDirection) ? fromDirection : "right",
         sourceDirection: style.sourceFace ? style.sourceDirection : (FLOW_DIRECTIONS.has(fromDirection) ? fromDirection : "right"),
         targetLayoutDirection: style.targetFace ? style.targetLayoutDirection : (FLOW_DIRECTIONS.has(toDirection) ? toDirection : fromDirection) });
@@ -723,7 +741,10 @@ function compileMarkup(tree) {
     container.children.forEach((child) => {
       if (child.type === "branch") buildBranch(child, parent);
       else if (child.type === "flow") buildFlow(child, parent);
-      else if (child.type === "graph") buildSubdiagram(child);
+      else if (child.type === "graph") {
+        if (container.type !== "diagram") errors.push(`Line ${child.lineNumber}: graphs cannot be nested; place every graph directly under #canvas.`);
+        else buildSubdiagram(child);
+      }
       else if (child.type === "merge") buildMerge(child);
       else if (child.type === "connect") buildConnect(child);
     });
@@ -741,6 +762,60 @@ function compileMarkup(tree) {
   const root = rootLabel ? createNode(diagramRoot, rootLabel) : null;
   if (root) processChildren(diagramRoot, root);
   else processChildren(diagramRoot, null);
+  for (const group of memberGroups) {
+    const missing = group.nodeIds.filter((id) => !nodesById.has(id));
+    if (missing.length) errors.push(`Line ${group.lineNumber}: graph member "${missing[0]}" is not defined.`);
+  }
+  const graphIds = new Set();
+  for (const group of groups) {
+    if (graphIds.has(group.id)) errors.push(`Line ${group.lineNumber}: the graph ID "${group.id}" is already in use.`);
+    graphIds.add(group.id);
+  }
+  const memberOwners = new Map();
+  for (const group of memberGroups) {
+    for (const id of group.nodeIds) {
+      const owner = memberOwners.get(id);
+      if (owner) errors.push(`Line ${group.lineNumber}: node "${id}" is already a member of graph "${owner.id}".`);
+      else memberOwners.set(id, group);
+    }
+  }
+  for (const group of memberGroups) {
+    const claimed = new Set(group.nodeIds);
+    groups.filter((candidate) => candidate !== group && !memberGroups.includes(candidate)).forEach((candidate) => {
+      candidate.nodeIds = candidate.nodeIds.filter((id) => !claimed.has(id));
+    });
+  }
+  for (const { flow, attributes, defaults } of pendingFlows) {
+    const from = attributes.from;
+    const to = attributes.to;
+    if (!from || !nodesById.has(from)) errors.push(`Line ${flow.lineNumber}: flow source "${from || "(missing)"}" is not defined.`);
+    if (!to || !nodesById.has(to)) errors.push(`Line ${flow.lineNumber}: flow target "${to || "(missing)"}" is not defined.`);
+    if (!from || !to || !nodesById.has(from) || !nodesById.has(to)) continue;
+    const fromDirection = attributes["from-direction"] ?? attributes.direction ?? "right";
+    const toDirection = attributes["to-direction"] ?? fromDirection;
+    if (!FLOW_DIRECTIONS.has(fromDirection)) errors.push(`Line ${flow.lineNumber}: from-direction must be right, left, up, or down.`);
+    if (!FLOW_DIRECTIONS.has(toDirection)) errors.push(`Line ${flow.lineNumber}: to-direction must be right, left, up, or down.`);
+    edges.push({ from, to, kind: "flow", declarationKind: "flow", explicitFlow: true, ...defaults,
+      layoutDirection: FLOW_DIRECTIONS.has(fromDirection) ? fromDirection : "right",
+      sourceDirection: defaults.sourceFace ? defaults.sourceDirection : (FLOW_DIRECTIONS.has(fromDirection) ? fromDirection : "right"),
+      targetLayoutDirection: defaults.targetFace ? defaults.targetLayoutDirection : (FLOW_DIRECTIONS.has(toDirection) ? toDirection : fromDirection) });
+  }
+  const incoming = new Map();
+  edges.forEach((edge) => incoming.set(edge.to, (incoming.get(edge.to) ?? 0) + 1));
+  edges.forEach((edge) => {
+    if (edge.kind === "flow" || edge.kind === "branch") {
+      edge.kind = (incoming.get(edge.to) ?? 0) > 1 ? "merge" : "branch";
+      if (edge.kind === "merge") edge.mergeId = edge.to;
+    }
+  });
+  nodes.forEach((node) => {
+    if ((incoming.get(node.id) ?? 0) > 1) node.kind = "merge";
+  });
+  for (const group of groups.filter((candidate) => candidate.hidden)) {
+    const hiddenIds = new Set(group.nodeIds);
+    nodes.filter((node) => hiddenIds.has(node.id)).forEach((node) => { node.hidden = true; });
+    edges.filter((edge) => hiddenIds.has(edge.from) || hiddenIds.has(edge.to)).forEach((edge) => { edge.hidden = true; });
+  }
   return { nodes, edges, groups, errors, format: "pug", figure };
 }
 

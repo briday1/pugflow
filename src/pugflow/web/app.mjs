@@ -1,217 +1,172 @@
 import { createBlockDiagram, parseDiagram } from "./pugflow.mjs";
-import { appendDiagramNode, appendFlowNode, appendMergeNode, ensureGraphComponents, indentSourceSelection, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, reparentGraph, setAnnotationOffsetField, setAnnotationText, setDeclarationOffsetField, setNodeAnnotationField, setNodeAnnotationText, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
+import { appendDiagramNode, appendFlowNode, appendFlowReference, appendNodeAnnotation, groupNodesAsGraph, indentSourceSelection, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeAnnotation, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, renameNodeReferences, setAnnotationOffsetField, setAnnotationPosition, setAnnotationText, setDeclarationOffsetField, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
 import { attachVimMode } from "./vim-mode.mjs";
 import { attachTextEditor } from "./text-editor.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets, independentMoveOffsets } from "./layout.mjs";
 import { pugDefinitionsToStyleSheet } from "./style-sheet.mjs";
 import { appendReusableStyle, reusableStyleDeclarations } from "./reusable-style.mjs";
 
-const EXAMPLE_DOCUMENT = `// Full feature tour — edit anything and watch the preview update
-@node primary_node
-  .shape pill
-  .fill #245886
-  .color #ffffff
-  .width 220
-
-@node rounded_node
+const EXAMPLE_DOCUMENT = `// Two simple, independent branching and merging flows
+@node step
   .shape rounded
-  .fill #1e4f7a
+  .fill #1e3a8a
   .color #ffffff
+  .outline #60a5fa
+  .outline-width 2
+  .width 160
 
-@node diamond_node
-  .shape diamond
-  .height 76
-  .fill #254f73
-  .color #ffffff
-
-@node round_node
-  .shape round
-  .outline #fca5a5
-
-@node path_node
+@node decision
   .shape rounded
-  .fill #1e4f7a
-  .color #ffffff
-  .width 190
-  .align left
+  .fill #f59e0b
+  .color #422006
+  .outline #92400e
+  .outline-width 2
 
-@node square_node
-  .shape square
-  .outline #a7f3d0
-  .outline-style dotted
-  .outline-width 3
-
-@node output_node
+@node result
   .shape pill
-  .color #ffd166
+  .fill #047857
+  .color #ffffff
+  .outline #34d399
+  .outline-width 2
 
-@node merge_node
+@node editorial
   .shape hexagon
-  .fill #4b5563
+  .fill #6d28d9
   .color #ffffff
-  .outline #ffd166
-  .width 220
+  .outline #c4b5fd
+  .outline-width 2
 
-@line warning_line
-  .color #fca5a5
-  .stroke-style dashed
-  .arrow-style both
-
-@line success_line
-  .color #059669
-
-@line backward_line
-  .color #dc2626
-  .arrow-style backward
-
-@line feedback_line
-  .color #dc2626
+@line editorial_flow
+  .color #7c3aed
+  .width 3
   .stroke-style dashed
 
-@line quiet_line
-  .stroke-style dotted
-  .arrow-style none
-  .label-position below
-
-@line dotted_line
-  .stroke-style dotted
-
-@line output_line
-  .color #d97706
-
-@annotation blue_note
-  .color #bfdbfe
-
-@annotation warning_note
-  .color #f59e0b
+@annotation note
+  .color #334155
+  .font-style italic
 
 #canvas
-  .background #ffffff
+  .background #f1f5f9
   .defaults
-    .node
-      .color #111827
     .line
-      .color #111827
-    .annotation
       .color #475569
-  .primary_node
-    .id root
-    .label
-      | Root $x^2 + y_1$
-      | Reusable styles and multiline labels
-    .annotation
-      .above
-        .offset (140, 0)
-        .blue_note
-        | Block and connection annotations
-      .below Auto width, fixed width, and math
-        .offset (125.9, -0.8)
-    .flow
-      .direction right
-      .path_node
-        .success_line
-        .id path-a
-        .label
-          | Path A
-          | Forced line break
-        .rounded_node
-          .line
-            .label solid
-          .id one
-          .offset (-56, -50.3)
-          .label Rounded block
-        .square_node
-          .warning_line
-            .label both directions
-            .label-position below
-          .id two
-          .offset (23.2, -56.3)
-          .label Square block
-          .annotation
-            .above Annotation above
-            .below Annotation below
+      .width 2
+      .roundness 10
 
+  graph
+    .id checkout
+    .label Checkout flow
+    .layer 1
+    .fill transparent
+    .color #172554
+    .outline #2563eb
+    .outline-width 3
+    .padding 28
+    .step
+      .id cart
+      .label Cart ready
+      .annotation
+        .above
+          .note
+          | Customer starts here
+      .flow
+        .direction down
+        .decision
+          .id payment
+          .label Payment valid?
+          .flow
+            .direction down
+            .step
+              .line
+                .source-face bottom
+                .target-face top
+              .id retry
+              .label Retry payment
+              .flow
+                .direction down
+                .result
+                  .line
+                    .source-face bottom
+                    .target-face top
+                  .id receipt
+                  .label Send receipt
+                  .annotation
+                    .below Merge: both paths finish here
+          .flow
+            .direction down
+            .step
+              .id approve
+              .label Approve order
     .flow
+      .from approve
+      .to receipt
       .direction down
-      .diamond_node
-        .backward_line
-        .id path-b
-        .label Diamond $\\alpha$
-        .flow
-          .direction right
-          .ports shared
-          .dotted_line
-          .round_node
-            .id three
-            .offset (-416.6, -96)
-            .label Round $\\sqrt{x}$
-        .flow
-          .direction right
-          .ports shared
-          .dotted_line
-          .node
-            .quiet_line
-              .label no arrow
-            .offset (361, -4.4)
-            .label Automatic wrapping makes a block taller when its label becomes long
 
+  graph
+    .id publishing
+    .label Publishing flow
+    .layer 0
+    .fill transparent
+    .color #2e1065
+    .outline #7c3aed
+    .outline-width 3
+    .padding 28
+    .editorial
+      .id draft
+      .label Draft article
+      .annotation
+        .below Add title and summary
+      .flow
+        .direction right
+        .editorial_flow
+        .decision
+          .id review
+          .label Review outcome?
+          .flow
+            .direction right
+            .editorial_flow
+            .editorial
+              .id revise
+              .label Request changes
+              .flow
+                .direction right
+                .editorial_flow
+                .result
+                  .id publish
+                  .label Publish
+                  .annotation
+                    .above Ready for readers
+          .flow
+            .direction right
+            .editorial_flow
+            .editorial
+              .id accept
+              .label Accept
     .flow
-      .direction up
-      .output_node
-        .quiet_line
-        .id styled-text
-        .label Styled text
-
-    .merge
+      .from accept
+      .to publish
       .direction right
-      .ports shared
-      .source
-        .ref one
-        .line
-          .label $x_1$
-          .label-position below
-      .source
-        .ref two
-        .line
-          .label $x_2$
-          .stroke-style dashed
-      .source
-        .ref three
-        .line
-          .label $x_3$
-          .color #fde68a
-      .merge_node
-        .id combined
-        .label Combined $\\frac{a}{b}$
-        .annotation
-          .above
-            .warning_note
-            | Rounded paths converge
-          .below Merge target
-        .flow
-          .direction right
-          .node
-            .id archived
-            .offset (-85.2, 0)
-            .label Archived
-
-    .connect
-      .from archived
-      .from-direction up
-      .to styled-text
-      .to-direction left
-      .ports shared
-      .feedback_line
-        .label feedback
+      .editorial_flow
 `;
 const EXAMPLE_DIAGRAM_START = EXAMPLE_DOCUMENT.indexOf("#canvas");
-const EXAMPLE = ensureGraphComponents(`// Full feature tour — edit anything and watch the preview update\n${EXAMPLE_DOCUMENT.slice(EXAMPLE_DIAGRAM_START)}`);
+const EXAMPLE = `// Pugflow showcase — edit anything and watch the preview update\n${EXAMPLE_DOCUMENT.slice(EXAMPLE_DIAGRAM_START)}`;
 const EXAMPLE_STYLES = pugDefinitionsToStyleSheet(EXAMPLE_DOCUMENT.slice(0, EXAMPLE_DIAGRAM_START));
 
 const source = attachTextEditor(document.querySelector("#source"));
 const editorShell = document.querySelector(".editor-shell");
 const lineNumbers = document.querySelector("#line-numbers");
 const colorDecorators = document.querySelector("#color-decorators");
+const colorPickerPopup = document.querySelector("#color-picker-popup");
+const colorPickerSaturation = document.querySelector("#color-picker-saturation");
+const colorPickerMarker = document.querySelector("#color-picker-marker");
+const colorPickerHue = document.querySelector("#color-picker-hue");
+const colorPickerValue = document.querySelector("#color-picker-value");
+const colorPickerH = document.querySelector("#color-picker-h");
+const colorPickerS = document.querySelector("#color-picker-s");
+const colorPickerV = document.querySelector("#color-picker-v");
+const colorPickerPreview = document.querySelector("#color-picker-preview");
+const colorPickerSummary = document.querySelector("#color-picker-summary");
+const colorPickerPopupNone = document.querySelector("#color-picker-popup-none");
 const currentLine = document.querySelector("#current-line");
 const vimBlockCursor = document.querySelector("#vim-block-cursor");
 const completionMenu = document.querySelector("#completion-menu");
@@ -230,6 +185,7 @@ function showCanvasToast(message) {
 }
 const inspector = document.querySelector("#canvas-inspector");
 const inspectorContent = document.querySelector("#inspector-content");
+const saveReusableStyle = document.querySelector("#save-reusable-style");
 const status = document.querySelector("#status");
 const sourceFile = document.querySelector("#source-file");
 const nodeImageFile = document.querySelector("#node-image-file");
@@ -237,12 +193,21 @@ const themeSelect = document.querySelector("#theme");
 const main = document.querySelector("main");
 const sourcePanel = document.querySelector("#source-panel");
 const panelResizer = document.querySelector("#panel-resizer");
+const layersPanel = document.querySelector("#layers-panel");
+const layersList = document.querySelector("#layers-list");
+const layersToggle = document.querySelector("#toggle-layers");
 const vimToggle = document.querySelector("#vim-mode");
 const vimStatus = document.querySelector("#vim-status");
 const graphBuilder = document.querySelector("#graph-builder");
 const graphBuilderForm = document.querySelector("#graph-builder-form");
-const builderParent = document.querySelector("#builder-parent");
+const annotationBuilder = document.querySelector("#annotation-builder");
+const annotationBuilderForm = document.querySelector("#annotation-builder-form");
 const builderSources = document.querySelector("#builder-sources");
+const builderTargets = document.querySelector("#builder-targets");
+const builderFromGraph = document.querySelector("#builder-from-graph");
+const builderToGraph = document.querySelector("#builder-to-graph");
+const builderFromDirection = document.querySelector("#builder-from-direction");
+const builderToDirection = document.querySelector("#builder-to-direction");
 const builderNodeType = document.querySelector("#builder-node-type");
 const builderLineType = document.querySelector("#builder-line-type");
 const builderId = document.querySelector("#builder-id");
@@ -258,6 +223,7 @@ const styleBuilderPreview = document.querySelector("#style-builder-preview");
 const styleBuilderError = document.querySelector("#style-builder-error");
 const PANEL_WIDTH_KEY = "pugflow-panel-width-v1";
 const PANEL_COLLAPSED_KEY = "pugflow-panel-collapsed-v1";
+const LAYERS_COLLAPSED_KEY = "pugflow-layers-collapsed-v1";
 const THEME_KEY = "pugflow-theme-v1";
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 let diagram;
@@ -271,6 +237,8 @@ let pugSource = launchParams.get("demo") === "1" ? EXAMPLE : "#canvas";
 let cssSource = launchParams.get("demo") === "1" ? EXAMPLE_STYLES : "";
 let pugFileName = launchParams.get("pug_name") ?? (launchParams.get("demo") === "1" ? "demo.pug" : "Untitled.pug");
 let cssFileName = launchParams.get("css_name") ?? (launchParams.get("demo") === "1" ? "demo.css" : "");
+let pugFileHandle = null;
+let cssFileHandle = null;
 let hasCssDocument = Boolean(cssFileName || cssSource);
 let canvasZoomPercent = 100;
 let pendingReusableStyle = null;
@@ -314,9 +282,134 @@ function activateDocument(kind) {
 }
 
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character])); }
+let applyPopupColor = null;
+let popupHue = 0;
+let popupSaturation = 0;
+let popupBrightness = 0;
+function rgbToHsv(hex) {
+  const [r, g, b] = [1, 3, 5].map((index) => parseInt(hex.slice(index, index + 2), 16) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), delta = max - min;
+  let hue = 0;
+  if (delta) hue = max === r ? 60 * (((g - b) / delta) % 6) : max === g ? 60 * ((b - r) / delta + 2) : 60 * ((r - g) / delta + 4);
+  return { h: (hue + 360) % 360, s: max ? delta / max : 0, v: max };
+}
+function hsvToHex(h, s, v) {
+  const chroma = v * s, segment = h / 60, x = chroma * (1 - Math.abs(segment % 2 - 1));
+  const [r, g, b] = segment < 1 ? [chroma, x, 0] : segment < 2 ? [x, chroma, 0] : segment < 3 ? [0, chroma, x] : segment < 4 ? [0, x, chroma] : segment < 5 ? [x, 0, chroma] : [chroma, 0, x];
+  const match = v - chroma;
+  return `#${[r, g, b].map((channel) => Math.round((channel + match) * 255).toString(16).padStart(2, "0")).join("")}`;
+}
+function paintColorSurface() {
+  const context = colorPickerSaturation.getContext("2d");
+  context.fillStyle = `hsl(${popupHue} 100% 50%)`;
+  context.fillRect(0, 0, colorPickerSaturation.width, colorPickerSaturation.height);
+  const white = context.createLinearGradient(0, 0, colorPickerSaturation.width, 0);
+  white.addColorStop(0, "#fff"); white.addColorStop(1, "transparent");
+  context.fillStyle = white; context.fillRect(0, 0, colorPickerSaturation.width, colorPickerSaturation.height);
+  const black = context.createLinearGradient(0, 0, 0, colorPickerSaturation.height);
+  black.addColorStop(0, "transparent"); black.addColorStop(1, "#000");
+  context.fillStyle = black; context.fillRect(0, 0, colorPickerSaturation.width, colorPickerSaturation.height);
+}
+function syncColorPicker({ apply = false, repaint = false } = {}) {
+  const color = hsvToHex(popupHue, popupSaturation, popupBrightness);
+  colorPickerPopup.classList.remove("none");
+  colorPickerHue.value = String(Math.round(popupHue));
+  colorPickerH.value = String(Math.round(popupHue));
+  colorPickerS.value = String(Math.round(popupSaturation * 100));
+  colorPickerV.value = String(Math.round(popupBrightness * 100));
+  colorPickerValue.value = color;
+  colorPickerValue.setAttribute("aria-invalid", "false");
+  colorPickerPreview.style.backgroundColor = color;
+  colorPickerSummary.value = `H ${Math.round(popupHue)}° · S ${Math.round(popupSaturation * 100)}% · V ${Math.round(popupBrightness * 100)}%`;
+  colorPickerMarker.style.left = `${popupSaturation * 100}%`;
+  colorPickerMarker.style.top = `${(1 - popupBrightness) * 100}%`;
+  colorPickerMarker.style.setProperty("--marker-color", popupBrightness > 0.55 ? "#111" : "#fff");
+  colorPickerSaturation.setAttribute("aria-valuetext", `Saturation ${Math.round(popupSaturation * 100)}%, value ${Math.round(popupBrightness * 100)}%`);
+  if (repaint) paintColorSurface();
+  if (apply) applyPopupColor?.(color);
+}
+function openColorPickerPopup(trigger, value, apply) {
+  const color = /^#[0-9a-f]{6}$/i.test(value) ? value : "#000000";
+  const hsv = rgbToHsv(color);
+  popupHue = hsv.h;
+  popupSaturation = hsv.s;
+  popupBrightness = hsv.v;
+  applyPopupColor = apply;
+  colorPickerPopup.hidden = false;
+  syncColorPicker({ repaint: true });
+  const bounds = trigger.getBoundingClientRect();
+  const popup = colorPickerPopup.getBoundingClientRect();
+  colorPickerPopup.style.left = `${Math.max(8, Math.min(window.innerWidth - popup.width - 8, bounds.left))}px`;
+  colorPickerPopup.style.top = `${Math.max(8, Math.min(window.innerHeight - popup.height - 8, bounds.bottom + 5))}px`;
+}
+colorPickerHue.addEventListener("input", () => {
+  popupHue = Number(colorPickerHue.value);
+  syncColorPicker({ apply: true, repaint: true });
+});
+function chooseSaturationAndValue(clientX, clientY) {
+  const bounds = colorPickerSaturation.getBoundingClientRect();
+  popupSaturation = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
+  popupBrightness = Math.max(0, Math.min(1, 1 - (clientY - bounds.top) / bounds.height));
+  syncColorPicker({ apply: true });
+}
+colorPickerSaturation.addEventListener("pointerdown", (event) => {
+  colorPickerSaturation.setPointerCapture(event.pointerId);
+  chooseSaturationAndValue(event.clientX, event.clientY);
+  const move = (pointer) => chooseSaturationAndValue(pointer.clientX, pointer.clientY);
+  const done = (pointer) => {
+    if (colorPickerSaturation.hasPointerCapture(pointer.pointerId)) colorPickerSaturation.releasePointerCapture(pointer.pointerId);
+    colorPickerSaturation.removeEventListener("pointermove", move);
+    colorPickerSaturation.removeEventListener("pointerup", done);
+    colorPickerSaturation.removeEventListener("pointercancel", done);
+  };
+  colorPickerSaturation.addEventListener("pointermove", move);
+  colorPickerSaturation.addEventListener("pointerup", done);
+  colorPickerSaturation.addEventListener("pointercancel", done);
+});
+colorPickerSaturation.addEventListener("keydown", (event) => {
+  const step = event.shiftKey ? 0.1 : 0.01;
+  if (event.key === "ArrowLeft") popupSaturation = Math.max(0, popupSaturation - step);
+  else if (event.key === "ArrowRight") popupSaturation = Math.min(1, popupSaturation + step);
+  else if (event.key === "ArrowUp") popupBrightness = Math.min(1, popupBrightness + step);
+  else if (event.key === "ArrowDown") popupBrightness = Math.max(0, popupBrightness - step);
+  else return;
+  event.preventDefault();
+  syncColorPicker({ apply: true });
+});
+colorPickerValue.addEventListener("input", () => {
+  if (!/^#[0-9a-f]{6}$/i.test(colorPickerValue.value)) {
+    colorPickerValue.setAttribute("aria-invalid", "true");
+    return;
+  }
+  const hsv = rgbToHsv(colorPickerValue.value);
+  popupHue = hsv.h;
+  popupSaturation = hsv.s;
+  popupBrightness = hsv.v;
+  syncColorPicker({ apply: true, repaint: true });
+});
+function updatePickerFromHsvFields() {
+  popupHue = Math.max(0, Math.min(359, Number(colorPickerH.value) || 0));
+  popupSaturation = Math.max(0, Math.min(100, Number(colorPickerS.value) || 0)) / 100;
+  popupBrightness = Math.max(0, Math.min(100, Number(colorPickerV.value) || 0)) / 100;
+  syncColorPicker({ apply: true, repaint: true });
+}
+[colorPickerH, colorPickerS, colorPickerV].forEach((input) => input.addEventListener("input", updatePickerFromHsvFields));
+colorPickerPopupNone.addEventListener("click", () => {
+  applyPopupColor?.("transparent");
+  colorPickerPopup.classList.add("none");
+  colorPickerPreview.style.backgroundColor = "transparent";
+  colorPickerValue.value = "transparent";
+});
+document.addEventListener("pointerdown", (event) => {
+  if (!colorPickerPopup.hidden && !colorPickerPopup.contains(event.target) && !event.target.closest("[data-color-popup]")) colorPickerPopup.hidden = true;
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !colorPickerPopup.hidden) colorPickerPopup.hidden = true;
+});
 function colorControl(label, field, value, scope = "node") {
   const hex = /^#[0-9a-f]{6}$/i.test(value ?? "") ? value : "#000000";
-  return `<label>${label}<span class="inspector-color"><input type="color" data-color-picker="${scope}:${field}" value="${hex}"><input data-${scope}-field="${field}" data-color-text="${scope}:${field}" value="${escapeHtml(value ?? "")}" placeholder="CSS color"></span></label>`;
+  const noColor = ["none", "transparent"].includes(String(value ?? "").toLowerCase());
+  return `<label>${label}<span class="inspector-color"><button class="color-popup-trigger${noColor ? " none" : ""}" type="button" data-color-popup="${scope}:${field}" style="--swatch:${hex}" aria-label="Choose ${label.toLowerCase()}"></button><input data-${scope}-field="${field}" data-color-text="${scope}:${field}" value="${escapeHtml(value ?? "")}" placeholder="CSS color"></span></label>`;
 }
 
 function fontOptions(scope, style = {}, includeColor = true) {
@@ -326,19 +419,33 @@ function fontOptions(scope, style = {}, includeColor = true) {
 
 function nodeAnnotationControls(node) {
   const option = (value, current) => `<option value="${value}"${String(current) === value ? " selected" : ""}>${value}</option>`;
-  const fields = ["above", "below"].map((position) => {
-    const annotation = node.annotations.find((item) => item.position === position) ?? { position, text: "", color: null, fontFamily: null, fontSize: 12, fontWeight: "normal", fontStyle: "normal", textDecoration: "none" };
+  const fields = node.annotations.map((annotation, index) => {
+    const position = annotation.position;
     const hex = /^#[0-9a-f]{6}$/i.test(annotation.color ?? "") ? annotation.color : "#000000";
-    const target = `data-node-annotation-line="${node.lineNumber}" data-node-annotation-position="${position}"`;
-    return `<details class="annotation-editor"><summary>${position === "below" ? "Below" : "Above"}</summary><label>Text<textarea data-node-annotation-text ${target} rows="2">${escapeHtml(annotation.text)}</textarea></label><details class="font-options"><summary>Font options</summary><label>Color<span class="inspector-color"><input type="color" data-node-annotation-color-picker="${position}" value="${hex}"><input ${target} data-node-annotation-field="color" value="${escapeHtml(annotation.color ?? "")}" placeholder="CSS color"></span></label><label>Font family<input ${target} data-node-annotation-field="font-family" value="${escapeHtml(annotation.fontFamily ?? "")}" placeholder="inherit"></label><div class="inspector-grid"><label>Size<input ${target} data-node-annotation-field="font-size" type="number" min="1" value="${annotation.fontSize ?? 12}"></label><label>Weight<select ${target} data-node-annotation-field="font-weight">${["normal","500","600","bold"].map((v) => option(v, annotation.fontWeight ?? "normal")).join("")}</select></label><label>Style<select ${target} data-node-annotation-field="font-style">${["normal","italic","oblique"].map((v) => option(v, annotation.fontStyle ?? "normal")).join("")}</select></label><label>Decoration<select ${target} data-node-annotation-field="text-decoration">${["none","underline","line-through","overline"].map((v) => option(v, annotation.textDecoration ?? "none")).join("")}</select></label></div></details></details>`;
+    const colorKey = `node-annotation:${annotation.lineNumber}`;
+    const noColor = ["none", "transparent"].includes(String(annotation.color ?? "").toLowerCase());
+    const target = `data-annotation-line="${annotation.lineNumber}"`;
+    const title = `${position === "below" ? "Below" : "Above"} ${node.annotations.filter((item) => item.position === position).indexOf(annotation) + 1}`;
+    return `<details class="annotation-editor"><summary><span>${title}</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-node-annotation-hidden ${target} type="checkbox"${annotation.hidden ? " checked" : ""}></label></summary><label>Position<select data-node-annotation-position ${target}>${["above","below"].map((value) => option(value, position)).join("")}</select></label><label>Text<textarea data-node-annotation-text ${target} rows="2">${escapeHtml(annotation.text)}</textarea></label><details class="font-options"><summary>Font options</summary><label>Color<span class="inspector-color"><button class="color-popup-trigger${noColor ? " none" : ""}" type="button" data-color-popup="${colorKey}" style="--swatch:${hex}" aria-label="Choose color"></button><input ${target} data-node-annotation-field="color" data-color-text="${colorKey}" value="${escapeHtml(annotation.color ?? "")}" placeholder="CSS color"></span></label><label>Font family<input ${target} data-node-annotation-field="font-family" value="${escapeHtml(annotation.fontFamily ?? "")}" placeholder="inherit"></label><div class="inspector-grid"><label>Size<input ${target} data-node-annotation-field="font-size" type="number" min="1" value="${annotation.fontSize ?? 12}"></label><label>Weight<select ${target} data-node-annotation-field="font-weight">${["normal","500","600","bold"].map((v) => option(v, annotation.fontWeight ?? "normal")).join("")}</select></label><label>Style<select ${target} data-node-annotation-field="font-style">${["normal","italic","oblique"].map((v) => option(v, annotation.fontStyle ?? "normal")).join("")}</select></label><label>Decoration<select ${target} data-node-annotation-field="text-decoration">${["none","underline","line-through","overline"].map((v) => option(v, annotation.textDecoration ?? "none")).join("")}</select></label></div></details><div class="inspector-inline-field"><label>Offset<input value="(${annotation.offsetX ?? 0}, ${annotation.offsetY ?? 0})" readonly></label><button type="button" data-remove-annotation-offset="${annotation.lineNumber}"${annotation.offsetX || annotation.offsetY ? "" : " disabled"}>Remove</button></div><button type="button" class="danger annotation-delete" data-delete-annotation="${annotation.lineNumber}">Delete annotation</button></details>`;
   }).join("");
-  const fieldsWithVisibility = fields.replace(/<summary>(Above|Below)<\/summary>/g, (_match, label) => {
-    const position = label.toLowerCase();
-    const annotation = node.annotations.find((item) => item.position === position);
-    return `<summary><span>${label}</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-node-annotation-hidden type="checkbox" data-node-annotation-line="${node.lineNumber}" data-node-annotation-position="${position}" data-annotation-line="${annotation?.lineNumber ?? ""}"${annotation?.hidden ? " checked" : ""}></label></summary>`;
-  });
   const allHidden = node.annotations.length && node.annotations.every((annotation) => annotation.hidden);
-  return `<details class="annotations-editor"><summary><span>Annotations</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-node-annotations-hidden type="checkbox"${allHidden ? " checked" : ""}></label></summary>${fieldsWithVisibility}</details>`;
+  return `<details class="annotations-editor"><summary><span>Annotations <small>${node.annotations.length}</small></span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-node-annotations-hidden type="checkbox"${allHidden ? " checked" : ""}${node.annotations.length ? "" : " disabled"}></label></summary>${fields || '<p class="inspector-empty">No annotations.</p>'}</details><button type="button" class="inspector-primary-action" data-add-annotation>+ Add Annotation</button>`;
+}
+
+function openAnnotationBuilder() {
+  const type = document.querySelector("#annotation-builder-type");
+  type.innerHTML = `<option value="">Default annotation</option>${reusableNames("annotation").map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}`;
+  document.querySelector("#annotation-builder-position").value = "above";
+  document.querySelector("#annotation-builder-text").value = "Annotation";
+  document.querySelector("#annotation-builder-color").value = "";
+  document.querySelector("#annotation-builder-font-size").value = "";
+  document.querySelector("#annotation-builder-font-family").value = "";
+  document.querySelector("#annotation-builder-font-weight").value = "";
+  document.querySelector("#annotation-builder-font-style").value = "";
+  document.querySelector("#annotation-builder-decoration").value = "";
+  document.querySelector("#annotation-builder-error").textContent = "";
+  annotationBuilder.showModal();
+  document.querySelector("#annotation-builder-text").select();
 }
 
 function imageControls(node = null) {
@@ -373,11 +480,18 @@ function selectedNodes() {
   return diagram?.layout?.nodes.filter((node) => selectedIds.has(node.id)) ?? [];
 }
 
-function graphParent(group, groups = currentGraph.groups) {
-  return groups.filter((candidate) => candidate.id !== group.id
-    && group.nodeIds.every((id) => candidate.nodeIds.includes(id))
-    && candidate.nodeIds.length > group.nodeIds.length)
-    .sort((a, b) => a.nodeIds.length - b.nodeIds.length)[0] ?? null;
+function selectedGraphNodeIds() {
+  const ids = new Set(selectedNodes().map((node) => node.id));
+  selections.filter((item) => item.kind === "graph").forEach((selection) => {
+    currentGraph.groups.find((group) => group.id === selection.id)?.nodeIds.forEach((id) => ids.add(id));
+  });
+  return [...ids];
+}
+
+function groupSelectionAction() {
+  const ids = selectedGraphNodeIds();
+  if (ids.length < 2) return "";
+  return '<button type="button" class="inspector-primary-action" data-group-as-graph>Group as Graph</button>';
 }
 
 function connectedItemsControls(node) {
@@ -396,6 +510,10 @@ function connectedItemsControls(node) {
   }).join("")}</details>`;
 }
 
+function edgeUsesNodeDeclaration(edge) {
+  return edge.declarationKind === "node";
+}
+
 function reusableNames(kind) {
   return [...new Set([...`${pugSource}\n${cssSource}`.matchAll(new RegExp(`^@${kind}\\s+([\\w-]+)`, "gm"))].map((match) => match[1]))];
 }
@@ -406,7 +524,7 @@ function suggestedReusableName(kind) {
     : kind === "line" ? `${selection?.from ?? "custom"}_${selection?.to ?? "line"}_line`
       : "custom_note";
   const normalized = base.replace(/[^a-zA-Z0-9_-]/g, "_").replace(/^[^a-zA-Z]+/, "") || `custom_${kind}`;
-  const used = new Set(reusableNames(kind));
+  const used = new Set(["node", "line", "annotation"].flatMap(reusableNames));
   if (!used.has(normalized)) return normalized;
   let suffix = 2;
   while (used.has(`${normalized}_${suffix}`)) suffix += 1;
@@ -424,6 +542,25 @@ function openReusableStyleBuilder(kind, model) {
   styleBuilderName.select();
 }
 
+function openSelectedReusableStyle(kind) {
+  if (kind === "node") {
+    const node = selectedNodes()[0];
+    if (node) openReusableStyleBuilder(kind, node.style);
+    return;
+  }
+  if (kind === "line") {
+    const selection = selections.find((item) => item.kind === "line");
+    const edge = diagram?.layout?.edges.find((item) => item.from === selection?.from && item.to === selection?.to);
+    if (edge) openReusableStyleBuilder(kind, edge);
+    return;
+  }
+  if (kind === "annotation") {
+    const selection = selections.find((item) => item.kind === "annotation");
+    const annotation = currentGraph.nodes.flatMap((node) => node.annotations).find((item) => item.lineNumber === selection?.lineNumber);
+    if (annotation) openReusableStyleBuilder(kind, annotation);
+  }
+}
+
 function syncInspectorScrollbarWidth() {
   inspector.classList.remove("has-scrollbar");
   requestAnimationFrame(() => {
@@ -431,22 +568,36 @@ function syncInspectorScrollbarWidth() {
   });
 }
 
+function setReusableStyleAction(kind = "") {
+  saveReusableStyle.hidden = !kind;
+  saveReusableStyle.dataset.buildStyle = kind;
+  saveReusableStyle.textContent = "Save";
+}
+
 function renderInspector() {
   const openSections = new Set([...inspectorContent.querySelectorAll("details[open] > summary")].map((summary) => summary.textContent.trim()));
   queueMicrotask(() => inspectorContent.querySelectorAll("details > summary").forEach((summary) => {
     if (openSections.has(summary.textContent.trim())) summary.parentElement.open = true;
   }));
-  if (!selections.length) { inspector.hidden = true; return; }
+  if (!selections.length) { inspector.hidden = true; setReusableStyleAction(); return; }
   inspector.hidden = false;
+  requestAnimationFrame(constrainInspectorToCanvas);
+  setReusableStyleAction();
   syncInspectorScrollbarWidth();
   const graphSelections = selections.filter((item) => item.kind === "graph");
+  const selectionKinds = new Set(selections.map((item) => item.kind));
+  if (selections.length > 1 && selectionKinds.size > 1) {
+    inspectorContent.innerHTML = `<h3>${selections.length} items selected</h3>${groupSelectionAction() || '<p class="inspector-empty">No shared properties.</p>'}`;
+    return;
+  }
   if (graphSelections.length === selections.length) {
+    if (graphSelections.length > 1) {
+      inspectorContent.innerHTML = `<h3>${graphSelections.length} graphs selected</h3><small class="inspector-help">Shift-click or Ctrl/Cmd-click graph boundaries to change the selection.</small><label>Align / distribute<select data-arrange-select><option value="">Choose…</option><option value="left">Align left</option><option value="center">Align center</option><option value="right">Align right</option><option value="top">Align top</option><option value="middle">Align middle</option><option value="bottom">Align bottom</option><option value="horizontal">Distribute horizontally</option><option value="vertical">Distribute vertically</option></select></label><button type="button" data-arrange="remove-offsets">Remove graph offsets</button>`;
+      return;
+    }
     const group = currentGraph.groups.find((candidate) => candidate.id === graphSelections[0].id);
-    const parent = group ? graphParent(group) : null;
-    const containers = currentGraph.groups.filter((candidate) => candidate.id !== group?.id
-      && !candidate.nodeIds.every((id) => group?.nodeIds.includes(id)));
-    inspectorContent.innerHTML = `<h3>Graph</h3><button type="button" data-graph-add="nested">+ Nested graph</button><label>Container<select data-graph-parent><option value="">Canvas</option>${containers.map((candidate) => `<option value="${escapeHtml(candidate.id)}"${parent?.id === candidate.id ? " selected" : ""}>${escapeHtml(candidate.label || candidate.id)}</option>`).join("")}</select></label><small class="inspector-help">Drag this graph into another frame to nest it, or choose Canvas to move it back out.</small><label>Title<input data-graph-field="label" value="${escapeHtml(group?.label ?? "")}"></label><details open><summary>Frame</summary>${colorControl("Fill", "fill", group?.fill, "graph")}${colorControl("Text", "color", group?.color, "graph")}${colorControl("Outline", "outline", group?.outline, "graph")}<label>Outline style<select data-graph-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${group?.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Outline width<input data-graph-field="outline-width" type="number" min="0" value="${group?.outlineWidth ?? 1.5}"></label><label>Padding<input data-graph-field="padding" type="number" min="0" value="${group?.padding ?? 24}"></label><label class="inspector-switch"><span>Hidden</span><input data-graph-hidden type="checkbox"${group?.hidden ? " checked" : ""}></label></details>`;
-    if (graphSelections.length > 1) inspectorContent.insertAdjacentHTML("beforeend", '<label>Align / distribute<select data-arrange-select><option value="">Choose…</option><option value="left">Align left</option><option value="center">Align center</option><option value="right">Align right</option><option value="top">Align top</option><option value="middle">Align middle</option><option value="bottom">Align bottom</option><option value="horizontal">Distribute horizontally</option><option value="vertical">Distribute vertically</option></select></label><button data-arrange="remove-offsets">Remove graph offsets</button>');
+    const layerOptions = `<option value="">Layer ${group?.layer ?? 0}</option><option value="front">Send to front</option><option value="back">Send to back</option>`;
+    inspectorContent.innerHTML = `<h3>Graph</h3><label>Graph Layer<select data-graph-field="layer-order">${layerOptions}</select></label><small class="inspector-help">Send this graph to the front or back, or drag it in the Layers panel. Dragging the graph itself changes only its offset.</small><label>Title<input data-graph-field="label" value="${escapeHtml(group?.label ?? "")}"></label><details open><summary>Frame</summary>${colorControl("Fill", "fill", group?.fill, "graph")}${colorControl("Text", "color", group?.color, "graph")}${colorControl("Outline", "outline", group?.outline, "graph")}<label>Outline style<select data-graph-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${group?.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Outline width<input data-graph-field="outline-width" type="number" min="0" value="${group?.outlineWidth ?? 1.5}"></label><label>Padding<input data-graph-field="padding" type="number" min="0" value="${group?.padding ?? 24}"></label><label class="inspector-switch"><span>Hidden</span><input data-graph-hidden type="checkbox"${group?.hidden ? " checked" : ""}></label></details>${groupSelectionAction()}`;
     return;
   }
   const nodes = selectedNodes();
@@ -458,16 +609,17 @@ function renderInspector() {
       inspectorContent.querySelector("details")?.insertAdjacentHTML("afterend", fontOptions("node", { fontSize: 16 }));
       inspectorContent.querySelectorAll("details")[1]?.insertAdjacentHTML("afterend", imageControls());
       tidyInspectorSections();
+      inspectorContent.insertAdjacentHTML("beforeend", groupSelectionAction());
       return;
     }
     const node = currentGraph.nodes.find((candidate) => candidate.id === nodes[0].id);
-    inspectorContent.innerHTML = `<h3>Node</h3><label>Label<input data-node-field="label" value="${escapeHtml(node.label.replace(/\n/g, " "))}"></label>${fontOptions("node", node.style)}<label>Type<select data-node-type><option value="node">node</option>${custom.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label><details><summary>Appearance</summary><label>Shape<select data-node-field="shape">${["square","rounded","round","pill","diamond","hexagon"].map((shape) => `<option${node.style.shape === shape ? " selected" : ""}>${shape}</option>`).join("")}</select></label>${colorControl("Fill", "fill", node.style.fill)}${colorControl("Border", "outline", node.style.outline)}<label>Border style<select data-node-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${node.style.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Border width<input data-node-field="outline-width" type="number" min="0" value="${node.style.outlineWidth}"></label><label>Width<input data-node-field="width" value="${node.style.width}"></label><label>Height<input data-node-field="height" value="${node.style.height}"></label><label>Text alignment<select data-node-field="align">${["left","center","right"].map((value) => `<option${node.style.align === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details><details${node.style.shadowColor ? " open" : ""}><summary><label class="shadow-toggle"><input type="checkbox" data-shadow-toggle${node.style.shadowColor ? " checked" : ""}> Shadow</label></summary>${colorControl("Color", "shadow-color", node.style.shadowColor ?? "#000000")}<label>X offset<input data-node-field="shadow-offset-x" type="number" value="${node.style.shadowOffsetX}"></label><label>Y offset<input data-node-field="shadow-offset-y" type="number" value="${node.style.shadowOffsetY}"></label><label>Blur<input data-node-field="shadow-blur" type="number" min="0" value="${node.style.shadowBlur}"></label><label>Opacity<input data-node-field="shadow-opacity" type="number" min="0" max="1" step="0.05" value="${node.style.shadowOpacity}"></label></details><label>Offset<input value="(${node.offsetX}, ${node.offsetY})" readonly></label><button data-arrange="remove-offsets">Remove offset</button>`;
+    inspectorContent.innerHTML = `<h3>Node</h3><label>Label<input data-node-field="label" value="${escapeHtml(node.label.replace(/\n/g, " "))}"></label><label>ID <small>optional</small><input data-node-field="id" value="${escapeHtml(node.explicitId)}" placeholder="${escapeHtml(node.id)}" pattern="[A-Za-z][A-Za-z0-9_-]*" title="Start with a letter; use letters, numbers, underscores, or hyphens."></label>${fontOptions("node", node.style)}<label>Type<select data-node-type><option value="node">node</option>${custom.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label><details><summary>Appearance</summary><label>Shape<select data-node-field="shape">${["square","rounded","round","pill","diamond","hexagon"].map((shape) => `<option${node.style.shape === shape ? " selected" : ""}>${shape}</option>`).join("")}</select></label>${colorControl("Fill", "fill", node.style.fill)}${colorControl("Border", "outline", node.style.outline)}<label>Border style<select data-node-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${node.style.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Border width<input data-node-field="outline-width" type="number" min="0" value="${node.style.outlineWidth}"></label><label>Width<input data-node-field="width" value="${node.style.width}"></label><label>Height<input data-node-field="height" value="${node.style.height}"></label><label>Text alignment<select data-node-field="align">${["left","center","right"].map((value) => `<option${node.style.align === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details><details${node.style.shadowColor ? " open" : ""}><summary><label class="shadow-toggle"><input type="checkbox" data-shadow-toggle${node.style.shadowColor ? " checked" : ""}> Shadow</label></summary>${colorControl("Color", "shadow-color", node.style.shadowColor ?? "#000000")}<label>X offset<input data-node-field="shadow-offset-x" type="number" value="${node.style.shadowOffsetX}"></label><label>Y offset<input data-node-field="shadow-offset-y" type="number" value="${node.style.shadowOffsetY}"></label><label>Blur<input data-node-field="shadow-blur" type="number" min="0" value="${node.style.shadowBlur}"></label><label>Opacity<input data-node-field="shadow-opacity" type="number" min="0" max="1" step="0.05" value="${node.style.shadowOpacity}"></label></details><div class="inspector-inline-field"><label>Offset<input value="(${node.offsetX}, ${node.offsetY})" readonly></label><button type="button" data-arrange="remove-offsets">Remove</button></div>`;
     inspectorContent.querySelector("h3")?.insertAdjacentHTML("beforeend", `<label class="inspector-switch inspector-switch-heading"><span>Hidden</span><input data-node-hidden type="checkbox"${node.hidden ? " checked" : ""}></label>`);
     inspectorContent.querySelectorAll("details")[1]?.insertAdjacentHTML("afterend", imageControls(node));
     tidyInspectorSections();
     inspectorContent.insertAdjacentHTML("beforeend", nodeAnnotationControls(node));
     inspectorContent.insertAdjacentHTML("beforeend", connectedItemsControls(node));
-    inspectorContent.insertAdjacentHTML("beforeend", '<button type="button" data-build-style="node">Save as reusable node type…</button>');
+    setReusableStyleAction("node");
     inspectorContent.insertAdjacentHTML("beforeend", '<button type="button" class="inspector-primary-action" data-graph-add="flow">+ Add Flow</button>');
     return;
   }
@@ -475,7 +627,8 @@ function renderInspector() {
   if (annotationSelections.length === selections.length) {
     const annotations = annotationSelections.map((selection) => currentGraph.nodes.flatMap((node) => node.annotations).find((annotation) => annotation.lineNumber === selection.lineNumber)).filter(Boolean);
     const annotation = annotations[0] ?? {};
-    inspectorContent.innerHTML = `<h3>${annotations.length} annotation${annotations.length === 1 ? "" : "s"}</h3><label>Text<textarea data-selected-annotation-text rows="2">${escapeHtml(annotation.text ?? "")}</textarea></label>${fontOptions("annotation", annotation)}<label>Offset<input value="(${annotation.offsetX ?? 0}, ${annotation.offsetY ?? 0})" readonly></label><button type="button" data-build-style="annotation">Save as reusable annotation type…</button>`;
+    inspectorContent.innerHTML = `<h3>${annotations.length} annotation${annotations.length === 1 ? "" : "s"}</h3><label>Text<textarea data-selected-annotation-text rows="2">${escapeHtml(annotation.text ?? "")}</textarea></label>${fontOptions("annotation", annotation)}<label>Offset<input value="(${annotation.offsetX ?? 0}, ${annotation.offsetY ?? 0})" readonly></label>`;
+    if (annotations.length === 1) setReusableStyleAction("annotation");
     return;
   }
   const edges = selections.filter((item) => item.kind === "line").map((item) => diagram.layout.edges.find((edge) => edge.from === item.from && edge.to === item.to));
@@ -492,7 +645,7 @@ function renderInspector() {
   };
   const allAnnotationsHidden = edges.length && edges.every((item) => item?.annotationAboveHidden && item?.annotationBelowHidden);
   inspectorContent.insertAdjacentHTML("beforeend", `<details class="annotations-editor"><summary><span>Annotations</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-line-annotations-hidden type="checkbox"${allAnnotationsHidden ? " checked" : ""}></label></summary>${connectorAnnotation("above")}${connectorAnnotation("below")}</details>`);
-  inspectorContent.insertAdjacentHTML("beforeend", '<button type="button" data-build-style="line">Save as reusable line type…</button>');
+  if (edges.length === 1) setReusableStyleAction("line");
 }
 
 function suggestedNodeId() {
@@ -502,27 +655,58 @@ function suggestedNodeId() {
   return `node-${number}`;
 }
 
+function graphForNode(id) {
+  return currentGraph.groups.find((group) => group.nodeIds.includes(id));
+}
+
+function renderBuilderGraphOptions(select, selectedGraphId) {
+  select.innerHTML = currentGraph.groups.map((group) => `<option value="${escapeHtml(group.id)}"${group.id === selectedGraphId ? " selected" : ""}>${escapeHtml(group.label || group.id)}</option>`).join("");
+}
+
+function renderBuilderNodeChoices(container, graphId, selectedId) {
+  const group = currentGraph.groups.find((candidate) => candidate.id === graphId);
+  const nodes = (group?.nodeIds ?? []).map((id) => currentGraph.nodes.find((node) => node.id === id)).filter(Boolean);
+  if (!nodes.length) {
+    container.innerHTML = '<span class="node-choice-empty">No nodes in this graph</span>';
+    return;
+  }
+  const activeId = nodes.some((node) => node.id === selectedId) ? selectedId : nodes[0].id;
+  container.innerHTML = nodes.map((node) => `<button class="node-choice" type="button" role="option" data-node-choice="${escapeHtml(node.id)}" aria-selected="${node.id === activeId}">${escapeHtml(node.label || node.id)}</button>`).join("");
+}
+
+function selectedBuilderNode(container) {
+  return container.querySelector('[data-node-choice][aria-selected="true"]')?.dataset.nodeChoice ?? "";
+}
+
+function chooseBuilderNode(container, id) {
+  container.querySelectorAll("[data-node-choice]").forEach((item) => item.setAttribute("aria-selected", String(item.dataset.nodeChoice === id)));
+}
+
 function openGraphBuilder(mode = "flow", preferredIds = null) {
   if (activeDocument !== "pug") activateDocument("pug");
   const selectedIds = preferredIds ?? selectedNodes().map((node) => node.id);
-  const root = currentGraph.nodes[0];
+  const preferredSource = selectedIds[0] ?? currentGraph.nodes[0]?.id;
+  const sourceGraph = graphForNode(preferredSource) ?? currentGraph.groups[0];
+  const targetGraph = sourceGraph;
   graphBuilder.dataset.mode = mode;
-  graphBuilder.dataset.parentGraphLine = mode === "nested" ? String(selections.find((item) => item.kind === "graph")?.lineNumber ?? "") : "";
-  document.querySelector("#graph-builder-title").textContent = mode === "merge" ? "Add merge target" : ["diagram", "nested"].includes(mode) ? (mode === "nested" ? "Create nested graph" : "Create graph") : "Add flow node";
-  document.querySelector("#graph-builder-help").textContent = mode === "merge"
-    ? "Choose two or more existing nodes that converge into a new target."
-    : mode === "diagram" ? "Create a connected graph with its own root, label, fill, and outline." : "Create a new node connected from one existing parent.";
-  builderParent.innerHTML = currentGraph.nodes.map((node) => `<option value="${escapeHtml(node.id)}"${node.id === (selectedIds[0] ?? root?.id) ? " selected" : ""}>${escapeHtml(node.id)}</option>`).join("");
-  builderSources.innerHTML = currentGraph.nodes.map((node) => `<label><input type="checkbox" value="${escapeHtml(node.id)}"${selectedIds.includes(node.id) ? " checked" : ""}> <span>${escapeHtml(node.id)}</span></label>`).join("");
+  document.querySelector("#graph-builder-title").textContent = mode === "diagram" ? "Create graph" : mode === "node" ? "Add node" : "Add flow";
+  document.querySelector("#graph-builder-help").textContent = mode === "diagram" ? "Create a connected graph with its own root, label, fill, and outline." : mode === "node" ? "Choose a graph and source node, then create a connected node." : "Connect one existing node to another, including across graphs.";
+  renderBuilderGraphOptions(builderFromGraph, sourceGraph?.id);
+  renderBuilderNodeChoices(builderSources, builderFromGraph.value, preferredSource);
+  renderBuilderGraphOptions(builderToGraph, targetGraph?.id);
+  renderBuilderNodeChoices(builderTargets, builderToGraph.value, "");
+  graphBuilder.querySelectorAll(".new-target-only").forEach((element) => { element.hidden = mode === "flow"; });
+  builderId.required = mode !== "flow";
   builderNodeType.innerHTML = `<option value="node">node</option>${reusableNames("node").map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}`;
   builderLineType.innerHTML = `<option value="">Default line</option>${reusableNames("line").map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}`;
   builderId.value = suggestedNodeId();
   builderLabel.value = "New node";
   builderDiagramId.value = `diagram-${currentGraph.groups.length + 1}`;
   builderDiagramLabel.value = "";
+  document.querySelector("#builder-submit").textContent = mode === "diagram" ? "Create graph" : mode === "node" ? "Create node" : "Create flow";
   builderError.textContent = "";
   graphBuilder.showModal();
-  builderLabel.select();
+  if (mode !== "flow") builderLabel.select();
 }
 
 function selectCreatedNode(id) {
@@ -543,6 +727,57 @@ function selectCanvasElement(item) {
   renderInspector();
 }
 
+function renderLayersPanel() {
+  const groups = [...(currentGraph?.groups ?? [])]
+    .sort((a, b) => (b.layer ?? 0) - (a.layer ?? 0) || b.sourceIndex - a.sourceIndex);
+  if (!groups.length) {
+    layersList.innerHTML = '<p class="layers-empty">Create a graph to add a layer.</p>';
+    return;
+  }
+  layersList.innerHTML = groups.map((group) => `<button class="layer-item" type="button" role="listitem" draggable="true" data-layer-graph="${escapeHtml(group.id)}" title="Drag to change stacking order"><span class="layer-grip" aria-hidden="true">⠿</span><span class="layer-name">${escapeHtml(group.label || group.id)}</span><span class="layer-number">${group.layer ?? 0}</span></button>`).join("");
+}
+
+function applyGraphLayerOrder(orderedIds) {
+  const layers = new Map(orderedIds.map((id, index) => [id, orderedIds.length - index - 1]));
+  let nextSource = source.value;
+  [...currentGraph.groups].sort((a, b) => b.lineNumber - a.lineNumber).forEach((group) => {
+    if (layers.has(group.id)) nextSource = setStructuralField(nextSource, group.lineNumber, "layer", String(layers.get(group.id)));
+  });
+  setSource(nextSource);
+  showCanvasToast("Updated graph stacking order");
+}
+
+let draggedLayerId = null;
+layersList.addEventListener("dragstart", (event) => {
+  const item = event.target.closest("[data-layer-graph]");
+  if (!item) return;
+  draggedLayerId = item.dataset.layerGraph;
+  item.classList.add("dragging");
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", draggedLayerId);
+});
+layersList.addEventListener("dragover", (event) => {
+  const item = event.target.closest("[data-layer-graph]");
+  if (!item || item.dataset.layerGraph === draggedLayerId) return;
+  event.preventDefault();
+  layersList.querySelectorAll(".drag-over").forEach((candidate) => candidate.classList.remove("drag-over"));
+  item.classList.add("drag-over");
+});
+layersList.addEventListener("drop", (event) => {
+  const target = event.target.closest("[data-layer-graph]");
+  if (!target || !draggedLayerId || target.dataset.layerGraph === draggedLayerId) return;
+  event.preventDefault();
+  const ids = [...layersList.querySelectorAll("[data-layer-graph]")].map((item) => item.dataset.layerGraph);
+  const from = ids.indexOf(draggedLayerId);
+  const to = ids.indexOf(target.dataset.layerGraph);
+  ids.splice(to, 0, ids.splice(from, 1)[0]);
+  applyGraphLayerOrder(ids);
+});
+layersList.addEventListener("dragend", () => {
+  draggedLayerId = null;
+  layersList.querySelectorAll(".dragging, .drag-over").forEach((item) => item.classList.remove("dragging", "drag-over"));
+});
+
 function deleteCanvasSelection() {
   const operations = selections.map((selection) => {
     if (selection.kind === "graph") return { line: selection.lineNumber, apply: (value) => removeDeclaration(value, selection.lineNumber) };
@@ -560,11 +795,11 @@ function deleteCanvasSelection() {
       const node = currentGraph.nodes.find((candidate) => candidate.id === selection.id);
       return node ? { line: node.lineNumber, apply: (value) => removeNodeFields(value, node.lineNumber, ["image", "image-width", "image-height", "image-fit", "image-opacity", "image-offset", "image-padding"]) } : null;
     }
-    if (selection.kind === "annotation") return { line: selection.lineNumber, apply: (value) => removeDeclaration(value, selection.lineNumber) };
+    if (selection.kind === "annotation") return { line: selection.lineNumber, apply: (value) => removeNodeAnnotation(value, selection.lineNumber) };
     const edge = currentGraph.edges.find((candidate) => candidate.from === selection.from && candidate.to === selection.to);
     if (!edge) return null;
     if (selection.kind === "connection-label") return { line: edge.lineNumber, apply: (value) => removeConnectionLabel(value, edge.lineNumber) };
-    if (edge.kind === "branch") {
+    if (edgeUsesNodeDeclaration(edge)) {
       const target = currentGraph.nodes.find((candidate) => candidate.id === edge.to);
       return target ? { line: target.lineNumber, apply: (value) => setNodeField(value, target.lineNumber, "line.hidden", "") } : null;
     }
@@ -601,10 +836,21 @@ function setSourcePanelCollapsed(collapsed, persist = true) {
   sourcePanel.setAttribute("aria-hidden", String(collapsed));
   sourcePanel.inert = collapsed;
   sourceToggle.setAttribute("aria-expanded", String(!collapsed));
-  sourceToggle.textContent = collapsed ? "›" : "‹";
+  sourceToggle.querySelector(".toggle-arrow").textContent = collapsed ? "›" : "‹";
   sourceToggle.setAttribute("aria-label", collapsed ? "Show source panel" : "Hide source panel");
   sourceToggle.title = collapsed ? "Show source panel" : "Hide source panel";
   if (persist) localStorage.setItem(PANEL_COLLAPSED_KEY, String(collapsed));
+}
+
+function setLayersPanelCollapsed(collapsed, persist = true) {
+  main.classList.toggle("layers-collapsed", collapsed);
+  layersPanel.setAttribute("aria-hidden", String(collapsed));
+  layersPanel.inert = collapsed;
+  layersToggle.setAttribute("aria-expanded", String(!collapsed));
+  layersToggle.querySelector(".toggle-arrow").textContent = collapsed ? "‹" : "›";
+  layersToggle.setAttribute("aria-label", collapsed ? "Show layers panel" : "Hide layers panel");
+  layersToggle.title = collapsed ? "Show layers panel" : "Hide layers panel";
+  if (persist) localStorage.setItem(LAYERS_COLLAPSED_KEY, String(collapsed));
 }
 
 const savedPanelWidth = Number(localStorage.getItem(PANEL_WIDTH_KEY));
@@ -612,6 +858,8 @@ if (Number.isFinite(savedPanelWidth) && savedPanelWidth > 0) setPanelWidth(saved
 else setPanelWidth(430, false);
 setSourcePanelCollapsed(localStorage.getItem(PANEL_COLLAPSED_KEY) === "true", false);
 sourceToggle.addEventListener("click", () => setSourcePanelCollapsed(!main.classList.contains("source-collapsed")));
+setLayersPanelCollapsed(localStorage.getItem(LAYERS_COLLAPSED_KEY) !== "false", false);
+layersToggle.addEventListener("click", () => setLayersPanelCollapsed(!main.classList.contains("layers-collapsed")));
 
 let panelDrag = null;
 panelResizer.addEventListener("pointerdown", (event) => {
@@ -721,31 +969,37 @@ function updateEditorChrome() {
 
 function renderColorDecorators() {
   const swatches = [];
-  const pattern = /#[\da-fA-F]{6}\b|#[\da-fA-F]{3}\b/g;
+  const pattern = /#[\da-fA-F]{6}\b|#[\da-fA-F]{3}\b|\b(?:transparent|none)\b/gi;
   for (const match of source.value.matchAll(pattern)) {
     const before = source.value.slice(0, match.index);
     const lineStart = before.lastIndexOf("\n") + 1;
     const lineText = source.value.slice(lineStart, match.index);
     const column = [...lineText].reduce((count, character) => character === "\t" ? count + (2 - count % 2) : count + 1, 0);
-    const picker = document.createElement("input");
-    picker.type = "color";
-    picker.className = "color-decorator";
-    picker.value = match[0].length === 4
+    const decorator = document.createElement("button");
+    decorator.type = "button";
+    const noColor = /^(?:transparent|none)$/i.test(match[0]);
+    decorator.className = `color-decorator color-popup-trigger${noColor ? " none" : ""}`;
+    const color = !noColor && match[0].length === 4
       ? "#" + [...match[0].slice(1)].map((digit) => digit + digit).join("")
       : match[0];
-    picker.dataset.start = String(match.index);
-    picker.dataset.end = String(match.index + match[0].length);
-    picker.dataset.line = String(before.split("\n").length - 1);
-    picker.dataset.column = String(column);
-    picker.dataset.length = String(match[0].length);
-    picker.title = `Change ${match[0]}`;
-    picker.setAttribute("aria-label", `Change color ${match[0]}`);
-    picker.addEventListener("change", () => {
-      source.setRangeText(picker.value, Number(picker.dataset.start), Number(picker.dataset.end), "end");
+    decorator.dataset.colorPopup = "source";
+    decorator.style.setProperty("--swatch", color);
+    decorator.title = noColor ? "Choose a color (currently transparent)" : `Change ${match[0]}`;
+    decorator.setAttribute("aria-label", noColor ? "Choose color; currently transparent" : `Change color ${match[0]}`);
+    decorator.dataset.start = String(match.index);
+    decorator.dataset.end = String(match.index + match[0].length);
+    decorator.dataset.line = String(before.split("\n").length - 1);
+    decorator.dataset.column = String(column);
+    decorator.dataset.length = String(match[0].length);
+    const replaceColor = (color) => {
+      const start = Number(decorator.dataset.start);
+      source.setRangeText(color, start, Number(decorator.dataset.end), "end");
+      decorator.dataset.end = String(start + color.length);
       source.dispatchEvent(new Event("input", { bubbles: true }));
       source.focus();
-    });
-    swatches.push(picker);
+    };
+    decorator.addEventListener("click", () => openColorPickerPopup(decorator, color, replaceColor));
+    swatches.push(decorator);
   }
   colorDecorators.replaceChildren(...swatches);
 }
@@ -754,10 +1008,10 @@ function highlightSource() {
   renderColorDecorators();
   updateEditorChrome();
   if (!CSS.highlights || !window.Highlight) return;
-  for (const name of ["sbd-comment", "sbd-string", "sbd-math", "sbd-structure", "sbd-attribute", "sbd-number"]) {
+  for (const name of ["sbd-comment", "sbd-string", "sbd-math", "sbd-structure", "sbd-attribute", "sbd-color", "sbd-number"]) {
     CSS.highlights.delete(name);
   }
-  const pattern = /(\/\/.*$)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\$[^$\n]*\$)|(@(?:node|line|annotation)\b|#canvas|^\s*\||[a-zA-Z][\w-]*(?:\.[\w-]+)+|(?:\.[\w-]+)+|^\s*(?:node|graph)\b)|([\w-]+)(?=\s*=)|(\b\d+(?:\.\d+)?\b)/gm;
+  const pattern = /(\/\/.*$)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\$[^$\n]*\$)|(@(?:node|line|annotation)\b|#canvas|^\s*\||[a-zA-Z][\w-]*(?:\.[\w-]+)+|(?:\.[\w-]+)+|^\s*(?:node|graph)\b)|([\w-]+)(?=\s*=)|(#[\da-fA-F]{8}\b|#[\da-fA-F]{6}\b|#[\da-fA-F]{3}\b)|(\b\d+(?:\.\d+)?\b)/gm;
   const start = source.selectionStart;
   const end = source.selectionEnd;
   if (source.childNodes.length !== 1 || source.firstChild?.nodeType !== Node.TEXT_NODE) {
@@ -773,6 +1027,7 @@ function highlightSource() {
     "sbd-math": [],
     "sbd-structure": [],
     "sbd-attribute": [],
+    "sbd-color": [],
     "sbd-number": [],
   };
   for (const match of source.value.matchAll(pattern)) {
@@ -781,7 +1036,8 @@ function highlightSource() {
         : match[3] ? "sbd-math"
           : match[4] ? "sbd-structure"
             : match[5] ? "sbd-attribute"
-              : "sbd-number";
+              : match[6] ? "sbd-color"
+                : "sbd-number";
     const range = document.createRange();
     range.setStart(textNode, match.index);
     range.setEnd(textNode, match.index + match[0].length);
@@ -800,15 +1056,13 @@ const structureCompletions = [
   { label: "@annotation", insert: "@annotation custom_note", detail: "Define a reusable annotation style" },
   { label: "#canvas", insert: "#canvas", detail: "Canvas root" },
   { label: ".defaults", insert: ".defaults", detail: "Group diagram-wide node, line, and annotation defaults" },
-  { label: ".flow", insert: ".flow", detail: "Chain sibling nodes in sequence" },
-  { label: ".merge", insert: ".merge", detail: "Merge two or more sources" },
-  { label: ".connect", insert: ".connect\n  .from source-id\n  .to target-id", detail: "Connect two existing nodes" },
-  { label: ".source", insert: ".source", detail: "Declare a merge source; add .ref below it" },
-  { label: ".ref", insert: ".ref ", detail: "Merge source node ID" },
-  { label: ".from", insert: ".from ", detail: "Compact list of merge source IDs" },
-  { label: ".to", insert: ".to ", detail: "Existing connection target ID" },
-  { label: ".from-direction", insert: ".from-direction right", detail: "Direction leaving a .connect source" },
-  { label: ".to-direction", insert: ".to-direction right", detail: "Direction entering a .connect target" },
+  { label: ".flow", insert: ".flow\n  .from source-id\n  .to target-id", detail: "Flow between nodes; branching and merging are inferred" },
+  { label: ".from", insert: ".from ", detail: "Flow source node ID" },
+  { label: ".to", insert: ".to ", detail: "Flow target node ID" },
+  { label: ".from-direction", insert: ".from-direction right", detail: "Direction leaving a flow source" },
+  { label: ".to-direction", insert: ".to-direction right", detail: "Direction entering a flow target" },
+  { label: ".members", insert: ".members ", detail: "Node IDs framed by a graph" },
+  { label: ".layer", insert: ".layer 0", detail: "Graph stacking layer; higher renders in front" },
   { label: ".direction", insert: ".direction right", detail: "Layout direction: right, left, up, or down" },
   { label: ".ports", insert: ".ports distributed", detail: "Use distributed or shared connection ports" },
   { label: ".line", insert: ".line\n  .color #111111", detail: "Group connection properties" },
@@ -956,23 +1210,7 @@ function persistElementMove(change) {
     return;
   }
   if (change.kind === "graph") {
-    const moved = diagram?.layout?.groups.find((group) => group.id === change.id);
-    const target = moved ? (diagram?.layout?.groups ?? []).filter((group) => group.id !== change.id
-      && !group.nodeIds.every((id) => moved.nodeIds.includes(id))
-      && change.dropX >= group.x && change.dropX <= group.right
-      && change.dropY >= group.y && change.dropY <= group.bottom)
-      .sort((a, b) => (a.right - a.x) * (a.bottom - a.y) - (b.right - b.x) * (b.bottom - b.y))[0] : null;
-    const currentParent = moved ? graphParent(moved, diagram.layout.groups) : null;
-    if ((target?.id ?? null) !== (currentParent?.id ?? null)) {
-      const desiredX = moved.x + change.dx;
-      const desiredY = moved.y + change.dy;
-      setSource(reparentGraph(source.value, change.lineNumber, target?.lineNumber ?? null));
-      const relocated = diagram?.layout?.groups.find((group) => group.id === change.id);
-      if (relocated) setSource(setDeclarationOffsetField(source.value, relocated.lineNumber,
-        (relocated.offsetX ?? 0) + desiredX - relocated.x,
-        (relocated.offsetY ?? 0) + desiredY - relocated.y), false);
-      showCanvasToast(target ? `Nested in ${target.label || target.id}` : "Moved to canvas");
-    } else setSource(setDeclarationOffsetField(source.value, change.lineNumber, nextX, nextY));
+    setSource(setDeclarationOffsetField(source.value, change.lineNumber, nextX, nextY));
     return;
   }
   if (change.kind === "node") {
@@ -1000,18 +1238,34 @@ function persistElementMove(change) {
 }
 
 function cleanupDiagram() {
-  const changes = diagram?.layout ? cleanupAlignmentOffsets(diagram.layout.nodes, diagram.layout.edges) : [];
-  if (!changes.length) {
-    status.textContent = "No small alignment kinks found.";
+  if (!diagram?.layout) return;
+  const changes = cleanupAlignmentOffsets(diagram.layout.nodes, diagram.layout.edges);
+  let nextSource = source.value;
+  [...changes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((change) => {
+    if (change.kind === "route") {
+      if (change.declarationKind === "node") {
+        const target = currentGraph.nodes.find((node) => node.id === change.to);
+        const faces = { up: ["top", "bottom"], right: ["right", "left"], down: ["bottom", "top"], left: ["left", "right"] };
+        if (target) {
+          nextSource = setNodeField(nextSource, target.lineNumber, "line.source-face", faces[change.direction][0]);
+          const shiftedTarget = parseDiagram(nextSource, cssSource).nodes.find((node) => node.id === change.to);
+          if (shiftedTarget) nextSource = setNodeField(nextSource, shiftedTarget.lineNumber, "line.target-face", faces[change.direction][1]);
+        }
+      } else {
+        nextSource = setStructuralField(nextSource, change.lineNumber, "from-direction", change.direction);
+        nextSource = setStructuralField(nextSource, change.lineNumber, "to-direction", change.direction);
+      }
+    } else nextSource = setNodeOffsetField(nextSource, change.lineNumber, "offset", change.offsetX, change.offsetY);
+  });
+  if (nextSource === source.value) {
+    status.textContent = "Diagram is already clean.";
     status.className = "status ready";
     return;
   }
-  let nextSource = source.value;
-  [...changes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((change) => {
-    nextSource = setNodeOffsetField(nextSource, change.lineNumber, "offset", change.offsetX, change.offsetY);
-  });
   setSource(nextSource);
-  status.textContent = `Cleaned up ${changes.length} node${changes.length === 1 ? "" : "s"}.`;
+  const routes = changes.filter((change) => change.kind === "route").length;
+  const nodes = changes.length - routes;
+  status.textContent = `Cleaned up ${routes ? `${routes} connector${routes === 1 ? "" : "s"}` : ""}${routes && nodes ? " and " : ""}${nodes ? `${nodes} node${nodes === 1 ? "" : "s"}` : ""}.`;
   status.className = "status ready";
 }
 
@@ -1062,6 +1316,69 @@ function sourceFilename(extension) {
   return cssFileName || filename("css");
 }
 
+function sourcePickerOptions(kind) {
+  const css = kind === "css";
+  return {
+    suggestedName: sourceFilename(kind),
+    types: [{
+      description: css ? "CSS stylesheet" : "Pugflow diagram",
+      accept: { [css ? "text/css" : "text/plain"]: [css ? ".css" : ".pug"] },
+    }],
+  };
+}
+
+async function saveActiveSource(saveAs = false) {
+  storeActiveDocument();
+  if (!window.showSaveFilePicker) {
+    status.textContent = "Direct file saving requires a browser with system file access.";
+    status.className = "status error";
+    return;
+  }
+  const kind = activeDocument;
+  let handle = kind === "pug" ? pugFileHandle : cssFileHandle;
+  try {
+    if (saveAs || !handle) handle = await window.showSaveFilePicker(sourcePickerOptions(kind));
+    const writable = await handle.createWritable();
+    await writable.write(kind === "pug" ? pugSource : cssSource);
+    await writable.close();
+    if (kind === "pug") { pugFileHandle = handle; pugFileName = handle.name; }
+    else { cssFileHandle = handle; cssFileName = handle.name; hasCssDocument = true; }
+    updateSourceFileNames();
+    status.textContent = `Saved ${handle.name}`;
+    status.className = "status ready";
+    fileMenu.open = false;
+  } catch (error) {
+    if (error?.name !== "AbortError") {
+      status.textContent = `Could not save file: ${error.message}`;
+      status.className = "status error";
+    }
+  }
+}
+
+async function loadSourceFiles(files, handles = []) {
+  const pug = files.find((file) => file.name.toLowerCase().endsWith(".pug"));
+  const css = files.find((file) => file.name.toLowerCase().endsWith(".css"));
+  if (pug) {
+    pugSource = await pug.text();
+    pugFileName = pug.name;
+    pugFileHandle = handles[files.indexOf(pug)] ?? null;
+  }
+  if (css) {
+    cssSource = await css.text();
+    cssFileName = css.name;
+    cssFileHandle = handles[files.indexOf(css)] ?? null;
+    hasCssDocument = true;
+  }
+  canvasUndo = [];
+  canvasRedo = [];
+  selections = [];
+  updateSourceFileNames();
+  source.value = activeDocument === "pug" ? pugSource : cssSource;
+  highlightSource();
+  update();
+  fileMenu.open = false;
+}
+
 function selectSourceLine({ lineNumber }) {
   if (activeDocument !== "pug") activateDocument("pug");
   const lines = source.value.split("\n");
@@ -1095,6 +1412,7 @@ function update() {
     canvas.classList.remove("preview-invalid");
     delete canvas.dataset.error;
     currentGraph = result;
+    renderLayersPanel();
     if (diagram) diagram.render(pugSource, cssSource);
     else diagram = createBlockDiagram(canvas, pugSource, {
       styles: cssSource,
@@ -1246,6 +1564,7 @@ document.querySelector("#new-pug").addEventListener("click", () => {
   if (pugSource !== "#canvas" && !window.confirm("Replace the current Pug document with a new blank diagram?")) return;
   pugSource = "#canvas";
   pugFileName = "Untitled.pug";
+  pugFileHandle = null;
   canvasUndo = [];
   canvasRedo = [];
   selections = [];
@@ -1258,25 +1577,14 @@ document.querySelector("#new-css").addEventListener("click", () => {
   if (cssSource && !window.confirm("Replace the current CSS document with a new blank file?")) return;
   cssSource = "";
   cssFileName = "Untitled.css";
+  cssFileHandle = null;
   hasCssDocument = true;
   updateSourceFileNames();
   activateDocument("css");
   fileMenu.open = false;
 });
-document.querySelector("#save-source").addEventListener("click", () => {
-  storeActiveDocument();
-  const documents = [["pug", pugSource], ...(hasCssDocument ? [["css", cssSource]] : [])];
-  for (const [extension, value] of documents) {
-    const anchor = document.createElement("a");
-    const type = extension === "css" ? "text/css;charset=utf-8" : "text/plain;charset=utf-8";
-    anchor.href = URL.createObjectURL(new Blob([value], { type }));
-    anchor.download = sourceFilename(extension);
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
-  }
-  status.textContent = `Downloaded ${documents.length === 1 ? "Pug" : "Pug and CSS"}`;
-  fileMenu.open = false;
-});
+document.querySelector("#save-source").addEventListener("click", () => saveActiveSource());
+document.querySelector("#save-source-as").addEventListener("click", () => saveActiveSource(true));
 document.querySelector("#cleanup-diagram").addEventListener("click", cleanupDiagram);
 canvasZoom.addEventListener("change", () => setCanvasZoom(Number(canvasZoom.value)));
 document.querySelector("#zoom-out").addEventListener("click", () => setCanvasZoom(canvasZoomPercent - 25));
@@ -1291,9 +1599,8 @@ canvasShell.addEventListener("wheel", (event) => {
   zoomCanvasAt(event.clientX, event.clientY, canvasZoomPercent + (event.deltaY < 0 ? magnitude : -magnitude));
 }, { passive: false });
 document.querySelector("#add-diagram").addEventListener("click", () => openGraphBuilder("diagram"));
-document.querySelector("#add-node").addEventListener("click", () => openGraphBuilder(currentGraph.nodes.length ? "flow" : "diagram"));
+document.querySelector("#add-node").addEventListener("click", () => openGraphBuilder(currentGraph.nodes.length ? "node" : "diagram"));
 document.querySelector("#add-flow").addEventListener("click", () => openGraphBuilder("flow"));
-document.querySelector("#add-merge").addEventListener("click", () => openGraphBuilder("merge", []));
 const toolbarMenus = [...document.querySelectorAll(".new-menu")];
 toolbarMenus.forEach((menu) => menu.addEventListener("click", (event) => {
   if (event.target.closest("button")) menu.open = false;
@@ -1311,8 +1618,42 @@ document.querySelector(".preview").addEventListener("keydown", (event) => {
 });
 document.querySelector("#close-inspector").addEventListener("click", () => { selections = []; paintSelections(); renderInspector(); });
 document.querySelector("#delete-selection").addEventListener("click", deleteCanvasSelection);
+saveReusableStyle.addEventListener("click", () => openSelectedReusableStyle(saveReusableStyle.dataset.buildStyle));
 inspectorContent.addEventListener("click", (event) => {
   if (event.target.matches("summary input[type='checkbox']")) event.stopPropagation();
+  const colorPopup = event.target.closest("[data-color-popup]");
+  if (colorPopup) {
+    const key = colorPopup.dataset.colorPopup;
+    const textInput = inspectorContent.querySelector(`[data-color-text="${key}"]`);
+    if (textInput) openColorPickerPopup(colorPopup, textInput.value, (color) => {
+      textInput.value = color;
+      textInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    return;
+  }
+  if (event.target.closest("[data-group-as-graph]")) {
+    const ids = selectedGraphNodeIds();
+    const used = new Set(currentGraph.groups.map((group) => group.id));
+    let number = currentGraph.groups.length + 1;
+    while (used.has(`group-${number}`)) number += 1;
+    setSource(groupNodesAsGraph(source.value, ids, { graphId: `group-${number}` }));
+    showCanvasToast("Grouped selection as a graph");
+    return;
+  }
+  if (event.target.closest("[data-add-annotation]")) {
+    if (selectedNodes()[0]) openAnnotationBuilder();
+    return;
+  }
+  const deletedAnnotation = Number(event.target.closest("[data-delete-annotation]")?.dataset.deleteAnnotation);
+  if (deletedAnnotation) {
+    setSource(removeNodeAnnotation(source.value, deletedAnnotation));
+    return;
+  }
+  const annotationOffset = Number(event.target.closest("[data-remove-annotation-offset]")?.dataset.removeAnnotationOffset);
+  if (annotationOffset) {
+    setSource(removeDeclarationField(source.value, annotationOffset, "offset"));
+    return;
+  }
   const graphMode = event.target.closest("[data-graph-add]")?.dataset.graphAdd;
   if (graphMode) {
     openGraphBuilder(graphMode, selectedNodes().map((node) => node.id));
@@ -1323,23 +1664,7 @@ inspectorContent.addEventListener("click", (event) => {
     return;
   }
   const styleKind = event.target.closest("[data-build-style]")?.dataset.buildStyle;
-  if (styleKind === "node") {
-    const node = selectedNodes()[0];
-    if (node) openReusableStyleBuilder(styleKind, node.style);
-    return;
-  }
-  if (styleKind === "line") {
-    const selection = selections.find((item) => item.kind === "line");
-    const edge = diagram?.layout?.edges.find((item) => item.from === selection?.from && item.to === selection?.to);
-    if (edge) openReusableStyleBuilder(styleKind, edge);
-    return;
-  }
-  if (styleKind === "annotation") {
-    const selection = selections.find((item) => item.kind === "annotation");
-    const annotation = currentGraph.nodes.flatMap((node) => node.annotations).find((item) => item.lineNumber === selection?.lineNumber);
-    if (annotation) openReusableStyleBuilder(styleKind, annotation);
-    return;
-  }
+  if (styleKind) { openSelectedReusableStyle(styleKind); return; }
   const action = event.target.closest("[data-arrange]")?.dataset.arrange;
   if (action) arrangeSelection(action);
   const field = event.target.closest("[data-remove-field]")?.dataset.removeField;
@@ -1356,16 +1681,17 @@ graphBuilderForm.addEventListener("submit", (event) => {
   const mode = graphBuilder.dataset.mode;
   const id = builderId.value.trim();
   const label = builderLabel.value.replace(/[\r\n]+/g, " ").trim();
-  if (!/^[a-zA-Z][\w-]*$/.test(id)) {
+  if (mode !== "flow" && !/^[a-zA-Z][\w-]*$/.test(id)) {
     builderError.textContent = "ID must start with a letter and contain only letters, numbers, underscores, or hyphens.";
     return;
   }
-  if (currentGraph.nodes.some((node) => node.id === id)) {
+  if (mode !== "flow" && currentGraph.nodes.some((node) => node.id === id)) {
     builderError.textContent = `The ID “${id}” is already in use.`;
     return;
   }
   const options = {
-    direction: document.querySelector("#builder-direction").value,
+    fromDirection: builderFromDirection.value,
+    toDirection: builderToDirection.value,
     ports: document.querySelector("#builder-ports").value,
     nodeType: builderNodeType.value,
     lineType: builderLineType.value,
@@ -1375,27 +1701,62 @@ graphBuilderForm.addEventListener("submit", (event) => {
     diagramLabel: builderDiagramLabel.value.trim(),
     diagramFill: document.querySelector("#builder-diagram-fill").value.trim(),
     diagramOutline: document.querySelector("#builder-diagram-outline").value.trim(),
-    parentGraphLineNumber: mode === "nested" ? Number(graphBuilder.dataset.parentGraphLine) : null,
   };
   let nextSource;
-  if (mode === "merge") {
-    options.sources = [...builderSources.querySelectorAll("input:checked")].map((input) => input.value);
-    if (options.sources.length < 2) {
-      builderError.textContent = "A merge needs at least two source nodes.";
+  if (mode === "flow") {
+    const from = selectedBuilderNode(builderSources);
+    const to = selectedBuilderNode(builderTargets);
+    if (!from || !to) {
+      builderError.textContent = "Choose both a From Node and a To Node.";
       return;
     }
-    nextSource = appendMergeNode(pugSource, currentGraph.nodes[0].lineNumber, options);
-  } else if (mode === "flow") {
-    const parent = currentGraph.nodes.find((node) => node.id === builderParent.value);
-    if (!parent) {
-      builderError.textContent = "Choose an existing parent node.";
+    if (from === to) {
+      builderError.textContent = "Choose two different nodes.";
       return;
     }
-    nextSource = appendFlowNode(pugSource, parent.lineNumber, options);
+    const owner = currentGraph.nodes.find((node) => node.id === from);
+    nextSource = appendFlowReference(pugSource, owner.lineNumber, { ...options, from, to });
+  } else if (mode === "node") {
+    const from = selectedBuilderNode(builderSources);
+    const owner = currentGraph.nodes.find((node) => node.id === from);
+    if (!owner) {
+      builderError.textContent = "Choose a From Node.";
+      return;
+    }
+    nextSource = appendFlowNode(pugSource, owner.lineNumber, options);
   } else nextSource = appendDiagramNode(pugSource, options);
   graphBuilder.close();
   setSource(nextSource);
-  selectCreatedNode(id);
+  if (mode !== "flow") selectCreatedNode(id);
+});
+builderFromGraph.addEventListener("change", () => renderBuilderNodeChoices(builderSources, builderFromGraph.value, ""));
+builderToGraph.addEventListener("change", () => renderBuilderNodeChoices(builderTargets, builderToGraph.value, ""));
+[builderSources, builderTargets].forEach((container) => container.addEventListener("click", (event) => {
+  const choice = event.target.closest("[data-node-choice]");
+  if (choice) chooseBuilderNode(container, choice.dataset.nodeChoice);
+}));
+annotationBuilderForm.addEventListener("submit", (event) => {
+  if (event.submitter?.value === "cancel") return;
+  event.preventDefault();
+  const node = selectedNodes()[0];
+  if (!node) { annotationBuilder.close(); return; }
+  const text = document.querySelector("#annotation-builder-text").value.trim();
+  if (!text) {
+    document.querySelector("#annotation-builder-error").textContent = "Enter annotation text.";
+    return;
+  }
+  setSource(appendNodeAnnotation(source.value, node.lineNumber, {
+    position: document.querySelector("#annotation-builder-position").value,
+    type: document.querySelector("#annotation-builder-type").value,
+    text,
+    color: document.querySelector("#annotation-builder-color").value.trim(),
+    fontSize: document.querySelector("#annotation-builder-font-size").value,
+    fontFamily: document.querySelector("#annotation-builder-font-family").value.trim(),
+    fontWeight: document.querySelector("#annotation-builder-font-weight").value,
+    fontStyle: document.querySelector("#annotation-builder-font-style").value,
+    textDecoration: document.querySelector("#annotation-builder-decoration").value,
+  }));
+  annotationBuilder.close();
 });
 styleBuilderForm.addEventListener("submit", (event) => {
   if (event.submitter?.value === "cancel") return;
@@ -1444,23 +1805,25 @@ inspectorContent.addEventListener("change", (event) => {
     const edge = diagram.layout.edges.find((candidate) => candidate.from === from && candidate.to === to && candidate.lineNumber === Number(line));
     const target = currentGraph.nodes.find((candidate) => candidate.id === edge?.to);
     if (!edge || !target) return;
-    const nextSource = edge.kind === "branch"
+    const nextSource = edgeUsesNodeDeclaration(edge)
       ? setNodeField(source.value, target.lineNumber, `line.${connectedField}`, event.target.value)
       : setStructuralField(source.value, edge.lineNumber, `line.${connectedField}`, event.target.value);
     setSource(nextSource);
     return;
   }
-  if (event.target.matches("[data-graph-parent]")) {
-    const selected = selections.find((item) => item.kind === "graph");
-    const group = currentGraph.groups.find((candidate) => candidate.id === selected?.id);
-    const target = currentGraph.groups.find((candidate) => candidate.id === event.target.value);
-    if (!group) return;
-    setSource(reparentGraph(source.value, group.lineNumber, target?.lineNumber ?? null));
-    showCanvasToast(target ? `Nested in ${target.label || target.id}` : "Moved to canvas");
-    return;
-  }
   const graphField = event.target.dataset.graphField;
   if (graphField) {
+    if (!event.target.value) return;
+    if (graphField === "layer-order") {
+      const selectedIds = new Set(selections.filter((item) => item.kind === "graph").map((item) => item.id));
+      const ordered = [...currentGraph.groups]
+        .sort((a, b) => (b.layer ?? 0) - (a.layer ?? 0) || b.sourceIndex - a.sourceIndex)
+        .map((group) => group.id);
+      const selected = ordered.filter((id) => selectedIds.has(id));
+      const others = ordered.filter((id) => !selectedIds.has(id));
+      applyGraphLayerOrder(event.target.value === "front" ? [...selected, ...others] : [...others, ...selected]);
+      return;
+    }
     let nextSource = source.value;
     [...selections].filter((item) => item.kind === "graph").sort((a, b) => b.lineNumber - a.lineNumber)
       .forEach((selection) => { nextSource = setStructuralField(nextSource, selection.lineNumber, graphField, event.target.value); });
@@ -1489,24 +1852,28 @@ inspectorContent.addEventListener("change", (event) => {
     return;
   }
   if (event.target.matches("[data-node-annotation-color-picker]")) {
-    const position = event.target.dataset.nodeAnnotationColorPicker;
-    const input = inspectorContent.querySelector(`[data-node-annotation-position="${position}"][data-node-annotation-field="color"]`);
+    const lineNumber = event.target.dataset.nodeAnnotationColorPicker;
+    const input = inspectorContent.querySelector(`[data-annotation-line="${lineNumber}"][data-node-annotation-field="color"]`);
     if (input) { input.value = event.target.value; input.dispatchEvent(new Event("change", { bubbles: true })); }
     return;
   }
   if (event.target.matches("[data-node-annotation-text]")) {
-    setSource(setNodeAnnotationText(source.value, Number(event.target.dataset.nodeAnnotationLine), event.target.dataset.nodeAnnotationPosition, event.target.value));
+    setSource(setAnnotationText(source.value, Number(event.target.dataset.annotationLine), event.target.value));
     return;
   }
   if (event.target.matches("[data-node-annotation-field]")) {
-    setSource(setNodeAnnotationField(source.value, Number(event.target.dataset.nodeAnnotationLine), event.target.dataset.nodeAnnotationPosition, event.target.dataset.nodeAnnotationField, event.target.value));
+    setSource(setStructuralField(source.value, Number(event.target.dataset.annotationLine), event.target.dataset.nodeAnnotationField, event.target.value));
+    return;
+  }
+  if (event.target.matches("[data-node-annotation-position]")) {
+    setSource(setAnnotationPosition(source.value, Number(event.target.dataset.annotationLine), event.target.value));
     return;
   }
   if (event.target.matches("[data-node-annotation-hidden]")) {
     const annotationLine = Number(event.target.dataset.annotationLine);
     const nextSource = event.target.checked
-      ? setNodeAnnotationField(source.value, Number(event.target.dataset.nodeAnnotationLine), event.target.dataset.nodeAnnotationPosition, "hidden", "")
-      : annotationLine > 0 ? removeDeclarationField(source.value, annotationLine, "hidden") : source.value;
+      ? setStructuralField(source.value, annotationLine, "hidden", "")
+      : removeDeclarationField(source.value, annotationLine, "hidden");
     if (nextSource !== source.value) setSource(nextSource);
     return;
   }
@@ -1576,6 +1943,24 @@ inspectorContent.addEventListener("change", (event) => {
   }
   const nodeField = event.target.dataset.nodeField;
   if (nodeField && node) {
+    if (nodeField === "id") {
+      const requestedId = event.target.value.trim();
+      if (requestedId && !event.target.checkValidity()) { event.target.reportValidity(); return; }
+      const nodeIndex = currentGraph.nodes.findIndex((candidate) => candidate.id === node.id);
+      let nextSource = requestedId
+        ? setNodeField(source.value, node.lineNumber, "id", requestedId)
+        : removeNodeField(source.value, node.lineNumber, "id");
+      const reparsed = parseDiagram(nextSource, cssSource);
+      const nextId = reparsed.nodes[nodeIndex]?.id;
+      if (nextId) {
+        nextSource = renameNodeReferences(nextSource, node.id, nextId);
+        selections = selections.map((selection) => selection.kind === "node" && selection.id === node.id
+          ? { ...selection, id: nextId, selectionKey: `node:${nextId}` }
+          : selection);
+      }
+      setSource(nextSource);
+      return;
+    }
     if (!event.target.value && nodeField !== "label") return;
     let nextSource = source.value;
     [...nodes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((selected) => {
@@ -1594,15 +1979,15 @@ inspectorContent.addEventListener("change", (event) => {
     const operations = selections.filter((item) => item.kind === "line").map((item) => {
       const selectedEdge = diagram.layout.edges.find((candidate) => candidate.from === item.from && candidate.to === item.to);
       const target = currentGraph.nodes.find((candidate) => candidate.id === selectedEdge.to);
-      return { edge: selectedEdge, lineNumber: selectedEdge.kind === "branch" ? target.lineNumber : selectedEdge.lineNumber };
+      return { edge: selectedEdge, lineNumber: edgeUsesNodeDeclaration(selectedEdge) ? target.lineNumber : selectedEdge.lineNumber };
     }).sort((a, b) => b.lineNumber - a.lineNumber);
     let nextSource = source.value;
     operations.forEach(({ edge: selectedEdge, lineNumber }) => {
       fields.forEach((field) => {
         const sourceField = `line.${field}`;
         nextSource = event.target.checked
-          ? selectedEdge.kind === "branch" ? setNodeField(nextSource, lineNumber, sourceField, "") : setStructuralField(nextSource, lineNumber, sourceField, "")
-          : selectedEdge.kind === "branch" ? removeNodeField(nextSource, lineNumber, sourceField) : removeDeclarationField(nextSource, lineNumber, sourceField);
+          ? edgeUsesNodeDeclaration(selectedEdge) ? setNodeField(nextSource, lineNumber, sourceField, "") : setStructuralField(nextSource, lineNumber, sourceField, "")
+          : edgeUsesNodeDeclaration(selectedEdge) ? removeNodeField(nextSource, lineNumber, sourceField) : removeDeclarationField(nextSource, lineNumber, sourceField);
       });
     });
     setSource(nextSource);
@@ -1615,11 +2000,11 @@ inspectorContent.addEventListener("change", (event) => {
     const operations = selections.filter((item) => item.kind === "line").map((item) => {
       const edge = diagram.layout.edges.find((candidate) => candidate.from === item.from && candidate.to === item.to);
       const target = currentGraph.nodes.find((candidate) => candidate.id === edge.to);
-      return { edge, lineNumber: edge.kind === "branch" ? target.lineNumber : edge.lineNumber };
+      return { edge, lineNumber: edgeUsesNodeDeclaration(edge) ? target.lineNumber : edge.lineNumber };
     }).sort((a, b) => b.lineNumber - a.lineNumber);
     let nextSource = source.value;
     operations.forEach(({ edge, lineNumber }) => {
-      nextSource = edge.kind === "branch"
+      nextSource = edgeUsesNodeDeclaration(edge)
         ? setNodeLineType(nextSource, lineNumber, lineType, knownTypes)
         : setStructuralLineType(nextSource, lineNumber, lineType, knownTypes);
     });
@@ -1630,11 +2015,11 @@ inspectorContent.addEventListener("change", (event) => {
   const operations = selections.filter((item) => item.kind === "line").map((item) => {
     const edge = diagram.layout.edges.find((candidate) => candidate.from === item.from && candidate.to === item.to);
     const target = currentGraph.nodes.find((candidate) => candidate.id === edge.to);
-    return { edge, target, lineNumber: edge.kind === "branch" ? target.lineNumber : edge.lineNumber };
+    return { edge, target, lineNumber: edgeUsesNodeDeclaration(edge) ? target.lineNumber : edge.lineNumber };
   }).sort((a, b) => b.lineNumber - a.lineNumber);
   let nextSource = source.value;
   operations.forEach(({ edge, lineNumber }) => {
-    nextSource = edge.kind === "branch"
+    nextSource = edgeUsesNodeDeclaration(edge)
       ? setNodeField(nextSource, lineNumber, `line.${lineField}`, event.target.value)
       : setStructuralField(nextSource, lineNumber, `line.${lineField}`, event.target.value);
   });
@@ -1642,6 +2027,24 @@ inspectorContent.addEventListener("change", (event) => {
 });
 
 let inspectorDrag = null;
+function constrainInspectorToCanvas() {
+  if (inspector.hidden) return;
+  const canvasBounds = canvasShell.getBoundingClientRect();
+  const margin = 12;
+  inspector.style.maxWidth = `${Math.max(0, canvasBounds.width - margin * 2)}px`;
+  inspector.style.maxHeight = `${Math.max(0, canvasBounds.height - margin * 2)}px`;
+  const inspectorBounds = inspector.getBoundingClientRect();
+  const minLeft = canvasBounds.left + margin;
+  const minTop = canvasBounds.top + margin;
+  const maxLeft = Math.max(minLeft, canvasBounds.right - inspectorBounds.width - margin);
+  const maxTop = Math.max(minTop, canvasBounds.bottom - inspectorBounds.height - margin);
+  const currentLeft = inspector.style.left ? inspectorBounds.left : maxLeft;
+  const currentTop = inspector.style.top ? inspectorBounds.top : minTop;
+  inspector.style.left = `${Math.max(minLeft, Math.min(maxLeft, currentLeft))}px`;
+  inspector.style.top = `${Math.max(minTop, Math.min(maxTop, currentTop))}px`;
+  inspector.style.right = "auto";
+}
+
 document.querySelector(".inspector-drag-handle").addEventListener("pointerdown", (event) => {
   const bounds = inspector.getBoundingClientRect();
   inspectorDrag = { pointerId: event.pointerId, dx: event.clientX - bounds.left, dy: event.clientY - bounds.top };
@@ -1649,32 +2052,41 @@ document.querySelector(".inspector-drag-handle").addEventListener("pointerdown",
 });
 document.querySelector(".inspector-drag-handle").addEventListener("pointermove", (event) => {
   if (!inspectorDrag || inspectorDrag.pointerId !== event.pointerId) return;
-  const shell = inspector.parentElement.getBoundingClientRect();
-  const left = Math.max(0, Math.min(shell.width - inspector.offsetWidth, event.clientX - shell.left - inspectorDrag.dx));
-  const top = Math.max(0, Math.min(shell.height - inspector.offsetHeight, event.clientY - shell.top - inspectorDrag.dy));
+  const canvasBounds = canvasShell.getBoundingClientRect();
+  const margin = 12;
+  const minLeft = canvasBounds.left + margin;
+  const minTop = canvasBounds.top + margin;
+  const maxLeft = Math.max(minLeft, canvasBounds.right - inspector.offsetWidth - margin);
+  const maxTop = Math.max(minTop, canvasBounds.bottom - inspector.offsetHeight - margin);
+  const left = Math.max(minLeft, Math.min(maxLeft, event.clientX - inspectorDrag.dx));
+  const top = Math.max(minTop, Math.min(maxTop, event.clientY - inspectorDrag.dy));
   inspector.style.left = `${left}px`;
   inspector.style.top = `${top}px`;
   inspector.style.right = "auto";
 });
 document.querySelector(".inspector-drag-handle").addEventListener("pointerup", () => { inspectorDrag = null; });
-document.querySelector("#load-source").addEventListener("click", () => sourceFile.click());
+new ResizeObserver(constrainInspectorToCanvas).observe(canvasShell);
+window.addEventListener("resize", constrainInspectorToCanvas);
+document.querySelector("#load-source").addEventListener("click", async () => {
+  if (!window.showOpenFilePicker) { sourceFile.click(); return; }
+  try {
+    const handles = await window.showOpenFilePicker({
+      multiple: true,
+      types: [{ description: "Pugflow source", accept: { "text/plain": [".pug"], "text/css": [".css"] } }],
+    });
+    await loadSourceFiles(await Promise.all(handles.map((handle) => handle.getFile())), handles);
+  } catch (error) {
+    if (error?.name !== "AbortError") {
+      status.textContent = `Could not open file: ${error.message}`;
+      status.className = "status error";
+    }
+  }
+});
 sourceFile.addEventListener("change", async () => {
   const files = [...(sourceFile.files ?? [])];
   if (!files.length) return;
-  const pug = files.find((file) => file.name.toLowerCase().endsWith(".pug"));
-  const css = files.find((file) => file.name.toLowerCase().endsWith(".css"));
-  if (pug) pugSource = await pug.text();
-  if (pug) pugFileName = pug.name;
-  if (css) { cssSource = await css.text(); cssFileName = css.name; hasCssDocument = true; }
-  canvasUndo = [];
-  canvasRedo = [];
-  selections = [];
-  updateSourceFileNames();
-  source.value = activeDocument === "pug" ? pugSource : cssSource;
-  highlightSource();
-  update();
+  await loadSourceFiles(files);
   sourceFile.value = "";
-  fileMenu.open = false;
 });
 document.querySelector("#copy-png").addEventListener("click", async () => {
   if (!diagram) return;

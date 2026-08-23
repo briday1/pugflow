@@ -328,6 +328,57 @@ test("connects existing nodes with independent endpoint directions", () => {
   assert.equal(connection.targetLayoutDirection, "down");
 });
 
+test("resolves flow references in either source order and infers convergence", () => {
+  const result = parseDiagram([
+    "#canvas",
+    "  graph",
+    "    .node",
+    "      .id first",
+    "      .label First",
+    "      .node",
+    "        .id second",
+    "        .label Second",
+    "        .node",
+    "          .id target",
+    "          .label Target",
+    "      .flow",
+    "        .from first",
+    "        .to target",
+    "      .flow",
+    "        .from second",
+    "        .to target",
+  ].join("\n"));
+  assert.deepEqual(result.errors, []);
+  const incoming = result.edges.filter((edge) => edge.to === "target");
+  assert.equal(incoming.length, 3);
+  assert.ok(incoming.every((edge) => edge.kind === "merge"));
+  assert.equal(result.nodes.find((node) => node.id === "target")?.kind, "merge");
+});
+
+test("keeps graphs flat and parses integer layers", () => {
+  const flat = parseDiagram("#canvas\n  graph\n    .id back\n    .layer -1\n    .node\n      .id one\n      .label One\n  graph\n    .id front\n    .layer 3\n    .node\n      .id two\n      .label Two\n    .flow\n      .from one\n      .to two");
+  assert.deepEqual(flat.errors, []);
+  assert.deepEqual(flat.groups.map((group) => group.layer), [-1, 3]);
+  assert.ok(flat.edges.some((edge) => edge.from === "one" && edge.to === "two"));
+
+  const nested = parseDiagram("#canvas\n  graph\n    .node\n      .label Outer\n    graph\n      .node\n        .label Inner");
+  assert.match(nested.errors.join("\n"), /graphs cannot be nested/);
+  const invalidLayer = parseDiagram("#canvas\n  graph\n    .layer 1.5\n    .node\n      .label Root");
+  assert.match(invalidLayer.errors.join("\n"), /graph\.layer must be an integer/);
+});
+
+test("member graphs require unique node sets and may group disconnected nodes", () => {
+  const source = "#canvas\n  graph\n    .id source\n    .node\n      .id one\n      .label One\n      .node\n        .id two\n        .label Two\n      .node\n        .id three\n        .label Three\n  graph\n    .id selected\n    .members one two";
+  const connected = parseDiagram(source);
+  assert.deepEqual(connected.errors, []);
+  assert.deepEqual(connected.groups.find((group) => group.id === "selected")?.nodeIds, ["one", "two"]);
+  const disconnected = parseDiagram(source.replace(".members one two", ".members two three"));
+  assert.deepEqual(disconnected.errors, []);
+  assert.deepEqual(disconnected.groups.find((group) => group.id === "selected")?.nodeIds, ["two", "three"]);
+  const duplicate = parseDiagram(`${source}\n  graph\n    .id duplicate\n    .members one two`);
+  assert.match(duplicate.errors.join("\n"), /already a member/);
+});
+
 test("supports independently selected source and target faces", () => {
   const source = "#canvas\n  graph\n    .node\n      .id one\n      .label One\n      .node\n        .line.source-face bottom\n        .line.target-face right\n        .line.arrow-style both\n        .line.width 4\n        .line.roundness 0\n        .id two\n        .label Two";
   const result = parseDiagram(source);

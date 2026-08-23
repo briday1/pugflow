@@ -17,6 +17,23 @@
           .node
             .id cached
             .label Cached response
+            .flow
+              .line
+                .label hit
+              .node
+                .id response
+                .label Response
+                .annotation
+                  .above Responses converge
+                .shape hexagon
+                .outline #ffd166
+                .flow
+                  .line
+                    .color #ffd166
+                  .node
+                    .label Add headers
+                  .node
+                    .label Send to client
     .flow
       .line
         .label route
@@ -31,26 +48,8 @@
           .node
             .id fresh
             .label Fresh response
-    .merge
-      .source
-        .ref cached
-        .line
-          .label hit
-      .source
-        .ref fresh
-        .line
-          .label query
-      .node
-        .id response
-        .label Response
-        .annotation
-          .above Responses converge
-        .shape hexagon
-        .outline #ffd166
-        .flow
-          .line
-            .color #ffd166
-          .node
-            .label Add headers
-          .node
-            .label Send to client
+    .flow
+      .from fresh
+      .to response
+      .line
+        .label query

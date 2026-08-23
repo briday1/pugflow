@@ -38,7 +38,7 @@ pugflow diagram.pug --css styles.css --output diagram.png --scale 2
 
 `GET /healthz` returns server status and version as JSON.
 
-The editor has `diagram.pug` and `styles.css` tabs with clear New, Open, and Download actions in the File menu. Reusable styles use CSS-shaped rules:
+The editor has `diagram.pug` and `styles.css` tabs with clear New, Open, Save, and Save As actions in the File menu. Reusable styles use CSS-shaped rules:
 
 ```css
 @node card {
@@ -53,7 +53,7 @@ The editor has `diagram.pug` and `styles.css` tabs with clear New, Open, and Dow
 }
 ```
 
-The editor opens as a blank `#canvas`; use `pugflow --demo` for the full feature tour. It provides live rendering, line numbers, highlighting, completions, a **File** menu for new/open/download actions, a collapsible source panel, high-DPI PNG clipboard copying, and a Save dialog for PNG or SVG export. A project requires one Pug file. CSS is optional unless the Pug uses custom classes such as `.card`; select both files in the Open dialog or create CSS from the File menu. Each source tab shows its loaded filename. Source is not stored in the browser.
+The editor opens as a blank `#canvas`; use `pugflow --demo` for the full feature tour. It provides live rendering, line numbers, highlighting, completions, a **File** menu for new/open/save actions using system files, a collapsible source panel, high-DPI PNG clipboard copying, and a Save dialog for PNG or SVG export. A project requires one Pug file. CSS is optional unless the Pug uses custom classes such as `.card`; select both files in the Open dialog or create CSS from the File menu. Each source tab shows its loaded filename. Source is not stored in the browser.
 
 Drag the divider beside the source panel to resize it; the width is remembered.
 Click any visible block in the preview to focus and select its corresponding source line.
@@ -80,9 +80,9 @@ Enable **Vim** beside the editor actions for Normal, Insert, and Visual modes. I
 
 The common structure is intentionally small:
 
-- `#canvas` contains one or more sibling or nested `graph` components.
-- Each `graph` has exactly one root node and defines one connected flow.
-- Sibling graphs are disconnected unless an explicit `.connect` crosses their boundaries.
+- `#canvas` contains one or more sibling `graph` components. Graphs never nest.
+- Each structural `graph` has one root node and defines a flow. A graph created from any selection of two or more nodes stores a `.members` list instead.
+- ID-based `.flow` declarations may connect nodes in different graphs in either source order.
 - Nodes nested directly inside another node become its children.
 - A child node's `.line` group styles its incoming connector.
 - Multiple directly nested nodes form a concise one-step fanout.
@@ -105,7 +105,7 @@ For a long pipeline, `.flow` avoids progressively deeper indentation:
 
 This creates `Start -> Validate -> Transform -> Publish`. A line group or reusable line class inside each flow node styles the connector entering that node.
 
-Flows and merges accept `.direction right`, `.direction left`, `.direction up`, or `.direction down`. Multiple flows may start at the same node—even in the same direction. The layout assigns competing paths separate lanes so their nodes do not overlap. Arrowheads are controlled independently with `.arrow-style`.
+Flows accept `.direction right`, `.direction left`, `.direction up`, or `.direction down`. Multiple flows may start at the same node—even in the same direction. Multiple outgoing flows are rendered as branches and multiple incoming flows are rendered as a merge. The layout assigns competing paths separate lanes so their nodes do not overlap. Arrowheads are controlled independently with `.arrow-style`.
 
 ```pug
 .node
@@ -120,17 +120,16 @@ Flows and merges accept `.direction right`, `.direction left`, `.direction up`, 
       .label Audit work
 ```
 
-A leftward `.merge` provides a feedback-style route while retaining the same source/target merge semantics.
-
-Flows and merges also accept `.ports shared` or `.ports distributed`. Shared ports attach every connection at the center of the relevant node face. Distributed ports space the connections uniformly across that face. Both default to shared ports.
+Flows also accept `.ports shared` or `.ports distributed`. Shared ports attach every connection at the center of the relevant node face. Distributed ports space the connections uniformly across that face. Both default to shared ports.
 
 ```pug
 .flow
   .direction right
   .ports distributed
 
-.merge
-  .direction right
+.flow
+  .from source-id
+  .to target-id
   .ports shared
 ```
 
@@ -174,9 +173,9 @@ Nested syntax is the canonical form because related fields stay together. Compac
 
 The complete original definition is preserved in [examples/original.pug](examples/original.pug).
 
-## Merge paths
+## ID-based flows
 
-Give source blocks IDs, then reference them from `.source` lines:
+Give nodes IDs, then use the same `.flow` keyword for convergence, feedback, cross-graph links, or a target that appears later in the source:
 
 ```pug
 #canvas
@@ -189,31 +188,30 @@ Give source blocks IDs, then reference them from `.source` lines:
       .node
         .id cache
         .label Cache
-      .merge
-        .source
-          .ref api
-          .line
-            .label live
-        .source
-          .ref cache
-          .line
-            .label hit
-        .node
-          .id result
-          .label Result
-          .annotation
-            .above Paths converge here
-          .shape hexagon
-          .node
-            .label Next block
+      .node
+        .id result
+        .label Result
+        .annotation
+          .above Paths converge here
+        .shape hexagon
+      .flow
+        .from api
+        .to result
+        .line
+          .label live
+      .flow
+        .from cache
+        .to result
+        .line
+          .label hit
 ```
 
-For a compact merge, put `.from api cache` under `.merge`. Terminal merge sources are aligned on a pre-merge frontier when space permits, while nodes that continue another flow retain their established position. Merge paths use straight segments with rounded 90-degree bends and the merge color. See [examples/flow-and-merge.pug](examples/flow-and-merge.pug).
+The parser resolves `.from` and `.to` after reading all nodes, so either endpoint may appear before or after the flow declaration. When several flows share a target, Pugflow automatically applies convergence layout and distributed merge routing.
 
-Use `.connect` when both endpoint nodes already exist, including feedback paths:
+For a feedback path, specify the endpoint directions independently:
 
 ```pug
-.connect
+.flow
   .from archived
   .from-direction left
   .to styled-text
@@ -249,7 +247,7 @@ Pugflow has a small built-in rendering theme: white background with black blocks
       .label Root
 ```
 
-`.background` and `.font` belong directly to `#canvas`. Reusable node, line, and annotation defaults are grouped under `.defaults`. Style a particular merge through the `.line` group inside that `.merge`; fields closer to an object override inherited defaults.
+`.background` and `.font` belong directly to `#canvas`. Reusable node, line, and annotation defaults are grouped under `.defaults`. Style any flow through its `.line` group; fields closer to an object override inherited defaults.
 
 ## Block options
 
@@ -321,9 +319,13 @@ The block still participates in measurement and layout, so every other block kee
 
 Click a block, block label, annotation, connection, or connection label in the preview to select its exact declaration in the editor. Drag boxes and text when the automatic result needs a visual nudge; the editor writes the resulting offsets back into the source. A translucent ghost marks the original position while dragging. Hold Shift to constrain movement to the dominant horizontal or vertical axis.
 
-Selecting a node or connector also opens the canvas inspector. Ctrl-click (Cmd-click on macOS) toggles additional nodes or connectors into the selection. The inspector can apply shared node or line properties, switch to any `@node` type defined in the source, remove offsets, align node centers/middles, and distribute selected nodes horizontally or vertically. Every inspector operation edits the Pug source directly.
+Selecting a node or connector also opens the canvas inspector. Ctrl-click (Cmd-click on macOS) toggles additional items into the selection. The inspector shows only controls applicable to every selected item. Select any two or more nodes and use **Group as Graph** to create a new canvas-level graph with a `.members` list. Every inspector operation edits the Pug source directly.
 
-Use **+ New node** above the canvas to build the graph without hand-writing its initial structure. A flow creates a new node from one chosen parent with direction, port distribution, node type, and optional line type. **Add flow** in a selected node's inspector opens the same builder with that node preselected. **Add merge** uses two or more selected/chosen source IDs and creates a new merge target. These actions insert ordinary Pug; the source remains the single editable representation.
+Graphs are packed without overlap by default. Drag a graph to write its `.offset`; explicit offsets may overlap graph frames. Set `.layer 1` (or any integer) in source, use the inspector's **Graph Layer** selector, or drag graphs in the right-side **Layers** panel. Higher layers render in front and equal layers retain source order. A connector renders at the higher layer of its two endpoint graphs, so it remains visible over both endpoints but may be obscured by an unrelated graph on a higher layer.
+
+The **Node** builder filters its **From Node** list by graph before creating a connected node. The **Flow** builder places graph-filtered **From Node** and **To Node** lists side by side, with independent endpoint directions and shared line options.
+
+Use **+ New** above the canvas to add a Graph, Node, or Flow without hand-writing its initial structure. A flow may start from one or several chosen nodes and may create a new target or point to an existing target. Branching, merging, and feedback are inferred from those flows. **Add Flow** in a selected node's inspector opens the same builder with that node preselected. These actions insert ordinary Pug; the source remains the single editable representation.
 
 - Dragging a box writes `.offset (x, y)` inside its node.
 - Dragging its label writes `.label-offset (x, y)` inside its node.
@@ -350,7 +352,7 @@ Nodes can contain a clipped image using `.image`, with `.image-width`, `.image-h
 
 ## Connections, arrows, and line annotations
 
-Set connector properties in a flow's `.line` group. Override an incoming connector with a `.line` group inside its destination node. Merge sources work the same way. Use a reusable `@line` class when several flows need identical styling.
+Set connector properties in a flow's `.line` group. Override an incoming nested connector with a `.line` group inside its destination node. Use a reusable `@line` class when several flows need identical styling.
 
 ```pug
 .flow
