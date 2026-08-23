@@ -21,8 +21,8 @@ test("the built-in showcase presents two simple independent branch-and-merge gra
   assert.ok(result.edges.filter((edge) => ["receipt", "publish"].includes(edge.to)).every((edge) => edge.kind === "merge"));
   const ownership = new Map(result.groups.flatMap((group) => group.nodeIds.map((id) => [id, group.id])));
   assert.ok(result.edges.every((edge) => ownership.get(edge.from) === ownership.get(edge.to)));
-  assert.ok(result.edges.filter((edge) => ownership.get(edge.from) === "checkout" && edge.to !== "approve").every((edge) => edge.layoutDirection === "down"));
-  assert.equal(result.edges.find((edge) => edge.to === "approve")?.sourceDirection, "right");
+  assert.ok(result.edges.filter((edge) => ownership.get(edge.from) === "checkout").every((edge) => edge.layoutDirection === "down"));
+  assert.equal(result.edges.find((edge) => edge.to === "approve")?.sourceDirection, "down");
   assert.ok(result.edges.filter((edge) => ownership.get(edge.from) === "publishing").every((edge) => edge.layoutDirection === "right"));
   for (const [from, to] of [["cart", "payment"], ["payment", "retry"]]) {
     const edge = result.edges.find((candidate) => candidate.from === from && candidate.to === to);
@@ -30,8 +30,8 @@ test("the built-in showcase presents two simple independent branch-and-merge gra
     assert.equal(edge?.targetFace, "top");
   }
   const approval = result.edges.find((edge) => edge.from === "payment" && edge.to === "approve");
-  assert.equal(approval?.sourceFace, "right");
-  assert.equal(approval?.targetFace, "left");
+  assert.equal(approval?.sourceFace, "bottom");
+  assert.equal(approval?.targetFace, "top");
   const receiptEdges = result.edges.filter((edge) => edge.to === "receipt");
   assert.deepEqual(receiptEdges.map((edge) => edge.from), ["retry", "approve"]);
   assert.ok(receiptEdges.every((edge) => edge.sourceFace === "bottom" && edge.targetFace === "top"));
@@ -51,6 +51,7 @@ test("the built-in showcase presents two simple independent branch-and-merge gra
   assert.ok(result.nodes.every((node) => !node.style.image));
   assert.equal(parsed.get("cart")?.style.color, "#ffffff");
   assert.equal(parsed.get("draft")?.style.shape, "hexagon");
+  assert.equal(parsed.get("draft")?.style.width, 100);
 });
 
 test("source saving writes the active document through a system file handle", () => {

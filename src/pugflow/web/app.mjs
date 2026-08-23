@@ -35,6 +35,7 @@ const EXAMPLE_DOCUMENT = `// Two simple, independent branching and merging flows
   .color #ffffff
   .outline #c4b5fd
   .outline-width 2
+  .width 100
 
 @line editorial_flow
   .color #7c3aed
@@ -88,8 +89,8 @@ const EXAMPLE_DOCUMENT = `// Two simple, independent branching and merging flows
             .direction down
             .step
               .line
-                .source-face right
-                .target-face left
+                .source-face bottom
+                .target-face top
               .id approve
               .label Approve order
     .merge
