@@ -38,6 +38,19 @@ function freeCandidate(base, direction, occupied) {
   }
 }
 
+function branchCandidate(edge, edges, source) {
+  const siblings = edges.filter((candidate) => candidate.kind === "branch"
+    && candidate.from === edge.from
+    && (candidate.layoutDirection ?? "right") === (edge.layoutDirection ?? "right"));
+  if (siblings.length < 2) return null;
+  const direction = edge.layoutDirection ?? "right";
+  const vector = VECTORS[direction];
+  const lane = siblings.indexOf(edge) - (siblings.length - 1) / 2;
+  return vector.x
+    ? { x: source.x + vector.x, y: source.y + lane }
+    : { x: source.x + lane, y: source.y + vector.y };
+}
+
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
@@ -141,7 +154,8 @@ function assignCells(nodes, edges) {
         changed = true;
         continue;
       }
-      const position = freeCell(from, edge.layoutDirection, occupied);
+      const branchBase = branchCandidate(edge, edges, from);
+      const position = branchBase ? freeCandidate(branchBase, edge.layoutDirection, occupied) : freeCell(from, edge.layoutDirection, occupied);
       positions.set(edge.to, position);
       occupied.add(cellKey(position.x, position.y));
       changed = true;
@@ -168,13 +182,14 @@ function assignCells(nodes, edges) {
         const sources = incoming.map((candidate) => positions.get(candidate.from));
         if (incoming.length && sources.some((position) => !position)) continue;
         const direction = edge.layoutDirection ?? "right";
+        const branchBase = branchCandidate(edge, edges, from);
         const base = incoming.length
           ? direction === "left" ? { x: Math.min(...sources.map((position) => position.x)) - 1, y: median(sources.map((position) => position.y)) }
             : direction === "right" ? { x: Math.max(...sources.map((position) => position.x)) + 1, y: median(sources.map((position) => position.y)) }
               : direction === "up" ? { x: median(sources.map((position) => position.x)), y: Math.min(...sources.map((position) => position.y)) - 1 }
                 : { x: median(sources.map((position) => position.x)), y: Math.max(...sources.map((position) => position.y)) + 1 }
-          : freeCell(from, direction, occupied);
-        const position = incoming.length ? freeCandidate(base, direction, occupied) : base;
+          : branchBase ?? freeCell(from, direction, occupied);
+        const position = incoming.length || branchBase ? freeCandidate(base, direction, occupied) : base;
         positions.set(edge.to, position);
         occupied.add(cellKey(position.x, position.y));
         componentChanged = true;

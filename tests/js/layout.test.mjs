@@ -88,6 +88,19 @@ test("places multiple directional flows without collisions", () => {
   assert.notEqual(nodes.get("east").y, nodes.get("east-two").y);
 });
 
+test("centers same-direction sibling branches around their source", () => {
+  const nodes = ["payment", "retry", "approve"].map((id) => ({ id, width: 160, height: 60 }));
+  const edges = [
+    { from: "payment", to: "retry", kind: "branch", layoutDirection: "down", sourceDirection: "down", targetLayoutDirection: "down" },
+    { from: "payment", to: "approve", kind: "branch", layoutDirection: "down", sourceDirection: "down", targetLayoutDirection: "down" },
+  ];
+  const placed = new Map(layoutDiagram(nodes, edges).nodes.map((node) => [node.id, node]));
+  const centerX = (node) => node.x + node.width / 2;
+  assert.equal(centerX(placed.get("payment")), (centerX(placed.get("retry")) + centerX(placed.get("approve"))) / 2);
+  assert.equal(placed.get("retry").y, placed.get("approve").y);
+  assert.notEqual(placed.get("retry").x, placed.get("approve").x);
+});
+
 test("routes merge connections with rounded orthogonal bends", () => {
   const source = { x: 10, y: 10, width: 100, height: 40, aboveHeight: 0 };
   const target = { x: 260, y: 100, width: 100, height: 40, aboveHeight: 0 };
