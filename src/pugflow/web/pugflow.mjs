@@ -20,7 +20,7 @@ function cssVariables(element) {
     label: read("--diagram-label", "#111111"),
     text: read("--diagram-text", "#111111"),
     merge: read("--diagram-merge", "#111111"),
-    annotation: read("--diagram-annotation", "#111111"),
+    annotation: read("--diagram-annotation", "#000000"),
     font: read("--diagram-font", "Verdana, sans-serif"),
   };
 }

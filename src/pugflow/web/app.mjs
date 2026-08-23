@@ -42,7 +42,6 @@ const EXAMPLE_DOCUMENT = `// Two simple, independent branching and merging flows
   .stroke-style dashed
 
 @annotation note
-  .color #334155
   .font-style italic
 
 #canvas

@@ -67,6 +67,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
   const html = readFileSync(new URL("../../src/pugflow/web/index.html", import.meta.url), "utf8");
   const styles = readFileSync(new URL("../../src/pugflow/web/styles.css", import.meta.url), "utf8");
+  const diagramStyles = readFileSync(new URL("../../src/pugflow/web/pugflow.css", import.meta.url), "utf8");
   const renderer = readFileSync(new URL("../../src/pugflow/web/pugflow.mjs", import.meta.url), "utf8");
   assert.match(html, /id="new-pug"/);
   assert.match(html, /id="new-css"/);
@@ -93,6 +94,9 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /match\[6\] \? "sbd-color"/);
   assert.match(styles, /::highlight\(sbd-color\)/);
   assert.match(styles, /::highlight\(sbd-number\)/);
+  assert.match(diagramStyles, /--diagram-annotation: #000000/);
+  assert.match(styles, /:root\[data-theme="dark"\][\s\S]*--diagram-annotation: #000000/);
+  assert.match(renderer, /annotation: read\("--diagram-annotation", "#000000"\)/);
   assert.doesNotMatch(html, /builder-diagram-no-(?:fill|outline)/);
   assert.match(app, />Send to front<\/option><option value="back">Send to back/);
   assert.doesNotMatch(app, /New front layer/);

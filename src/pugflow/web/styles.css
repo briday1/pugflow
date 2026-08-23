@@ -50,7 +50,7 @@
   --diagram-label: #f4f8fb;
   --diagram-text: #d6e2ec;
   --diagram-merge: #d6e2ec;
-  --diagram-annotation: #a4b6c5;
+  --diagram-annotation: #000000;
 }
 
 * { box-sizing: border-box; }
