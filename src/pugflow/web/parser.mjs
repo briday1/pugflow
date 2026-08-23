@@ -8,6 +8,7 @@ const PORT_DISTRIBUTIONS = new Set(["shared", "distributed"]);
 const LINE_STYLES = new Set(["solid", "dashed", "dotted"]);
 const LINE_FIELDS = new Set([
   "line.arrow-style", "line.color", "line.stroke-style", "line.width",
+  "line.source-face", "line.target-face", "line.roundness",
   "line.label", "line.label-position", "line.label-offset", "line.label-hidden",
   "line.annotation-above", "line.annotation-below", "line.annotation-above-hidden", "line.annotation-below-hidden",
   "line.use", "line.hidden",
@@ -15,6 +16,9 @@ const LINE_FIELDS = new Set([
 ]);
 const LINE_DEFINITION_FIELDS = new Map([
   ["arrow-style", "line.arrow-style"],
+  ["source-face", "line.source-face"],
+  ["target-face", "line.target-face"],
+  ["roundness", "line.roundness"],
   ["color", "line.color"],
   ["stroke-style", "line.stroke-style"],
   ["width", "line.width"],
@@ -297,6 +301,13 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
   if (!LINE_STYLES.has(style)) errors.push(`Line ${lineNumber}: unknown line style "${style}".`);
   const layoutDirection = attrs.direction ?? defaults.layoutDirection ?? "right";
   if (!FLOW_DIRECTIONS.has(layoutDirection)) errors.push(`Line ${lineNumber}: direction must be right, left, up, or down.`);
+  const faces = new Set(["top", "right", "bottom", "left"]);
+  const sourceFace = effective["line.source-face"] ?? defaults.sourceFace ?? null;
+  const targetFace = effective["line.target-face"] ?? defaults.targetFace ?? null;
+  if (sourceFace && !faces.has(sourceFace)) errors.push(`Line ${lineNumber}: line.source-face must be top, right, bottom, or left.`);
+  if (targetFace && !faces.has(targetFace)) errors.push(`Line ${lineNumber}: line.target-face must be top, right, bottom, or left.`);
+  const sourceDirections = { top: "up", right: "right", bottom: "down", left: "left" };
+  const targetDirections = { top: "down", right: "left", bottom: "up", left: "right" };
   const portDistribution = attrs.ports ?? defaults.portDistribution ?? "shared";
   if (!PORT_DISTRIBUTIONS.has(portDistribution)) errors.push(`Line ${lineNumber}: ports must be shared or distributed.`);
   const labelOffset = effective["line.label-offset"] !== undefined
@@ -308,6 +319,7 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
     color: effective["line.color"] ?? defaults.color ?? null,
     style: LINE_STYLES.has(style) ? style : "solid",
     width: numberAttribute(effective["line.width"], defaults.width ?? 2, 0.5, "line.width", lineNumber, errors),
+    roundness: numberAttribute(effective["line.roundness"], defaults.roundness ?? 9, 0, "line.roundness", lineNumber, errors),
     label: effective["line.label"] ?? defaults.label ?? "",
     labelPosition: effective["line.label-position"] ?? defaults.labelPosition ?? "above",
     lineNumber,
@@ -328,6 +340,10 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
       ? ![false, "false", "no", "0"].includes(effective["line.annotation-below-hidden"])
       : effective["line.annotation-below"] === undefined && effective["line.label-hidden"] !== undefined,
     layoutDirection: FLOW_DIRECTIONS.has(layoutDirection) ? layoutDirection : "right",
+    sourceDirection: sourceDirections[sourceFace] ?? defaults.sourceDirection ?? (FLOW_DIRECTIONS.has(layoutDirection) ? layoutDirection : "right"),
+    targetLayoutDirection: targetDirections[targetFace] ?? defaults.targetLayoutDirection ?? null,
+    sourceFace: faces.has(sourceFace) ? sourceFace : null,
+    targetFace: faces.has(targetFace) ? targetFace : null,
     portDistribution: PORT_DISTRIBUTIONS.has(portDistribution) ? portDistribution : "shared",
     hidden: effective["line.hidden"] !== undefined && ![false, "false", "no", "0"].includes(effective["line.hidden"]),
     fontFamily: effective["line.font-family"] ?? defaults.fontFamily ?? null,
@@ -696,7 +712,10 @@ function compileMarkup(tree) {
       if (!FLOW_DIRECTIONS.has(fromDirection)) errors.push(`Line ${connect.lineNumber}: from-direction must be right, left, up, or down.`);
       if (!FLOW_DIRECTIONS.has(toDirection)) errors.push(`Line ${connect.lineNumber}: to-direction must be right, left, up, or down.`);
       const style = edgeStyle(attributes, { ...edgeDefaults, portDistribution: "shared" }, connect.lineNumber, errors, lineStyles);
-      edges.push({ from, to, kind: "connection", ...style, layoutDirection: FLOW_DIRECTIONS.has(fromDirection) ? fromDirection : "right", targetLayoutDirection: FLOW_DIRECTIONS.has(toDirection) ? toDirection : fromDirection });
+      edges.push({ from, to, kind: "connection", ...style,
+        layoutDirection: FLOW_DIRECTIONS.has(fromDirection) ? fromDirection : "right",
+        sourceDirection: style.sourceFace ? style.sourceDirection : (FLOW_DIRECTIONS.has(fromDirection) ? fromDirection : "right"),
+        targetLayoutDirection: style.targetFace ? style.targetLayoutDirection : (FLOW_DIRECTIONS.has(toDirection) ? toDirection : fromDirection) });
     }
   }
 

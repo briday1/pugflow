@@ -343,7 +343,7 @@ function ensureMarker(defs, color) {
 }
 
 /** Route a connection with straight segments and small rounded 90-degree bends. */
-export function connectionPath(source, target, kind = "branch", direction = "right", targetPortOffset = 0, sourcePortOffset = 0, targetDirection = direction) {
+export function connectionPath(source, target, kind = "branch", direction = "right", targetPortOffset = 0, sourcePortOffset = 0, targetDirection = direction, roundness = 9) {
   const vertical = direction === "up" || direction === "down";
   const sx = vertical ? source.x + source.width / 2 + sourcePortOffset : direction === "left" ? source.x : source.x + source.width;
   const sy = vertical ? direction === "up" ? boxTop(source) : boxTop(source) + source.height : centerY(source) + sourcePortOffset;
@@ -365,16 +365,16 @@ export function connectionPath(source, target, kind = "branch", direction = "rig
       const middleX = (startLead.x + endLead.x) / 2;
       middle = [{ x: middleX, y: startLead.y }, { x: middleX, y: endLead.y }];
     }
-    return roundedRoute([{ x: sx, y: sy }, startLead, ...middle, endLead, { x: tx, y: ty }]);
+    return roundedRoute([{ x: sx, y: sy }, startLead, ...middle, endLead, { x: tx, y: ty }], roundness);
   }
   if (vertical) {
     if (Math.abs(sx - tx) < 1) return { d: `M ${sx} ${sy} V ${ty}`, labelX: sx, labelY: (sy + ty) / 2 };
     const middle = sy + (ty - sy) * (kind === "merge" ? 0.58 : 0.5);
     const ySign = Math.sign(ty - sy) || 1;
     const xSign = Math.sign(tx - sx) || 1;
-    const radius = Math.min(9, Math.abs(tx - sx) / 2, Math.abs(middle - sy) / 2, Math.abs(ty - middle) / 2);
+    const radius = Math.min(roundness, Math.abs(tx - sx) / 2, Math.abs(middle - sy) / 2, Math.abs(ty - middle) / 2);
     return {
-      d: `M ${sx} ${sy} V ${middle - ySign * radius} Q ${sx} ${middle} ${sx + xSign * radius} ${middle} H ${tx - xSign * radius} Q ${tx} ${middle} ${tx} ${middle + ySign * radius} V ${ty}`,
+      d: radius ? `M ${sx} ${sy} V ${middle - ySign * radius} Q ${sx} ${middle} ${sx + xSign * radius} ${middle} H ${tx - xSign * radius} Q ${tx} ${middle} ${tx} ${middle + ySign * radius} V ${ty}` : `M ${sx} ${sy} V ${middle} H ${tx} V ${ty}`,
       labelX: tx,
       labelY: kind === "merge" ? (sy + middle) / 2 : (middle + ty) / 2,
     };
@@ -383,9 +383,9 @@ export function connectionPath(source, target, kind = "branch", direction = "rig
   const middle = sx + (tx - sx) * (kind === "merge" ? 0.58 : 0.5);
   const xSign = Math.sign(tx - sx) || 1;
   const ySign = Math.sign(ty - sy) || 1;
-  const radius = Math.min(9, Math.abs(ty - sy) / 2, Math.abs(middle - sx) / 2, Math.abs(tx - middle) / 2);
+  const radius = Math.min(roundness, Math.abs(ty - sy) / 2, Math.abs(middle - sx) / 2, Math.abs(tx - middle) / 2);
   return {
-    d: `M ${sx} ${sy} H ${middle - xSign * radius} Q ${middle} ${sy} ${middle} ${sy + ySign * radius} V ${ty - ySign * radius} Q ${middle} ${ty} ${middle + xSign * radius} ${ty} H ${tx}`,
+    d: radius ? `M ${sx} ${sy} H ${middle - xSign * radius} Q ${middle} ${sy} ${middle} ${sy + ySign * radius} V ${ty - ySign * radius} Q ${middle} ${ty} ${middle + xSign * radius} ${ty} H ${tx}` : `M ${sx} ${sy} H ${middle} V ${ty} H ${tx}`,
     labelX: kind === "merge" ? (sx + middle) / 2 : (middle + tx) / 2,
     labelY: kind === "merge" ? sy : ty,
   };
@@ -404,7 +404,7 @@ function segmentClear(a, b, obstacles) {
   });
 }
 
-function roundedRoute(points) {
+function roundedRoute(points, roundness = 9) {
   const unique = points.filter((point, index) => !index || point.x !== points[index - 1].x || point.y !== points[index - 1].y);
   const compact = unique.filter((point, index) => {
     if (!index || index === unique.length - 1) return true;
@@ -412,6 +412,12 @@ function roundedRoute(points) {
     const next = unique[index + 1];
     return !((previous.x === point.x && point.x === next.x) || (previous.y === point.y && point.y === next.y));
   });
+  if (roundness <= 0) {
+    const d = compact.slice(1).reduce((path, point) => `${path} L ${point.x} ${point.y}`, `M ${compact[0].x} ${compact[0].y}`);
+    const segments = compact.slice(1).map((point, index) => ({ a: compact[index], b: point, length: Math.abs(point.x - compact[index].x) + Math.abs(point.y - compact[index].y) }));
+    const labelSegment = segments.sort((a, b) => b.length - a.length)[0];
+    return { d, labelX: (labelSegment.a.x + labelSegment.b.x) / 2, labelY: (labelSegment.a.y + labelSegment.b.y) / 2 };
+  }
   let d = `M ${compact[0].x} ${compact[0].y}`;
   for (let index = 1; index < compact.length - 1; index += 1) {
     const previous = compact[index - 1];
@@ -419,7 +425,7 @@ function roundedRoute(points) {
     const next = compact[index + 1];
     const incoming = Math.abs(point.x - previous.x) + Math.abs(point.y - previous.y);
     const outgoing = Math.abs(next.x - point.x) + Math.abs(next.y - point.y);
-    const radius = Math.min(9, incoming / 2, outgoing / 2);
+    const radius = Math.min(roundness, incoming / 2, outgoing / 2);
     const before = {
       x: point.x - Math.sign(point.x - previous.x) * radius,
       y: point.y - Math.sign(point.y - previous.y) * radius,
@@ -445,8 +451,8 @@ function roundedRoute(points) {
   };
 }
 
-export function connectionPathAvoidingNodes(source, target, kind, direction, nodes, targetPortOffset = 0, sourcePortOffset = 0, targetDirection = direction) {
-  const basic = connectionPath(source, target, kind, direction, targetPortOffset, sourcePortOffset, targetDirection);
+export function connectionPathAvoidingNodes(source, target, kind, direction, nodes, targetPortOffset = 0, sourcePortOffset = 0, targetDirection = direction, roundness = 9) {
+  const basic = connectionPath(source, target, kind, direction, targetPortOffset, sourcePortOffset, targetDirection, roundness);
   const vertical = direction === "up" || direction === "down";
   const start = vertical
     ? { x: source.x + source.width / 2 + sourcePortOffset, y: direction === "up" ? boxTop(source) : boxTop(source) + source.height }
@@ -519,18 +525,19 @@ export function connectionPathAvoidingNodes(source, target, kind, direction, nod
   for (let state = finished; state; state = state.previous) route.unshift(state.point);
   route.unshift(start);
   route.push(end);
-  return roundedRoute(route);
+  return roundedRoute(route, roundness);
 }
 
 function addEdge(svg, defs, edge, source, target, colors, nodes) {
   const color = edgeColor(edge, colors);
   const marker = ensureMarker(defs, color);
-  const vertical = ["up", "down"].includes(edge.layoutDirection);
+  const sourceDirection = edge.sourceDirection ?? edge.layoutDirection;
+  const vertical = ["up", "down"].includes(sourceDirection);
   const targetDirection = edge.targetLayoutDirection ?? edge.layoutDirection;
   const targetVertical = ["up", "down"].includes(targetDirection);
   const targetPortOffset = (edge.targetPortFraction ?? 0) * (targetVertical ? target.width : target.height);
   const sourcePortOffset = (edge.sourcePortFraction ?? 0) * (vertical ? source.width : source.height);
-  const route = connectionPathAvoidingNodes(source, target, edge.kind, edge.layoutDirection, nodes, targetPortOffset, sourcePortOffset, targetDirection);
+  const route = connectionPathAvoidingNodes(source, target, edge.kind, sourceDirection, nodes, targetPortOffset, sourcePortOffset, targetDirection, edge.roundness);
   const path = svgElement("path", {
     d: route.d,
     class: `connector ${edge.kind}`,
@@ -639,15 +646,19 @@ function diagramBounds(groups, nodesById) {
 }
 
 function addDiagramFrame(svg, group, colors) {
-  const frame = svgElement("g", { "data-line": group.lineNumber, "data-id": group.id, "data-select-kind": "graph", "data-selection-key": `graph:${group.id}`, "data-drag-kind": "graph", "data-current-x": group.offsetX ?? 0, "data-current-y": group.offsetY ?? 0 });
+  const frame = svgElement("g", { "data-line": group.lineNumber, "data-id": group.id, "data-select-kind": "graph", "data-selection-key": `graph:${group.id}`, "data-drag-kind": "graph", "data-current-x": group.offsetX ?? 0, "data-current-y": group.offsetY ?? 0, role: "group", tabindex: 0, "aria-label": group.label ? `Graph: ${group.label}` : "Graph boundary" });
   frame.append(svgElement("rect", {
     class: "subdiagram-hit", x: group.x, y: group.y, width: group.right - group.x, height: group.bottom - group.y,
-    rx: 12, fill: "none", stroke: "transparent", "stroke-width": 16, "pointer-events": "stroke",
+    rx: 12, fill: "none", stroke: "transparent", "stroke-width": 28, "pointer-events": "stroke",
   }));
   frame.append(svgElement("rect", {
     class: "subdiagram-frame", x: group.x, y: group.y, width: group.right - group.x, height: group.bottom - group.y,
     rx: 12, fill: group.fill, stroke: group.outline, "stroke-width": group.outlineWidth,
     "stroke-dasharray": dashArray(group.outlineStyle), "pointer-events": "none",
+  }));
+  frame.append(svgElement("rect", {
+    class: "subdiagram-selection-outline", x: group.x, y: group.y, width: group.right - group.x, height: group.bottom - group.y,
+    rx: 12, fill: "none", stroke: "var(--accent)", "stroke-width": 3, "stroke-dasharray": "7 4", "pointer-events": "none",
   }));
   if (group.label) {
     const label = svgElement("text", { class: "subdiagram-label", x: group.x + 12, y: group.y + 17, fill: group.color ?? colors.text, "pointer-events": "none" });
@@ -861,6 +872,7 @@ function renderSvg(container, graph, options) {
         });
         completed.ghosts.forEach((ghost) => ghost.remove());
         if (Math.hypot(completed.dx, completed.dy) > 2) {
+          const drop = pointFor(event);
           options.onElementMove({
             kind: completed.target.dataset.dragKind,
             selectionKey: completed.selectionKey,
@@ -874,6 +886,8 @@ function renderSvg(container, graph, options) {
             resizeY: Number(completed.target.dataset.resizeY ?? 0),
             dx: completed.dx,
             dy: completed.dy,
+            dropX: drop.x,
+            dropY: drop.y,
           });
         }
       };

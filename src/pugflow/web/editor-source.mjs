@@ -399,6 +399,33 @@ export function appendDiagramNode(value, { nodeType = "node", id = "", label = "
   return lines.join("\n");
 }
 
+export function reparentGraph(value, graphLineNumber, parentGraphLineNumber = null) {
+  const lines = value.split("\n");
+  const start = graphLineNumber - 1;
+  const sourceIndent = indentationWidth(lines[start] ?? "");
+  if (lines[start]?.trim() !== "graph") return value;
+  let end = start + 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > sourceIndent)) end += 1;
+  if (parentGraphLineNumber && parentGraphLineNumber - 1 >= start && parentGraphLineNumber - 1 < end) return value;
+  const block = lines.splice(start, end - start);
+  let parentIndex;
+  if (parentGraphLineNumber) {
+    parentIndex = parentGraphLineNumber - 1;
+    if (parentIndex >= end) parentIndex -= block.length;
+  } else {
+    parentIndex = lines.findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim()));
+  }
+  if (parentIndex < 0) return value;
+  const parentIndent = indentationWidth(lines[parentIndex]);
+  let insertion = parentIndex + 1;
+  while (insertion < lines.length && (!lines[insertion].trim() || indentationWidth(lines[insertion]) > parentIndent)) insertion += 1;
+  const targetWhitespace = (lines[parentIndex].match(/^\s*/)?.[0] ?? "") + "  ";
+  const sourceWhitespace = block[0].match(/^\s*/)?.[0] ?? "";
+  const moved = block.map((line) => line.trim() ? targetWhitespace + line.slice(sourceWhitespace.length) : "");
+  lines.splice(insertion, 0, ...moved);
+  return lines.join("\n");
+}
+
 export function appendMergeNode(value, rootLabelLineNumber, { sources = [], direction = "right", ports = "shared", nodeType = "node", lineType = "", id = "", label = "" } = {}) {
   const lines = value.split("\n");
   const range = nodeRange(lines, rootLabelLineNumber);

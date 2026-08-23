@@ -94,6 +94,13 @@ test("routes merge connections with rounded orthogonal bends", () => {
   assert.equal(route.labelY, 30);
 });
 
+test("uses configurable connector corner roundness", () => {
+  const source = { x: 0, y: 0, width: 100, height: 40, layoutHeight: 40 };
+  const target = { x: 200, y: 100, width: 100, height: 40, layoutHeight: 40 };
+  assert.match(connectionPath(source, target, "branch", "right", 0, 0, "right", 12).d, / Q /);
+  assert.doesNotMatch(connectionPath(source, target, "branch", "right", 0, 0, "right", 0).d, / Q /);
+});
+
 test("routes vertical and leftward connections from the correct sides", () => {
   const source = { x: 200, y: 100, width: 100, height: 40, aboveHeight: 0 };
   const below = { x: 200, y: 240, width: 100, height: 40, aboveHeight: 0 };

@@ -15,6 +15,7 @@
         <div><strong>Pugflow</strong><small>Readable source, polished diagrams</small></div>
       </div>
       <nav>
+        <button id="toggle-source" type="button" aria-controls="source-panel" aria-expanded="true">Hide source</button>
         <label class="theme-control">Theme
           <select id="theme" aria-label="Application theme">
             <option value="system">System</option>
@@ -28,17 +29,27 @@
     </header>
 
     <main>
-      <aside id="source-panel">
+      <aside id="source-panel" aria-label="Diagram source">
         <div class="panel-title">
           <h1>Diagram source</h1>
           <div class="editor-actions">
             <label class="vim-toggle"><input id="vim-mode" type="checkbox" /> Vim</label>
-            <button id="load-source" type="button">Open Pug/CSS…</button>
-            <button id="save-source" type="button">Save Pug + CSS</button>
+            <details class="file-menu">
+              <summary>File</summary>
+              <div>
+                <strong>NEW</strong>
+                <button id="new-pug" type="button">New Pug</button>
+                <button id="new-css" type="button">New CSS</button>
+                <strong>OPEN</strong>
+                <button id="load-source" type="button">Open Pug/CSS…</button>
+                <strong>SAVE</strong>
+                <button id="save-source" type="button">Download open files</button>
+              </div>
+            </details>
           </div>
         </div>
         <div class="source-tabs" role="tablist" aria-label="Source documents"><button class="active" data-source-tab="pug" role="tab" aria-selected="true">Pug</button><button data-source-tab="css" role="tab" aria-selected="false">CSS</button></div>
-        <p class="help">Open a required <code>.pug</code> alone, or select its optional <code>.css</code> companion in the same dialog. You can add or replace either file later.</p>
+        <p class="help">The tabs identify the files being edited. Use <strong>File</strong> to create, open, or download the current Pug and optional CSS.</p>
         <div class="editor-shell">
           <div class="current-line" id="current-line" aria-hidden="true"></div>
           <div class="line-numbers" id="line-numbers" aria-hidden="true"></div>

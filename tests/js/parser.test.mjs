@@ -328,6 +328,17 @@ test("connects existing nodes with independent endpoint directions", () => {
   assert.equal(connection.targetLayoutDirection, "down");
 });
 
+test("supports independently selected source and target faces", () => {
+  const source = "#canvas\n  graph\n    .node\n      .id one\n      .label One\n      .node\n        .line.source-face bottom\n        .line.target-face right\n        .line.arrow-style both\n        .line.width 4\n        .line.roundness 0\n        .id two\n        .label Two";
+  const result = parseDiagram(source);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.edges[0].sourceDirection, "down");
+  assert.equal(result.edges[0].targetLayoutDirection, "left");
+  assert.equal(result.edges[0].direction, "both");
+  assert.equal(result.edges[0].width, 4);
+  assert.equal(result.edges[0].roundness, 0);
+});
+
 test("applies figure defaults and retains per-block overrides", () => {
   const source = [
     "#diagram",

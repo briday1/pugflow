@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appendDiagramNode, appendFlowNode, appendMergeNode, indentSourceSelection, removeNodeDeclaration, removeNodeReferences, removeNodeField, setAnnotationOffsetField, setAnnotationText, setNodeAnnotationField, setNodeAnnotationText, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
+import { appendDiagramNode, appendFlowNode, appendMergeNode, indentSourceSelection, removeNodeDeclaration, removeNodeReferences, removeNodeField, reparentGraph, setAnnotationOffsetField, setAnnotationText, setNodeAnnotationField, setNodeAnnotationText, setNodeField, setNodeImageGeometry, setNodeLineType, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "../../src/pugflow/web/editor-source.mjs";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 
 test("edits inspector-backed node and connector properties", () => {
@@ -150,6 +150,17 @@ test("inserts a nested graph only inside the selected graph", () => {
   const parsed = parseDiagram(updated);
   assert.deepEqual(parsed.errors, []);
   assert.equal(parsed.groups.length, 2);
+});
+
+test("moves graph blocks into another graph and back to the canvas", () => {
+  const source = "#canvas\n  graph\n    .id outer\n    .node\n      .id root\n      .label Root\n  graph\n    .id inner\n    .node\n      .id child\n      .label Child";
+  const nested = reparentGraph(source, 7, 2);
+  assert.match(nested, /  graph\n    \.id outer[\s\S]*    graph\n      \.id inner/);
+  assert.deepEqual(parseDiagram(nested).errors, []);
+  const inner = parseDiagram(nested).groups.find((group) => group.id === "inner");
+  const unnested = reparentGraph(nested, inner.lineNumber);
+  assert.match(unnested, /\n  graph\n    \.id inner/);
+  assert.deepEqual(parseDiagram(unnested).errors, []);
 });
 
 test("appends sibling graphs after blank lines at the canvas level", () => {
