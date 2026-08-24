@@ -9,6 +9,7 @@ from urllib.request import urlopen
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from pugflow import __version__  # noqa: E402
 from pugflow.server import create_server  # noqa: E402
 
 
@@ -50,7 +51,7 @@ class ServerTests(unittest.TestCase):
         status, headers, body = self.get("/healthz")
         self.assertEqual(status, 200)
         self.assertEqual(headers.get_content_type(), "application/json")
-        self.assertEqual(json.loads(body), {"status": "ok", "version": "0.3.1"})
+        self.assertEqual(json.loads(body), {"status": "ok", "version": __version__})
 
     def test_serves_an_optional_paired_gui_project(self):
         self.server.project_pug = "#canvas\n"
