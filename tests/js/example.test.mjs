@@ -208,6 +208,8 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(html, /id="graph-nodes-list"[^>]*role="list"/);
   assert.match(html, /id="graph-flows-list"[^>]*role="list"/);
   assert.match(html, /id="graph-panel-resizer"[^>]*role="separator"/);
+  assert.match(html, /class="toggle-label">Objects/);
+  assert.match(html, /class="layers-title">[\s\S]*?<h2>Objects<\/h2>/);
   assert.match(html, /class="graph-browser-section graph-ordering" open>\s*<summary>Graphs <small id="graph-count">0<\/small><\/summary>/);
   assert.doesNotMatch(html, /Drag graphs to reorder them\. The top graph renders in front\./);
   assert.match(app, /data-browser-node/);
@@ -226,10 +228,16 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(styles, /\.graph-browser \{[^}]*border-top:/);
   assert.match(styles, /\.node-layer-item/);
   assert.match(styles, /\.node-layer-copy/);
+  assert.match(styles, /\.object-hidden[^}]*text-decoration: line-through/);
+  assert.doesNotMatch(styles, /\.object-hidden[^}]*font-style:\s*italic/);
   assert.match(html, /<main class="layers-collapsed">/);
   assert.match(html, /class="toggle-label">Source/);
-  assert.match(html, /class="toggle-label">Graphs/);
+  assert.doesNotMatch(html, /class="toggle-label">Graphs/);
   assert.match(app, /draggable="true" data-layer-graph/);
+  assert.match(app, /layer-item\$\{group\.hidden \? " object-hidden" : ""\}/);
+  assert.match(app, /node-layer-item\$\{node\.hidden \? " object-hidden" : ""\}/);
+  assert.match(app, /graph-item\$\{edge\.hidden \? " object-hidden" : ""\}/);
+  assert.match(app, /graphs selected<\/h3>[\s\S]*data-graph-hidden/);
   assert.match(app, /setStructuralField\(nextSource, group\.lineNumber, "layer"/);
   assert.match(app, /const targetGraph = sourceGraph/);
   assert.doesNotMatch(app, /removeNodeFields\(nextSource, node\.lineNumber, \["offset", "label-offset"\]\)/);

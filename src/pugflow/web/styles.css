@@ -166,6 +166,7 @@ main.layers-collapsed .layers-panel { visibility: hidden; padding-inline: 0; bor
 .graph-item:hover, .graph-item:focus-visible { border-color: var(--accent); background: var(--code-bg); outline: none; }
 .graph-item strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .graph-item small { overflow: hidden; color: var(--faint); font: 9px Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.object-hidden .layer-name, .object-hidden .node-layer-copy, .graph-item.object-hidden strong, .graph-item.object-hidden small { text-decoration: line-through; }
 .node-layer-item { grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 7px; cursor: grab; }
 .node-layer-copy { display: grid; min-width: 0; gap: 2px; }
 .node-layer-item.dragging { opacity: .42; }
