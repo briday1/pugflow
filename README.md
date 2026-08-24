@@ -138,14 +138,13 @@ graph
     .direction down
 ```
 
-Flows also accept `.ports shared` or `.ports distributed`. Shared ports attach every connection at the center of the relevant node face. Distributed ports space the connections uniformly across that face. Both default to shared ports.
+Each node face accepts its own port setting: `.top-ports`, `.right-ports`, `.bottom-ports`, and `.left-ports`. Use `shared` (the default) to attach connections at the face center or `distributed` to space them uniformly.
 
 ```pug
-.flow
-  .from source-id
-  .to target-id
-  .direction right
-  .ports shared
+.node
+  .id source-id
+  .right-ports distributed
+  .label Source
 ```
 
 ## Reusable style classes
@@ -229,7 +228,6 @@ For a feedback path, specify the endpoint directions independently:
   .from-direction left
   .to styled-text
   .to-direction up
-  .ports shared
   .label feedback
 ```
 
@@ -337,9 +335,9 @@ Selecting a node or flow also opens the canvas inspector. Ctrl-click (Cmd-click 
 
 Graphs are packed without overlap by default. Graph titles support `.label-position inside|outside`, `.align left|center|right`, `.color`, and the standard font fields. Use `.x-spacing` and `.y-spacing` to tune a graph's layout. Drag a graph to write its `.offset`; explicit offsets may overlap graph frames. Set `.layer 1` (or any integer) in source, use the inspector's **Graph Layer** selector, or reorder graphs in the collapsible **Graphs** section of the right-side **Graphs** panel. Higher layers render in front and equal layers retain source order. A flow renders at the higher layer of its two endpoint graphs, so it remains visible over both endpoints but may be obscured by an unrelated graph on a higher layer. Choose a graph in that panel to browse its nodes and flows; selecting an item opens its normal property inspector. The node list is ordered front to back. Initially, node declaration order determines that stacking without adding `.layer` fields. Dragging nodes or using **Node Layer** to send selected nodes to the front or back persists explicit `.layer` values in the source.
 
-The **Node** builder adds an independent node to the chosen graph. The **Flow** builder places graph-filtered **From** and **To** endpoints side by side, with independent directions and shared flow options.
+The **Node** builder adds an independent node to the chosen graph. The **Flow** builder places graph-filtered **From** and **To** endpoints side by side with independent directions.
 
-Use **+ New** above the canvas to add a Graph, Node, or Flow without hand-writing its initial structure. Branching, merging, and feedback are inferred from explicit flows. **Add Flow** in a selected node's inspector opens the same builder with that node preselected. These actions insert ordinary Pug; the source remains the single editable representation.
+Use **+ New** above the canvas to add a Graph, Node, or Flow without hand-writing its initial structure. Branching, merging, and feedback are inferred from explicit flows. **Add Connected Node** in a selected node's inspector creates and connects a new node above, below, left, or right; **Add Flow** connects existing nodes. These actions insert ordinary Pug; the source remains the single editable representation.
 
 - Dragging a box writes `.offset (x, y)` inside its node.
 - Dragging its label writes `.label-offset (x, y)` inside its node.

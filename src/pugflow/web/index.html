@@ -110,13 +110,12 @@
               <fieldset class="flow-only"><legend>From Node</legend><div id="builder-sources" class="node-choice-list" role="listbox" aria-label="From node"></div></fieldset>
               <label class="flow-only">From direction<select id="builder-from-direction"><option>right</option><option>left</option><option>down</option><option>up</option></select></label>
             </section>
-            <section class="flow-endpoint flow-only">
+            <section class="flow-endpoint flow-only existing-target-only">
               <label>To graph<select id="builder-to-graph"></select></label>
               <fieldset><legend>To Node</legend><div id="builder-targets" class="node-choice-list" role="listbox" aria-label="To node"></div></fieldset>
               <label>To direction<select id="builder-to-direction"><option>right</option><option>left</option><option>down</option><option>up</option></select></label>
             </section>
           </div>
-          <label class="relationship-only">Ports<select id="builder-ports"><option>shared</option><option>distributed</option></select></label>
           <label class="new-target-only">Node type<select id="builder-node-type"></select></label>
           <label class="relationship-only">Flow type<select id="builder-line-type"><option value="">Default flow</option></select></label>
           <label class="diagram-only">Graph ID<input id="builder-diagram-id" pattern="[A-Za-z][A-Za-z0-9_-]*"></label>

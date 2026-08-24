@@ -71,7 +71,7 @@ test("adds independent nodes and explicit flows to a graph", () => {
   const graphLine = 2;
   const withNode = appendGraphNode(FLAT_GRAPH, graphLine, { nodeType: "node", id: "third", label: "Third" });
   const withFlow = appendFlowReference(withNode, graphLine, { from: "child", to: "third", direction: "down", lineType: "warning" });
-  assert.match(withFlow, /    \.node\n      \.id third\n      \.label Third\n    \.flow\n      \.from child\n      \.to third\n      \.from-direction down\n      \.to-direction down\n      \.ports shared\n      \.warning/);
+  assert.match(withFlow, /    \.node\n      \.id third\n      \.label Third\n    \.flow\n      \.from child\n      \.to third\n      \.from-direction down\n      \.to-direction down\n      \.warning/);
 });
 
 test("adds a standalone sibling graph", () => {

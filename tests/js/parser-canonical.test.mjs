@@ -26,6 +26,7 @@ const SOURCE = [
   "    .service",
   "      .id root",
   "      .label Root",
+  "      .right-ports distributed",
   "      .annotation",
   "        .above Note",
   "          .note",
@@ -45,7 +46,6 @@ const SOURCE = [
   "      .label request",
   "      .from-direction down",
   "      .to-direction down",
-  "      .ports distributed",
   "    .flow",
   "      .from root",
   "      .to right",
@@ -83,7 +83,7 @@ test("applies @node, @flow, @annotation, and .defaults > .flow styles", () => {
   assert.equal(warning.style, "dashed");
   assert.equal(warning.width, 2);
   assert.equal(warning.label, "request");
-  assert.equal(warning.portDistribution, "distributed");
+  assert.equal(root.style.ports.right, "distributed");
 });
 
 test("allows nodes to disable inherited shadows", () => {

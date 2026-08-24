@@ -368,12 +368,14 @@ test("uses one mirrored x bend for equal-span horizontal merge sources", () => {
 });
 
 test("supports shared merge ports and distributed flow source ports", () => {
-  const nodes = ["root", "upper", "lower", "combined"].map((id) => ({ id, width: 100, height: 60 }));
+  const nodes = ["root", "upper", "lower", "combined"].map((id) => ({
+    id, width: 100, height: 60, style: { ports: { right: id === "root" ? "distributed" : "shared", left: "shared" } },
+  }));
   const edges = [
-    { from: "root", to: "upper", kind: "branch", layoutDirection: "right", portDistribution: "distributed" },
-    { from: "root", to: "lower", kind: "branch", layoutDirection: "right", portDistribution: "distributed" },
-    { from: "upper", to: "combined", kind: "merge", layoutDirection: "right", portDistribution: "shared" },
-    { from: "lower", to: "combined", kind: "merge", layoutDirection: "right", portDistribution: "shared" },
+    { from: "root", to: "upper", kind: "branch", layoutDirection: "right" },
+    { from: "root", to: "lower", kind: "branch", layoutDirection: "right" },
+    { from: "upper", to: "combined", kind: "merge", layoutDirection: "right" },
+    { from: "lower", to: "combined", kind: "merge", layoutDirection: "right" },
   ];
   const layoutEdges = layoutDiagram(nodes, edges).edges;
   assert.deepEqual(layoutEdges.filter((edge) => edge.kind === "branch").map((edge) => Math.round(edge.sourcePortFraction * 6)), [-1, 1]);

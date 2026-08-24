@@ -768,6 +768,11 @@ function connectedItemsControls(node) {
   }).join("")}</details>`;
 }
 
+function nodePortControls(node) {
+  const option = (value, selected) => `<option${value === selected ? " selected" : ""}>${value}</option>`;
+  return `<details><summary>Connection ports</summary><div class="inspector-grid">${["top", "right", "bottom", "left"].map((face) => `<label>${face[0].toUpperCase() + face.slice(1)}<select data-node-field="${face}-ports">${option("shared", node.style.ports[face])}${option("distributed", node.style.ports[face])}</select></label>`).join("")}</div></details>`;
+}
+
 function reusableNames(kind) {
   return [...new Set([...`${pugSource}\n${cssSource}`.matchAll(new RegExp(`^@${kind}\\s+([\\w-]+)`, "gm"))].map((match) => match[1]))];
 }
@@ -875,9 +880,10 @@ function renderInspector() {
     inspectorContent.querySelectorAll("details")[1]?.insertAdjacentHTML("afterend", imageControls(node));
     tidyInspectorSections();
     inspectorContent.insertAdjacentHTML("beforeend", nodeAnnotationControls(node));
+    inspectorContent.insertAdjacentHTML("beforeend", nodePortControls(node));
     inspectorContent.insertAdjacentHTML("beforeend", connectedItemsControls(node));
     setReusableStyleAction("node");
-    inspectorContent.insertAdjacentHTML("beforeend", '<button type="button" class="inspector-primary-action" data-graph-add="flow">+ Add Flow</button>');
+    inspectorContent.insertAdjacentHTML("beforeend", '<button type="button" class="inspector-primary-action" data-graph-add="connected-node">+ Add Connected Node</button><button type="button" data-graph-add="flow">+ Add Flow</button>');
     return;
   }
   const annotationSelections = selections.filter((item) => item.kind === "annotation");
@@ -950,8 +956,8 @@ function openGraphBuilder(mode = "flow", preferredIds = null) {
   const sourceGraph = graphForNode(preferredSource) ?? currentGraph.groups[0];
   const targetGraph = sourceGraph;
   graphBuilder.dataset.mode = mode;
-  document.querySelector("#graph-builder-title").textContent = mode === "diagram" ? "Create graph" : mode === "node" ? "Add node" : "Add flow";
-  document.querySelector("#graph-builder-help").textContent = mode === "diagram" ? "Create a graph with its first independent node." : mode === "node" ? "Add an independent node to a graph. Add flows separately when needed." : "Connect two existing nodes. Cross-graph flows are stored at canvas level.";
+  document.querySelector("#graph-builder-title").textContent = mode === "diagram" ? "Create graph" : mode === "node" ? "Add node" : mode === "connected-node" ? "Add connected node" : "Add flow";
+  document.querySelector("#graph-builder-help").textContent = mode === "diagram" ? "Create a graph with its first independent node." : mode === "node" ? "Add an independent node to a graph. Add flows separately when needed." : mode === "connected-node" ? "Create a node and connect it to the selected node in any direction." : "Connect two existing nodes. Cross-graph flows are stored at canvas level.";
   document.querySelector("#builder-from-graph-label").textContent = mode === "node" ? "Graph" : "From graph";
   renderBuilderGraphOptions(builderFromGraph, sourceGraph?.id);
   renderBuilderNodeChoices(builderSources, builderFromGraph.value, preferredSource);
@@ -972,7 +978,7 @@ function openGraphBuilder(mode = "flow", preferredIds = null) {
     : '<option value="">First graph</option>';
   builderDiagramPlacement.disabled = !currentGraph.groups.length;
   builderDiagramRelativeTo.disabled = !currentGraph.groups.length;
-  document.querySelector("#builder-submit").textContent = mode === "diagram" ? "Create graph" : mode === "node" ? "Create node" : "Create flow";
+  document.querySelector("#builder-submit").textContent = mode === "diagram" ? "Create graph" : mode === "node" ? "Create node" : mode === "connected-node" ? "Create connected node" : "Create flow";
   builderError.textContent = "";
   graphBuilder.showModal();
   if (mode !== "flow") builderLabel.select();
@@ -1487,7 +1493,7 @@ const structureCompletions = [
   { label: ".y-spacing", insert: ".y-spacing 40", detail: "Vertical spacing between graph nodes" },
   { label: ".padding", insert: ".padding 24", detail: "Space inside a graph frame" },
   { label: ".direction", insert: ".direction right", detail: "Layout direction: right, left, up, or down" },
-  { label: ".ports", insert: ".ports distributed", detail: "Use distributed or shared connection ports" },
+  ...["top", "right", "bottom", "left"].map((face) => ({ label: `.${face}-ports`, insert: `.${face}-ports distributed`, detail: `Use distributed or shared ports on the ${face} face` })),
   { label: ".background", insert: ".background #ffffff", detail: "Diagram background" },
   { label: ".font", insert: ".font Verdana, sans-serif", detail: "Diagram font" },
   { label: ".node", insert: ".node\n  .fill #ffffff", detail: "Group default node properties" },
@@ -1554,8 +1560,8 @@ const completionLabels = {
   root: new Set(["@node", "@flow", "@annotation", "#canvas"]),
   canvas: new Set(["graph", ".defaults", ".background", ".font", ".flow"]),
   graph: new Set([".node", ".flow", ".id", ".label", ".layer", ".placement", ".relative-to", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
-  node: new Set([".id", ".label", ".layer", ".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".offset", ".label-offset", ".annotation", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".image", ".image-width", ".image-height", ".image-fit", ".image-opacity", ".image-offset", ".image-padding", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
-  flow: new Set([".from", ".to", ".from-direction", ".to-direction", ".direction", ".ports", ".color", ".outline", ".outline-width", ".width", ".arrow-style", ".arrow-shape", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  node: new Set([".id", ".label", ".layer", ".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".offset", ".label-offset", ".annotation", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".image", ".image-width", ".image-height", ".image-fit", ".image-opacity", ".image-offset", ".image-padding", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  flow: new Set([".from", ".to", ".from-direction", ".to-direction", ".direction", ".color", ".outline", ".outline-width", ".width", ".arrow-style", ".arrow-shape", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   flowStyle: new Set([".color", ".outline", ".outline-width", ".width", ".arrow-style", ".arrow-shape", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   annotation: new Set([".above", ".below"]),
   annotationStyle: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
@@ -2293,7 +2299,6 @@ graphBuilderForm.addEventListener("submit", (event) => {
   const options = {
     fromDirection: builderFromDirection.value,
     toDirection: builderToDirection.value,
-    ports: document.querySelector("#builder-ports").value,
     nodeType: builderNodeType.value,
     lineType: builderLineType.value,
     id,
@@ -2322,6 +2327,15 @@ graphBuilderForm.addEventListener("submit", (event) => {
     const canvasLine = pugSource.split("\n").findIndex((line) => /^#canvas(?:\(|$)/.test(line.trim())) + 1;
     const scopeLine = fromGroup?.id === toGroup?.id ? fromGroup.lineNumber : canvasLine;
     nextSource = appendFlowReference(pugSource, scopeLine, { ...options, from, to });
+  } else if (mode === "connected-node") {
+    const graph = currentGraph.groups.find((candidate) => candidate.id === builderFromGraph.value);
+    const from = selectedBuilderNode(builderSources);
+    if (!graph || !from) {
+      builderError.textContent = "Choose a source node.";
+      return;
+    }
+    nextSource = appendGraphNode(pugSource, graph.lineNumber, options);
+    nextSource = appendFlowReference(nextSource, graph.lineNumber, { ...options, from, to: id, toDirection: options.fromDirection });
   } else if (mode === "node") {
     const graph = currentGraph.groups.find((candidate) => candidate.id === builderFromGraph.value);
     if (!graph) {
