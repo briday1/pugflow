@@ -10,9 +10,9 @@ test("captures supported node, flow, and annotation appearance fields", () => {
     ["shape", "pill"], ["fill", "#fff"], ["outline-width", "3"], ["font-size", "18"],
   ]);
   assert.deepEqual(reusableStyleDeclarations("flow", {
-    color: "#123456", width: 4, roundness: 0, style: "dashed", direction: "both",
+    color: "#123456", outline: "white", outlineWidth: 1.5, width: 4, roundness: 0, style: "dashed", direction: "both",
   }), [
-    ["color", "#123456"], ["width", "4"], ["roundness", "0"],
+    ["color", "#123456"], ["outline", "white"], ["outline-width", "1.5"], ["width", "4"], ["roundness", "0"],
     ["stroke-style", "dashed"], ["arrow-style", "both"],
   ]);
   assert.deepEqual(reusableStyleDeclarations("annotation", {

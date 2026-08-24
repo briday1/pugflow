@@ -442,7 +442,7 @@ export function appendFlowReference(value, scopeLineNumber, options = {}) {
   return lines.join("\n");
 }
 
-export function appendDiagramNode(value, { nodeType = "node", id = "", label = "", diagramId = "", diagramLabel = "", diagramFill = "", diagramOutline = "" } = {}) {
+export function appendDiagramNode(value, { nodeType = "node", id = "", label = "", diagramId = "", diagramLabel = "", diagramPlacement = "", diagramRelativeTo = "", diagramFill = "", diagramOutline = "" } = {}) {
   let lines = ensureGraphComponents(value).split("\n");
   const rootIndex = lines.findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim()));
   if (rootIndex < 0) return value;
@@ -467,6 +467,7 @@ export function appendDiagramNode(value, { nodeType = "node", id = "", label = "
   lines.splice(end, 0, `${indentation}graph`,
     ...(diagramId ? [`${fieldIndent}.id ${diagramId}`] : []),
     ...(diagramLabel ? [`${fieldIndent}.label ${diagramLabel}`] : []),
+    ...(diagramRelativeTo ? [`${fieldIndent}.placement ${diagramPlacement || "below"}`, `${fieldIndent}.relative-to ${diagramRelativeTo}`] : []),
     ...(diagramFill ? [`${fieldIndent}.fill ${diagramFill}`] : []),
     ...(diagramOutline ? [`${fieldIndent}.outline ${diagramOutline}`] : []),
     ...nodeDeclaration(nodeType, fieldIndent, id, label));

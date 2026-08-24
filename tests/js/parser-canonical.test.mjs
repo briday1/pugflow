@@ -122,12 +122,25 @@ test("resolves flow endpoints declared after the flow", () => {
 });
 
 test("supports canvas-level cross-graph flows", () => {
-  const result = parseDiagram("#canvas\n  graph\n    .id first-graph\n    .node\n      .id first\n      .label First\n  graph\n    .id second-graph\n    .node\n      .id second\n      .label Second\n  .flow\n    .from first\n    .to second\n    .source-face bottom\n    .target-face left\n    .arrow-style both\n    .roundness 0");
+  const result = parseDiagram("#canvas\n  graph\n    .id first-graph\n    .node\n      .id first\n      .label First\n  graph\n    .id second-graph\n    .node\n      .id second\n      .label Second\n  .flow\n    .from first\n    .to second\n    .source-face bottom\n    .target-face left\n    .arrow-style both\n    .outline white\n    .outline-width 1.5\n    .roundness 0");
   assert.deepEqual(result.errors, []);
   assert.equal(result.edges[0].sourceFace, "bottom");
   assert.equal(result.edges[0].targetFace, "left");
   assert.equal(result.edges[0].direction, "both");
+  assert.equal(result.edges[0].outline, "white");
+  assert.equal(result.edges[0].outlineWidth, 1.5);
   assert.equal(result.edges[0].roundness, 0);
+});
+
+test("parses directional graph placement and validates references", () => {
+  const valid = parseDiagram("#canvas\n  graph\n    .id first\n    .node\n      .id a\n      .label A\n  graph\n    .id second\n    .placement right\n    .relative-to first\n    .node\n      .id b\n      .label B");
+  assert.deepEqual(valid.errors, []);
+  assert.deepEqual(valid.groups.map(({ placement, relativeTo }) => [placement, relativeTo]), [["below", null], ["right", "first"]]);
+  assert.match(parseDiagram("#canvas\n  graph\n    .id first\n    .placement diagonal").errors.join("\n"), /graph\.placement must be above, below, left, or right/);
+  assert.match(parseDiagram("#canvas\n  graph\n    .id first\n    .relative-to missing").errors.join("\n"), /references unknown graph "missing"/);
+  assert.match(parseDiagram("#canvas\n  graph\n    .id first\n    .relative-to first").errors.join("\n"), /cannot be positioned relative to itself/);
+  const cycle = parseDiagram("#canvas\n  graph\n    .id first\n    .relative-to second\n  graph\n    .id second\n    .relative-to first");
+  assert.match(cycle.errors.join("\n"), /placement references form a cycle/);
 });
 
 test("retains offsets, annotations, visibility, and empty labels", () => {

@@ -9,24 +9,29 @@ import { appendReusableStyle, reusableStyleDeclarations } from "./reusable-style
 const EXAMPLE_DOCUMENT = `// Production delivery architecture — layered graphs and cross-graph flows
 @node edge-service
   .shape rounded
-  .fill #dbeafe
-  .color #172554
-  .outline #3b82f6
+  .fill #2563eb
+  .color #ffffff
+  .outline #ffffff
   .outline-width 1.5
+  .font-family SFMono-Regular, Menlo, Consolas, monospace
   .width 150
 
 @node edge-decision
   .shape diamond
-  .fill #bfdbfe
-  .color #172554
-  .outline #2563eb
+  .fill #2563eb
+  .color #ffffff
+  .outline #ffffff
+  .outline-style dotted
+  .font-family SFMono-Regular, Menlo, Consolas, monospace
   .width 140
 
 @node edge-external
   .shape pill
-  .fill #eff6ff
-  .color #1e3a8a
-  .outline #60a5fa
+  .fill #1d4ed8
+  .color #ffffff
+  .outline #ffffff
+  .outline-style dashed
+  .font-family SFMono-Regular, Menlo, Consolas, monospace
   .width 145
 
 @node application-service
@@ -58,35 +63,39 @@ const EXAMPLE_DOCUMENT = `// Production delivery architecture — layered graphs
 
 @node operations-service
   .shape hexagon
-  .fill #0f172a
-  .color #67e8f9
-  .outline #22d3ee
+  .fill #050505
+  .color #00f5ff
+  .outline #ff2bd6
   .outline-width 2
-  .font-family SFMono-Regular, Consolas, monospace
+  .font-family Avenir Next Condensed, Arial Narrow, sans-serif
+  .font-weight 600
   .width 150
 
 @node operations-datastore
   .shape pill
-  .fill #164e63
-  .color #cffafe
-  .outline #22d3ee
+  .fill #111111
+  .color #fff200
+  .outline #00f5ff
   .outline-style dotted
   .outline-width 2
-  .font-family SFMono-Regular, Consolas, monospace
+  .font-family Avenir Next Condensed, Arial Narrow, sans-serif
+  .font-weight 600
   .width 150
 
 @node operations-external
   .shape diamond
-  .fill #451a03
-  .color #fde68a
-  .outline #f59e0b
+  .fill #050505
+  .color #fff200
+  .outline #ff2bd6
   .outline-width 2
-  .font-family SFMono-Regular, Consolas, monospace
+  .font-family Avenir Next Condensed, Arial Narrow, sans-serif
+  .font-weight 600
   .width 145
 
 @flow edge-flow
-  .color #2563eb
+  .color #ffffff
   .width 1.5
+  .stroke-style dashed
 
 @flow application-flow
   .color #172554
@@ -100,27 +109,38 @@ const EXAMPLE_DOCUMENT = `// Production delivery architecture — layered graphs
   .stroke-style dashed
 
 @flow telemetry
-  .color #22d3ee
+  .color #00f5ff
   .width 2
   .roundness 0
   .stroke-style dotted
 
 @flow incident
-  .color #f59e0b
+  .color #ff2bd6
   .width 3
   .roundness 0
 
 @flow edge-to-application
-  .color #0f766e
+  .color #000000
+  .outline #ffffff
+  .outline-width 1.5
   .width 2
+  .annotation-above-color #000000
+  .annotation-above-text-outline #ffffff
+  .annotation-above-text-outline-width 3
 
 @flow application-to-operations
-  .color #0891b2
+  .color #000000
+  .outline #ffffff
+  .outline-width 1.5
   .width 2
   .stroke-style dashed
+  .annotation-above-color #000000
+  .annotation-above-text-outline #ffffff
+  .annotation-above-text-outline-width 3
 
 @annotation context
-  .color #475569
+  .color #ffffff
+  .font-family SFMono-Regular, Menlo, Consolas, monospace
   .font-style italic
 
 #canvas
@@ -144,10 +164,13 @@ const EXAMPLE_DOCUMENT = `// Production delivery architecture — layered graphs
     .label-position inside
     .align center
     .layer 2
-    .fill #dbeafe70
-    .color #1e3a8a
-    .outline #60a5fa
+    .fill #3b82f6e8
+    .color #ffffff
+    .outline #ffffff
+    .outline-style dotted
     .outline-width 1.5
+    .font-family SFMono-Regular, Menlo, Consolas, monospace
+    .font-weight 600
     .padding 30
     .x-spacing 72
     .y-spacing 48
@@ -261,10 +284,12 @@ const EXAMPLE_DOCUMENT = `// Production delivery architecture — layered graphs
     .label-position inside
     .align center
     .layer 0
-    .fill #082f49e8
-    .color #67e8f9
-    .outline transparent
-    .outline-width 0
+    .fill #050505f5
+    .color #fff200
+    .outline #ff2bd6
+    .outline-width 2
+    .font-family Avenir Next Condensed, Arial Narrow, sans-serif
+    .font-weight 600
     .padding 30
     .x-spacing 72
     .operations-service
@@ -388,6 +413,8 @@ const builderId = document.querySelector("#builder-id");
 const builderLabel = document.querySelector("#builder-label");
 const builderDiagramId = document.querySelector("#builder-diagram-id");
 const builderDiagramLabel = document.querySelector("#builder-diagram-label");
+const builderDiagramPlacement = document.querySelector("#builder-diagram-placement");
+const builderDiagramRelativeTo = document.querySelector("#builder-diagram-relative-to");
 const builderError = document.querySelector("#builder-error");
 const styleBuilder = document.querySelector("#style-builder");
 const styleBuilderForm = document.querySelector("#style-builder-form");
@@ -808,7 +835,8 @@ function renderInspector() {
     }
     const group = currentGraph.groups.find((candidate) => candidate.id === graphSelections[0].id);
     const layerOptions = `<option value="">Layer ${group?.layer ?? 0}</option><option value="front">Send to front</option><option value="back">Send to back</option>`;
-    inspectorContent.innerHTML = `<h3>Graph</h3><label>Graph Layer<select data-graph-field="layer-order">${layerOptions}</select></label><small class="inspector-help">Send this graph to the front or back, or drag it in the Graphs panel. Dragging the graph itself changes only its offset.</small><label>Title<input data-graph-field="label" value="${escapeHtml(group?.label ?? "")}"></label><div class="inspector-grid"><label>Title position<select data-graph-field="label-position">${["inside","outside"].map((value) => `<option${group?.labelPosition === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Title alignment<select data-graph-field="align">${["left","center","right"].map((value) => `<option${group?.align === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></div>${fontOptions("graph", group)}<details open><summary>Layout</summary><div class="inspector-grid"><label>X spacing<input data-graph-field="x-spacing" type="number" min="0" value="${group?.xSpacing ?? 60}"></label><label>Y spacing<input data-graph-field="y-spacing" type="number" min="0" value="${group?.ySpacing ?? 40}"></label></div></details><details open><summary>Frame</summary>${colorControl("Fill", "fill", group?.fill, "graph")}${colorControl("Outline", "outline", group?.outline, "graph")}<label>Outline style<select data-graph-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${group?.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Outline width<input data-graph-field="outline-width" type="number" min="0" value="${group?.outlineWidth ?? 1.5}"></label><label>Padding<input data-graph-field="padding" type="number" min="0" value="${group?.padding ?? 24}"></label><label class="inspector-switch"><span>Hidden</span><input data-graph-hidden type="checkbox"${group?.hidden ? " checked" : ""}></label></details>`;
+    const relativeOptions = currentGraph.groups.filter((candidate) => candidate.id !== group?.id).map((candidate) => `<option value="${escapeHtml(candidate.id)}"${candidate.id === group?.relativeTo ? " selected" : ""}>${escapeHtml(candidate.label || candidate.id)}</option>`).join("");
+    inspectorContent.innerHTML = `<h3>Graph</h3><label>Graph Layer<select data-graph-field="layer-order">${layerOptions}</select></label><small class="inspector-help">Send this graph to the front or back, or drag it in the Graphs panel. Dragging the graph itself changes only its offset.</small><label>Title<input data-graph-field="label" value="${escapeHtml(group?.label ?? "")}"></label><div class="inspector-grid"><label>Title position<select data-graph-field="label-position">${["inside","outside"].map((value) => `<option${group?.labelPosition === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Title alignment<select data-graph-field="align">${["left","center","right"].map((value) => `<option${group?.align === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></div>${fontOptions("graph", group)}<details open><summary>Layout</summary><div class="inspector-grid"><label>Placement<select data-graph-field="placement">${["below","right","left","above"].map((value) => `<option${group?.placement === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Relative to<select data-graph-field="relative-to"${relativeOptions ? "" : " disabled"}>${relativeOptions || '<option value="">First graph</option>'}</select></label><label>X spacing<input data-graph-field="x-spacing" type="number" min="0" value="${group?.xSpacing ?? 60}"></label><label>Y spacing<input data-graph-field="y-spacing" type="number" min="0" value="${group?.ySpacing ?? 40}"></label></div></details><details open><summary>Frame</summary>${colorControl("Fill", "fill", group?.fill, "graph")}${colorControl("Outline", "outline", group?.outline, "graph")}<label>Outline style<select data-graph-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${group?.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Outline width<input data-graph-field="outline-width" type="number" min="0" value="${group?.outlineWidth ?? 1.5}"></label><label>Padding<input data-graph-field="padding" type="number" min="0" value="${group?.padding ?? 24}"></label><label class="inspector-switch"><span>Hidden</span><input data-graph-hidden type="checkbox"${group?.hidden ? " checked" : ""}></label></details>`;
     return;
   }
   const nodes = selectedNodes();
@@ -845,7 +873,7 @@ function renderInspector() {
   const edge = edges[0];
   const lineTypes = [...`${pugSource}\n${cssSource}`.matchAll(/^@flow\s+([\w-]+)/gm)].map((match) => match[1]);
   const sharedType = edges.every((candidate) => candidate?.lineType === edge?.lineType) ? edge?.lineType ?? "" : "";
-  inspectorContent.innerHTML = `<h3>${edges.length} flow${edges.length === 1 ? "" : "s"}</h3>${edges.length === 1 ? flowConnectionControls(edge) : ""}<label>Flow type<select data-line-type><option value="">Choose…</option>${lineTypes.map((name) => `<option value="${escapeHtml(name)}"${sharedType === name ? " selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><details open><summary>Flow appearance <small>local overrides</small></summary>${colorControl("Color", "color", edge?.color, "line")}<div class="inspector-grid"><label>Width<input data-line-field="width" type="number" min="0.5" step="0.5" value="${edge?.width ?? 2}"></label><label>Roundness<input data-line-field="roundness" type="number" min="0" step="1" value="${edge?.roundness ?? 9}"></label></div><label>Stroke<select data-line-field="stroke-style">${["solid","dashed","dotted"].map((value) => `<option${edge?.style === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Arrow<select data-line-field="arrow-style">${["forward","backward","both","none"].map((value) => `<option${edge?.direction === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details>`;
+  inspectorContent.innerHTML = `<h3>${edges.length} flow${edges.length === 1 ? "" : "s"}</h3>${edges.length === 1 ? flowConnectionControls(edge) : ""}<label>Flow type<select data-line-type><option value="">Choose…</option>${lineTypes.map((name) => `<option value="${escapeHtml(name)}"${sharedType === name ? " selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><details open><summary>Flow appearance <small>local overrides</small></summary>${colorControl("Color", "color", edge?.color, "line")}${colorControl("Outline", "outline", edge?.outline, "line")}<div class="inspector-grid"><label>Width<input data-line-field="width" type="number" min="0.5" step="0.5" value="${edge?.width ?? 2}"></label><label>Outline width<input data-line-field="outline-width" type="number" min="0" step="0.5" value="${edge?.outlineWidth ?? 0}"></label><label>Roundness<input data-line-field="roundness" type="number" min="0" step="1" value="${edge?.roundness ?? 9}"></label></div><label>Stroke<select data-line-field="stroke-style">${["solid","dashed","dotted"].map((value) => `<option${edge?.style === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Arrow<select data-line-field="arrow-style">${["forward","backward","both","none"].map((value) => `<option${edge?.direction === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details>`;
   inspectorContent.querySelector("h3")?.insertAdjacentHTML("beforeend", `<label class="inspector-switch inspector-switch-heading"><span>Hidden</span><input data-line-hidden type="checkbox"${edges.length && edges.every((item) => item?.hidden) ? " checked" : ""}></label>`);
   const connectorAnnotation = (position) => {
     const title = position === "below" ? "Below" : "Above";
@@ -919,6 +947,12 @@ function openGraphBuilder(mode = "flow", preferredIds = null) {
   builderLabel.value = "New node";
   builderDiagramId.value = `diagram-${currentGraph.groups.length + 1}`;
   builderDiagramLabel.value = "";
+  builderDiagramPlacement.value = "below";
+  builderDiagramRelativeTo.innerHTML = currentGraph.groups.length
+    ? currentGraph.groups.map((group, index) => `<option value="${escapeHtml(group.id)}"${index === currentGraph.groups.length - 1 ? " selected" : ""}>${escapeHtml(group.label || group.id)}</option>`).join("")
+    : '<option value="">First graph</option>';
+  builderDiagramPlacement.disabled = !currentGraph.groups.length;
+  builderDiagramRelativeTo.disabled = !currentGraph.groups.length;
   document.querySelector("#builder-submit").textContent = mode === "diagram" ? "Create graph" : mode === "node" ? "Create node" : "Create flow";
   builderError.textContent = "";
   graphBuilder.showModal();
@@ -1427,6 +1461,8 @@ const structureCompletions = [
   { label: ".from-direction", insert: ".from-direction right", detail: "Direction leaving a flow source" },
   { label: ".to-direction", insert: ".to-direction right", detail: "Direction entering a flow target" },
   { label: ".layer", insert: ".layer 0", detail: "Graph stacking layer; higher renders in front" },
+  { label: ".placement", insert: ".placement below", detail: "Place a graph above, below, left, or right of another graph" },
+  { label: ".relative-to", insert: ".relative-to graph-id", detail: "Graph ID used as the placement reference" },
   { label: ".x-spacing", insert: ".x-spacing 60", detail: "Horizontal spacing between graph nodes" },
   { label: ".y-spacing", insert: ".y-spacing 40", detail: "Vertical spacing between graph nodes" },
   { label: ".padding", insert: ".padding 24", detail: "Space inside a graph frame" },
@@ -1496,10 +1532,10 @@ function availableStructureCompletions() {
 const completionLabels = {
   root: new Set(["@node", "@flow", "@annotation", "#canvas"]),
   canvas: new Set(["graph", ".defaults", ".background", ".font", ".flow"]),
-  graph: new Set([".node", ".flow", ".id", ".label", ".layer", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  graph: new Set([".node", ".flow", ".id", ".label", ".layer", ".placement", ".relative-to", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   node: new Set([".id", ".label", ".layer", ".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".offset", ".label-offset", ".annotation", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".image", ".image-width", ".image-height", ".image-fit", ".image-opacity", ".image-offset", ".image-padding", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
-  flow: new Set([".from", ".to", ".from-direction", ".to-direction", ".direction", ".ports", ".color", ".width", ".arrow-style", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
-  flowStyle: new Set([".color", ".width", ".arrow-style", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  flow: new Set([".from", ".to", ".from-direction", ".to-direction", ".direction", ".ports", ".color", ".outline", ".outline-width", ".width", ".arrow-style", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  flowStyle: new Set([".color", ".outline", ".outline-width", ".width", ".arrow-style", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   annotation: new Set([".above", ".below"]),
   annotationStyle: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   annotationEntry: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
@@ -1513,7 +1549,7 @@ const cssRootCompletions = [
 ];
 const cssPropertyLabels = {
   node: ["shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align", "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity", "image", "image-width", "image-height", "image-fit", "image-opacity", "image-padding", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"],
-  flow: ["color", "width", "arrow-style", "stroke-style", "roundness", "source-face", "target-face", "label", "label-position", "label-offset", "label-hidden", "annotation-above", "annotation-below", "annotation-above-hidden", "annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `annotation-${position}-${property}`)), "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width", "hidden"],
+  flow: ["color", "outline", "outline-width", "width", "arrow-style", "stroke-style", "roundness", "source-face", "target-face", "label", "label-position", "label-offset", "label-hidden", "annotation-above", "annotation-below", "annotation-above-hidden", "annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `annotation-${position}-${property}`)), "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width", "hidden"],
   annotation: ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"],
 };
 
@@ -2179,6 +2215,8 @@ graphBuilderForm.addEventListener("submit", (event) => {
     label,
     diagramId: builderDiagramId.value.trim(),
     diagramLabel: builderDiagramLabel.value.trim(),
+    diagramPlacement: builderDiagramPlacement.value,
+    diagramRelativeTo: builderDiagramRelativeTo.value,
     diagramFill: document.querySelector("#builder-diagram-fill").value.trim(),
     diagramOutline: document.querySelector("#builder-diagram-outline").value.trim(),
   };

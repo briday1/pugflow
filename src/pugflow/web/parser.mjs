@@ -7,7 +7,7 @@ const FLOW_DIRECTIONS = new Set(["right", "left", "up", "down"]);
 const PORT_DISTRIBUTIONS = new Set(["shared", "distributed"]);
 const LINE_STYLES = new Set(["solid", "dashed", "dotted"]);
 const LINE_FIELDS = new Set([
-  "line.arrow-style", "line.color", "line.stroke-style", "line.width",
+  "line.arrow-style", "line.color", "line.outline", "line.outline-width", "line.stroke-style", "line.width",
   "line.source-face", "line.target-face", "line.roundness",
   "line.label", "line.label-position", "line.label-offset", "line.label-hidden",
   "line.annotation-above", "line.annotation-below", "line.annotation-above-hidden", "line.annotation-below-hidden",
@@ -29,6 +29,8 @@ const LINE_DEFINITION_FIELDS = new Map([
   ["target-face", "line.target-face"],
   ["roundness", "line.roundness"],
   ["color", "line.color"],
+  ["outline", "line.outline"],
+  ["outline-width", "line.outline-width"],
   ["stroke-style", "line.stroke-style"],
   ["width", "line.width"],
   ["label-position", "line.label-position"],
@@ -340,6 +342,8 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
     lineType: presetName,
     direction: DIRECTIONS.has(resolvedDirection) ? resolvedDirection : "forward",
     color: effective["line.color"] ?? defaults.color ?? null,
+    outline: effective["line.outline"] ?? defaults.outline ?? "transparent",
+    outlineWidth: numberAttribute(effective["line.outline-width"], defaults.outlineWidth ?? 0, 0, "line.outline-width", lineNumber, errors),
     style: LINE_STYLES.has(style) ? style : "solid",
     width: numberAttribute(effective["line.width"], defaults.width ?? 2, 0.5, "line.width", lineNumber, errors),
     roundness: numberAttribute(effective["line.roundness"], defaults.roundness ?? 9, 0, "line.roundness", lineNumber, errors),
@@ -716,8 +720,10 @@ function compileMarkup(tree) {
     if (!Number.isInteger(layer)) errors.push(`Line ${component.lineNumber}: graph.layer must be an integer.`);
     const labelPosition = field("label-position") || "inside";
     const align = field("align") || "left";
+    const placement = field("placement") || "below";
     if (!["inside", "outside"].includes(labelPosition)) errors.push(`Line ${component.lineNumber}: graph.label-position must be inside or outside.`);
     if (!["left", "center", "right"].includes(align)) errors.push(`Line ${component.lineNumber}: graph.align must be left, center, or right.`);
+    if (!["above", "below", "left", "right"].includes(placement)) errors.push(`Line ${component.lineNumber}: graph.placement must be above, below, left, or right.`);
     const hiddenField = component.children.find((child) => child.type === "hidden");
     const hidden = Boolean(hiddenField && !["false", "no", "0"].includes(hiddenField.text.trim()));
     if (hidden) {
@@ -744,6 +750,8 @@ function compileMarkup(tree) {
       padding: Number(field("padding") || 24),
       xSpacing: numberAttribute(field("x-spacing"), 60, 0, "graph.x-spacing", component.lineNumber, errors),
       ySpacing: numberAttribute(field("y-spacing"), 40, 0, "graph.y-spacing", component.lineNumber, errors),
+      placement: ["above", "below", "left", "right"].includes(placement) ? placement : "below",
+      relativeTo: field("relative-to") || null,
       rootId: directNodes[0]?.id ?? null,
       hidden,
       offsetX: graphOffset.x,
@@ -832,6 +840,25 @@ function compileMarkup(tree) {
     if (graphIds.has(group.id)) errors.push(`Line ${group.lineNumber}: the graph ID "${group.id}" is already in use.`);
     graphIds.add(group.id);
   }
+  for (const group of groups) {
+    if (group.relativeTo === group.id) errors.push(`Line ${group.lineNumber}: a graph cannot be positioned relative to itself.`);
+    else if (group.relativeTo && !graphIds.has(group.relativeTo)) errors.push(`Line ${group.lineNumber}: graph.relative-to references unknown graph "${group.relativeTo}".`);
+  }
+  const groupById = new Map(groups.map((group) => [group.id, group]));
+  const placementState = new Map();
+  function validatePlacementChain(group) {
+    const state = placementState.get(group.id);
+    if (state === "done") return;
+    if (state === "visiting") {
+      errors.push(`Line ${group.lineNumber}: graph placement references form a cycle at "${group.id}".`);
+      return;
+    }
+    placementState.set(group.id, "visiting");
+    const reference = groupById.get(group.relativeTo);
+    if (reference && reference !== group) validatePlacementChain(reference);
+    placementState.set(group.id, "done");
+  }
+  for (const group of groups) validatePlacementChain(group);
   const graphByNode = new Map(groups.flatMap((group) => group.nodeIds.map((id) => [id, group.id])));
   for (const { flow, attributes, defaults, graphId } of pendingFlows) {
     const from = attributes.from;

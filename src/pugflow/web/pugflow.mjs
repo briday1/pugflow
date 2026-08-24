@@ -344,17 +344,17 @@ function addNode(svg, node, colors, defs) {
   svg.append(group);
 }
 
-function markerId(color) {
+function markerId(color, outline = "transparent", outlineWidth = 0) {
   let hash = 0;
-  for (const character of color) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
+  for (const character of `${color}|${outline}|${outlineWidth}`) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
   return `arrow-${Math.abs(hash)}`;
 }
 
-function ensureMarker(defs, color) {
-  const id = markerId(color);
+function ensureMarker(defs, color, outline = "transparent", outlineWidth = 0) {
+  const id = markerId(color, outline, outlineWidth);
   if (defs.querySelector(`#${id}`)) return id;
   const marker = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
-  marker.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: color }));
+  marker.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke", "stroke-linejoin": "round" }));
   defs.append(marker);
   return id;
 }
@@ -555,7 +555,9 @@ export function connectionPathAvoidingNodes(source, target, kind, direction, nod
 
 function addEdge(svg, defs, edge, source, target, colors, nodes) {
   const color = edgeColor(edge, colors);
-  const marker = ensureMarker(defs, color);
+  const outline = edge.outline ?? "transparent";
+  const outlineWidth = edge.outlineWidth ?? 0;
+  const marker = ensureMarker(defs, color, outline, outlineWidth);
   const sourceDirection = edge.sourceDirection ?? edge.layoutDirection;
   const vertical = ["up", "down"].includes(sourceDirection);
   const targetDirection = edge.targetLayoutDirection ?? edge.layoutDirection;
@@ -594,6 +596,16 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
     "pointer-events": "none",
   });
   svg.append(hitPath);
+  if (outlineWidth > 0 && !["none", "transparent"].includes(String(outline).toLowerCase())) {
+    svg.append(svgElement("path", {
+      d: route.d,
+      class: `connector connector-outline ${edge.kind}`,
+      stroke: outline,
+      "stroke-width": edge.width + outlineWidth * 2,
+      "stroke-dasharray": dashArray(edge.style),
+      "pointer-events": "none",
+    }));
+  }
   svg.append(path);
   const annotations = [
     { text: edge.annotationAbove, position: "above", hidden: edge.annotationAboveHidden, lineNumber: edge.annotationAboveLineNumber },
@@ -669,7 +681,7 @@ function layoutOptionsForLabels(edges, colors, requested = {}) {
   }));
   return {
     ...requested,
-    horizontalGutter: Math.max(requested.horizontalGutter ?? DEFAULT_LAYOUT.horizontalGutter, Math.ceil(widestLabel + 46)),
+    horizontalGutter: requested.horizontalGutter ?? Math.max(DEFAULT_LAYOUT.horizontalGutter, Math.ceil(widestLabel + 46)),
   };
 }
 
@@ -752,16 +764,39 @@ function packGraphs(nodes, groups, colors, gap = 80) {
   if (groups.length < 2) return nodes;
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const bounds = diagramBounds(groups, byId, colors);
+  const boundsById = new Map(bounds.map((group) => [group.id, group]));
   const shifts = new Map();
-  let previousBottom = null;
-  let anchorLeft = null;
-  for (const group of bounds) {
-    if (anchorLeft === null) anchorLeft = group.x;
-    const shiftY = previousBottom === null ? 0 : Math.max(0, previousBottom + gap - group.visualTop);
-    const shiftX = anchorLeft - group.x;
-    group.nodeIds.forEach((id) => shifts.set(id, { x: shiftX, y: shiftY }));
-    previousBottom = group.bottom + shiftY;
-  }
+  const graphShifts = new Map();
+  const resolving = new Set();
+  const resolve = (group) => {
+    if (graphShifts.has(group.id)) return graphShifts.get(group.id);
+    if (resolving.has(group.id)) return { x: 0, y: 0 };
+    resolving.add(group.id);
+    const index = bounds.indexOf(group);
+    const fallback = index > 0 ? bounds[index - 1] : null;
+    const target = boundsById.get(group.relativeTo) ?? fallback;
+    if (!target) {
+      graphShifts.set(group.id, { x: 0, y: 0 });
+      resolving.delete(group.id);
+      return graphShifts.get(group.id);
+    }
+    const targetShift = resolve(target);
+    const placement = group.placement ?? "below";
+    const shift = placement === "above"
+      ? { x: target.x + targetShift.x - group.x, y: target.visualTop + targetShift.y - gap - group.bottom }
+      : placement === "left"
+        ? { x: target.visualLeft + targetShift.x - gap - group.visualRight, y: target.y + targetShift.y - group.y }
+        : placement === "right"
+          ? { x: target.visualRight + targetShift.x + gap - group.visualLeft, y: target.y + targetShift.y - group.y }
+          : { x: target.x + targetShift.x - group.x, y: target.bottom + targetShift.y + gap - group.visualTop };
+    graphShifts.set(group.id, shift);
+    resolving.delete(group.id);
+    return shift;
+  };
+  bounds.forEach((group) => {
+    const shift = resolve(group);
+    group.nodeIds.forEach((id) => shifts.set(id, shift));
+  });
   return nodes.map((node) => ({ ...node, x: node.x + (shifts.get(node.id)?.x ?? 0), y: node.y + (shifts.get(node.id)?.y ?? 0) }));
 }
 

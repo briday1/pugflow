@@ -75,10 +75,14 @@ test("adds independent nodes and explicit flows to a graph", () => {
 });
 
 test("adds a standalone sibling graph", () => {
-  const updated = appendDiagramNode(FLAT_GRAPH, { diagramId: "second", id: "other", label: "Other" });
+  const updated = appendDiagramNode(FLAT_GRAPH, {
+    diagramId: "second", diagramPlacement: "right", diagramRelativeTo: "main", id: "other", label: "Other",
+  });
   const parsed = parseDiagram(updated);
   assert.deepEqual(parsed.errors, []);
   assert.deepEqual(parsed.groups.map((group) => group.id), ["main", "second"]);
+  assert.deepEqual([parsed.groups[1].placement, parsed.groups[1].relativeTo], ["right", "main"]);
+  assert.match(updated, /  graph\n    \.id second\n    \.placement right\n    \.relative-to main/);
 });
 
 test("removes every flow touching a deleted node", () => {
