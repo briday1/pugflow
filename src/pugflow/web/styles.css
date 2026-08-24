@@ -466,8 +466,10 @@ dialog::backdrop { background: rgb(15 23 42 / .48); backdrop-filter: blur(2px); 
 .dialog-actions .primary:hover { background: var(--accent-hover); }
 #graph-builder[data-mode="flow"] .diagram-only,
 #graph-builder[data-mode="flow"] .new-target-only,
+#graph-builder:not([data-mode="connected-node"]) .connected-node-only,
 #graph-builder[data-mode="connected-node"] .diagram-only,
 #graph-builder[data-mode="connected-node"] .existing-target-only,
+#graph-builder[data-mode="connected-node"] .connected-source-choice,
 #graph-builder[data-mode="node"] .diagram-only,
 #graph-builder[data-mode="node"] .flow-only,
 #graph-builder[data-mode="node"] .relationship-only,

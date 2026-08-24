@@ -6,6 +6,8 @@ import {
   appendGraphNode,
   appendNodeAnnotation,
   indentSourceSelection,
+  moveDeclarationToContainer,
+  moveNodeToGraph,
   removeConnectionLabel,
   removeNodeAnnotation,
   removeNodeDeclaration,
@@ -77,6 +79,22 @@ test("adds independent nodes and explicit flows to a graph", () => {
 test("adds a standalone sibling graph", () => {
   const updated = appendDiagramNode(FLAT_GRAPH, {
     diagramId: "second", diagramPlacement: "right", diagramRelativeTo: "main", id: "other", label: "Other",
+  });
+
+  test("moves nodes and flow declarations between graph scopes", () => {
+    const source = `${FLAT_GRAPH}\n  graph\n    .id second\n    .node\n      .id other\n      .label Other`;
+    const parsed = parseDiagram(source);
+    const child = parsed.nodes.find((node) => node.id === "child");
+    const second = parsed.groups.find((group) => group.id === "second");
+    const withMovedNode = moveNodeToGraph(source, child.lineNumber, second.lineNumber);
+    const moved = parseDiagram(withMovedNode);
+    assert.ok(moved.groups.find((group) => group.id === "second").nodeIds.includes("child"));
+    const flow = moved.edges.find((edge) => edge.from === "root" && edge.to === "child");
+    const canvasLine = withMovedNode.split("\n").findIndex((line) => line.trim() === "#canvas") + 1;
+    const withMovedFlow = moveDeclarationToContainer(withMovedNode, flow.lineNumber, canvasLine);
+    const final = parseDiagram(withMovedFlow);
+    assert.deepEqual(final.errors, []);
+    assert.equal(final.edges[0].graphId, null);
   });
   const parsed = parseDiagram(updated);
   assert.deepEqual(parsed.errors, []);

@@ -1,5 +1,5 @@
 import { createBlockDiagram, parseDiagram } from "./pugflow.mjs";
-import { appendDiagramNode, appendFlowReference, appendGraphNode, appendNodeAnnotation, indentSourceSelection, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeAnnotation, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, renameNodeReferences, setAnnotationOffsetField, setAnnotationPosition, setAnnotationText, setDeclarationOffsetField, setNodeField, setNodeImageGeometry, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
+import { appendDiagramNode, appendFlowReference, appendGraphNode, appendNodeAnnotation, indentSourceSelection, moveDeclarationToContainer, moveNodeToGraph, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeAnnotation, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, renameNodeReferences, setAnnotationOffsetField, setAnnotationPosition, setAnnotationText, setDeclarationOffsetField, setNodeField, setNodeImageGeometry, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
 import { attachVimMode } from "./vim-mode.mjs";
 import { attachTextEditor } from "./text-editor.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets, independentMoveOffsets } from "./layout.mjs";
@@ -408,6 +408,9 @@ const builderFromGraph = document.querySelector("#builder-from-graph");
 const builderToGraph = document.querySelector("#builder-to-graph");
 const builderFromDirection = document.querySelector("#builder-from-direction");
 const builderToDirection = document.querySelector("#builder-to-direction");
+const builderConnectedNode = document.querySelector("#builder-connected-node");
+const builderFlowDirection = document.querySelector("#builder-flow-direction");
+const builderNewNodeGraph = document.querySelector("#builder-new-node-graph");
 const builderNodeType = document.querySelector("#builder-node-type");
 const builderLineType = document.querySelector("#builder-line-type");
 const builderId = document.querySelector("#builder-id");
@@ -875,7 +878,9 @@ function renderInspector() {
       return;
     }
     const node = currentGraph.nodes.find((candidate) => candidate.id === nodes[0].id);
-    inspectorContent.innerHTML = `<h3>Node</h3><label>Node Layer<select data-node-layer-order><option value="">Layer ${node.layer ?? 0}</option><option value="front">Send to front</option><option value="back">Send to back</option></select></label><small class="inspector-help">Send this node to the front or back within its graph, or drag it in the Objects panel.</small><label>Label<input data-node-field="label" value="${escapeHtml(node.label.replace(/\n/g, " "))}"></label><label>ID <small>optional</small><input data-node-field="id" value="${escapeHtml(node.explicitId)}" placeholder="${escapeHtml(node.id)}" pattern="[A-Za-z][A-Za-z0-9_-]*" title="Start with a letter; use letters, numbers, underscores, or hyphens."></label>${fontOptions("node", node.style)}<label>Type<select data-node-type><option value="node">node</option>${custom.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label><details><summary>Appearance</summary><label>Shape<select data-node-field="shape">${["square","rounded","round","pill","diamond","hexagon","cylinder"].map((shape) => `<option${node.style.shape === shape ? " selected" : ""}>${shape}</option>`).join("")}</select></label>${colorControl("Fill", "fill", node.style.fill)}${colorControl("Border", "outline", node.style.outline)}<label>Border style<select data-node-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${node.style.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Border width<input data-node-field="outline-width" type="number" min="0" value="${node.style.outlineWidth}"></label><label>Width<input data-node-field="width" value="${node.style.width}"></label><label>Height<input data-node-field="height" value="${node.style.height}"></label><label>Text alignment<select data-node-field="align">${["left","center","right"].map((value) => `<option${node.style.align === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details><details${node.style.shadowColor ? " open" : ""}><summary><label class="shadow-toggle"><input type="checkbox" data-shadow-toggle${node.style.shadowColor ? " checked" : ""}> Shadow</label></summary>${colorControl("Color", "shadow-color", node.style.shadowColor ?? "#000000")}<label>X offset<input data-node-field="shadow-offset-x" type="number" value="${node.style.shadowOffsetX}"></label><label>Y offset<input data-node-field="shadow-offset-y" type="number" value="${node.style.shadowOffsetY}"></label><label>Blur<input data-node-field="shadow-blur" type="number" min="0" value="${node.style.shadowBlur}"></label><label>Opacity<input data-node-field="shadow-opacity" type="number" min="0" max="1" step="0.05" value="${node.style.shadowOpacity}"></label></details><div class="inspector-inline-field"><label>Offset<input value="(${node.offsetX}, ${node.offsetY})" readonly></label><button type="button" data-arrange="remove-offsets">Remove</button></div>`;
+    const nodeGraph = graphForNode(node.id);
+    const graphOptions = currentGraph.groups.map((group) => `<option value="${escapeHtml(group.id)}"${group.id === nodeGraph?.id ? " selected" : ""}>${escapeHtml(group.label || group.id)}</option>`).join("");
+    inspectorContent.innerHTML = `<h3>Node</h3><label>Graph<select data-node-graph>${graphOptions}</select></label><label>Node Layer<select data-node-layer-order><option value="">Layer ${node.layer ?? 0}</option><option value="front">Send to front</option><option value="back">Send to back</option></select></label><small class="inspector-help">Send this node to the front or back within its graph, or drag it in the Objects panel.</small><label>Label<input data-node-field="label" value="${escapeHtml(node.label.replace(/\n/g, " "))}"></label><label>ID <small>optional</small><input data-node-field="id" value="${escapeHtml(node.explicitId)}" placeholder="${escapeHtml(node.id)}" pattern="[A-Za-z][A-Za-z0-9_-]*" title="Start with a letter; use letters, numbers, underscores, or hyphens."></label>${fontOptions("node", node.style)}<label>Type<select data-node-type><option value="node">node</option>${custom.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label><details><summary>Appearance</summary><label>Shape<select data-node-field="shape">${["square","rounded","round","pill","diamond","hexagon","cylinder"].map((shape) => `<option${node.style.shape === shape ? " selected" : ""}>${shape}</option>`).join("")}</select></label>${colorControl("Fill", "fill", node.style.fill)}${colorControl("Border", "outline", node.style.outline)}<label>Border style<select data-node-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${node.style.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Border width<input data-node-field="outline-width" type="number" min="0" value="${node.style.outlineWidth}"></label><label>Width<input data-node-field="width" value="${node.style.width}"></label><label>Height<input data-node-field="height" value="${node.style.height}"></label><label>Text alignment<select data-node-field="align">${["left","center","right"].map((value) => `<option${node.style.align === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details><details${node.style.shadowColor ? " open" : ""}><summary><label class="shadow-toggle"><input type="checkbox" data-shadow-toggle${node.style.shadowColor ? " checked" : ""}> Shadow</label></summary>${colorControl("Color", "shadow-color", node.style.shadowColor ?? "#000000")}<label>X offset<input data-node-field="shadow-offset-x" type="number" value="${node.style.shadowOffsetX}"></label><label>Y offset<input data-node-field="shadow-offset-y" type="number" value="${node.style.shadowOffsetY}"></label><label>Blur<input data-node-field="shadow-blur" type="number" min="0" value="${node.style.shadowBlur}"></label><label>Opacity<input data-node-field="shadow-opacity" type="number" min="0" max="1" step="0.05" value="${node.style.shadowOpacity}"></label></details><div class="inspector-inline-field"><label>Offset<input value="(${node.offsetX}, ${node.offsetY})" readonly></label><button type="button" data-arrange="remove-offsets">Remove</button></div>`;
     inspectorContent.querySelector("h3")?.insertAdjacentHTML("beforeend", `<label class="inspector-switch inspector-switch-heading"><span>Hidden</span><input data-node-hidden type="checkbox"${node.hidden ? " checked" : ""}></label>`);
     inspectorContent.querySelectorAll("details")[1]?.insertAdjacentHTML("afterend", imageControls(node));
     tidyInspectorSections();
@@ -925,6 +930,27 @@ function graphForNode(id) {
   return currentGraph.groups.find((group) => group.nodeIds.includes(id));
 }
 
+function reconcileFlowScopes(value) {
+  for (let attempt = 0; attempt <= currentGraph.edges.length; attempt += 1) {
+    const parsed = parseDiagram(value, cssSource);
+    const ownership = new Map(parsed.groups.flatMap((group) => group.nodeIds.map((id) => [id, group.id])));
+    const edge = parsed.edges.find((candidate) => {
+      const fromGraph = ownership.get(candidate.from);
+      const toGraph = ownership.get(candidate.to);
+      const expectedGraph = fromGraph && fromGraph === toGraph ? fromGraph : null;
+      return candidate.graphId !== expectedGraph;
+    });
+    if (!edge) return value;
+    const expectedGraph = ownership.get(edge.from) === ownership.get(edge.to) ? ownership.get(edge.from) : null;
+    const containerLine = expectedGraph
+      ? parsed.groups.find((group) => group.id === expectedGraph)?.lineNumber
+      : value.split("\n").findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim())) + 1;
+    if (!containerLine) return value;
+    value = moveDeclarationToContainer(value, edge.lineNumber, containerLine);
+  }
+  return value;
+}
+
 function renderBuilderGraphOptions(select, selectedGraphId) {
   select.innerHTML = currentGraph.groups.map((group) => `<option value="${escapeHtml(group.id)}"${group.id === selectedGraphId ? " selected" : ""}>${escapeHtml(group.label || group.id)}</option>`).join("");
 }
@@ -963,6 +989,11 @@ function openGraphBuilder(mode = "flow", preferredIds = null) {
   renderBuilderNodeChoices(builderSources, builderFromGraph.value, preferredSource);
   renderBuilderGraphOptions(builderToGraph, targetGraph?.id);
   renderBuilderNodeChoices(builderTargets, builderToGraph.value, "");
+  renderBuilderGraphOptions(builderNewNodeGraph, sourceGraph?.id);
+  graphBuilder.dataset.connectedNode = mode === "connected-node" ? preferredSource : "";
+  const connectedNode = currentGraph.nodes.find((node) => node.id === preferredSource);
+  builderConnectedNode.value = connectedNode ? `${connectedNode.label || connectedNode.id} (${connectedNode.id})` : "";
+  builderFlowDirection.value = "to";
   graphBuilder.querySelectorAll(".new-target-only").forEach((element) => { element.hidden = mode === "flow"; });
   builderId.required = mode !== "flow";
   const nodeTypeOptions = `<option value="node">node</option>${reusableNames("node").map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}`;
@@ -2328,14 +2359,20 @@ graphBuilderForm.addEventListener("submit", (event) => {
     const scopeLine = fromGroup?.id === toGroup?.id ? fromGroup.lineNumber : canvasLine;
     nextSource = appendFlowReference(pugSource, scopeLine, { ...options, from, to });
   } else if (mode === "connected-node") {
-    const graph = currentGraph.groups.find((candidate) => candidate.id === builderFromGraph.value);
-    const from = selectedBuilderNode(builderSources);
-    if (!graph || !from) {
-      builderError.textContent = "Choose a source node.";
+    const pinned = graphBuilder.dataset.connectedNode;
+    const pinnedGraph = graphForNode(pinned);
+    const nodeGraph = currentGraph.groups.find((candidate) => candidate.id === builderNewNodeGraph.value);
+    if (!pinnedGraph || !nodeGraph || !pinned) {
+      builderError.textContent = "The connected node or graph is no longer available.";
       return;
     }
-    nextSource = appendGraphNode(pugSource, graph.lineNumber, options);
-    nextSource = appendFlowReference(nextSource, graph.lineNumber, { ...options, from, to: id, toDirection: options.fromDirection });
+    const towardNewNode = builderFlowDirection.value === "to";
+    const from = towardNewNode ? pinned : id;
+    const to = towardNewNode ? id : pinned;
+    const canvasLine = pugSource.split("\n").findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim())) + 1;
+    const scopeLine = pinnedGraph.id === nodeGraph.id ? nodeGraph.lineNumber : canvasLine;
+    nextSource = appendGraphNode(pugSource, nodeGraph.lineNumber, options);
+    nextSource = appendFlowReference(nextSource, scopeLine, { ...options, from, to, toDirection: options.fromDirection });
   } else if (mode === "node") {
     const graph = currentGraph.groups.find((candidate) => candidate.id === builderFromGraph.value);
     if (!graph) {
@@ -2616,6 +2653,22 @@ inspectorContent.addEventListener("change", (event) => {
     let nextSource = source.value;
     [...nodes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((selected) => { nextSource = setNodeType(nextSource, selected.lineNumber, event.target.value); });
     setSource(nextSource);
+    return;
+  }
+  if (event.target.matches("[data-node-graph]") && node) {
+    const targetGraph = currentGraph.groups.find((group) => group.id === event.target.value);
+    const currentNodeGraph = graphForNode(node.id);
+    if (!targetGraph || targetGraph.id === currentNodeGraph?.id) return;
+    let nextSource = source.value;
+    let movingNode = node;
+    if (!movingNode.explicitId) {
+      nextSource = setNodeField(nextSource, movingNode.lineNumber, "id", movingNode.id);
+      movingNode = parseDiagram(nextSource, cssSource).nodes.find((candidate) => candidate.id === node.id);
+    }
+    const parsed = parseDiagram(nextSource, cssSource);
+    const parsedTarget = parsed.groups.find((group) => group.id === targetGraph.id);
+    nextSource = moveNodeToGraph(nextSource, movingNode.lineNumber, parsedTarget.lineNumber);
+    setSource(reconcileFlowScopes(nextSource));
     return;
   }
   const annotationField = event.target.dataset.annotationField;
