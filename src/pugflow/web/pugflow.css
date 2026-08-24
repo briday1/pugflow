@@ -26,3 +26,7 @@
   display: block;
   max-width: none;
 }
+
+.pugflow-svg.empty-diagram {
+  display: none;
+}

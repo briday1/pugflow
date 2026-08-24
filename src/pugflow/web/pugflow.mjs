@@ -848,6 +848,7 @@ function renderSvg(container, graph, options) {
   const viewHeight = viewBottom - viewY;
   const svg = svgElement("svg", { xmlns: SVG_NS, viewBox: `${viewX} ${viewY} ${viewWidth} ${viewHeight}`, width: viewWidth, height: viewHeight, role: "img", "aria-label": options.accessibleLabel ?? "Block diagram" });
   svg.classList.add("pugflow-svg");
+  if (!visualNodes.length && !groups.length) svg.classList.add("empty-diagram");
   const style = svgElement("style");
   style.textContent = `
     .diagram-background { fill: ${colors.background}; }

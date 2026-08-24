@@ -71,6 +71,8 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   const renderer = readFileSync(new URL("../../src/pugflow/web/pugflow.mjs", import.meta.url), "utf8");
   assert.match(html, /id="new-pug"/);
   assert.match(html, /id="new-css"/);
+  assert.match(app, /pugTab\.textContent = pugFileName \|\| "Pug"/);
+  assert.doesNotMatch(app, /pugFileName === "Untitled\.pug" \? "Pug"/);
   assert.match(html, /<kbd>Ctrl<\/kbd>\+<kbd>Space<\/kbd> suggestions/);
   assert.match(html, /id="toggle-source"/);
   assert.match(html, /class="theme-toggle" id="theme" type="button"/);
@@ -181,6 +183,8 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /\^#\[0-9a-f\]\{6\}00\$\/i\.test\(color\)/);
   assert.match(renderer, /annotationAboveStyle/);
   assert.match(renderer, /function textBorder/);
+  assert.match(renderer, /!visualNodes\.length && !groups\.length.*empty-diagram/);
+  assert.match(diagramStyles, /\.pugflow-svg\.empty-diagram \{\s*display: none;/);
   assert.match(renderer, /class: `connector connector-outline/);
   assert.match(renderer, /class: "block-annotation"[\s\S]*?"data-select-kind": "node", "data-selection-key": `node:\$\{node\.id\}`/);
   assert.doesNotMatch(renderer, /"data-select-kind": "annotation"/);

@@ -706,7 +706,6 @@ function compileMarkup(tree) {
     const entries = component.children.filter((child) => child.type === "entry");
     const members = component.children.find((child) => child.type === "members");
     if (members) errors.push(`Line ${members.lineNumber}: .members has been removed; move each node declaration directly into its graph.`);
-    if (!entries.length) errors.push(`Line ${component.lineNumber}: graph needs at least one node.`);
     const before = nodes.length;
     const edgeBefore = edges.length;
     const directNodes = entries.map((entry) => buildEntry(entry, null)).filter(Boolean);

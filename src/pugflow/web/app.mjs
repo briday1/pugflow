@@ -455,7 +455,7 @@ if (launchParams.get("project") === "1") {
 function updateSourceFileNames() {
   const pugTab = document.querySelector('[data-source-tab="pug"]');
   const cssTab = document.querySelector('[data-source-tab="css"]');
-  pugTab.textContent = pugFileName === "Untitled.pug" ? "Pug" : pugFileName;
+  pugTab.textContent = pugFileName || "Pug";
   cssTab.textContent = cssFileName || "CSS";
   pugTab.title = pugFileName;
   cssTab.title = cssFileName || "No CSS file loaded";

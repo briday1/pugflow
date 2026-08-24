@@ -143,6 +143,13 @@ test("parses directional graph placement and validates references", () => {
   assert.match(cycle.errors.join("\n"), /placement references form a cycle/);
 });
 
+test("allows an intentionally empty graph", () => {
+  const result = parseDiagram("#canvas\n  graph\n    .id empty\n    .label Empty graph");
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.nodes.length, 0);
+  assert.deepEqual(result.groups[0].nodeIds, []);
+});
+
 test("retains offsets, annotations, visibility, and empty labels", () => {
   const result = parseDiagram("#canvas\n  graph\n    .hidden\n    .node\n      .id root\n      .offset (12.5, -8)\n      .label-offset (3, 4)\n      .label\n      .annotation\n        .above Note\n          .offset (-4, 6)");
   assert.deepEqual(result.errors, []);
