@@ -38,7 +38,7 @@ pugflow diagram.pug --css styles.css --output diagram.png --scale 2
 
 `GET /healthz` returns server status and version as JSON.
 
-The compact application toolbar groups source and export actions under **File**, canvas creation under **New**, and theme and Vim controls under **Settings**. Reusable styles use CSS-shaped rules:
+The compact application toolbar groups source and export actions under **File**, canvas creation under **New**, and theme and Vim controls under **Settings**. Click **Pugflow** for the installed version and links to the repository, PyPI, and documentation. Reusable styles use CSS-shaped rules:
 
 ```css
 @node card {
