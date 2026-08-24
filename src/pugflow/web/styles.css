@@ -291,7 +291,7 @@ code { padding: 2px 4px; border-radius: 3px; color: var(--accent); background: v
   background: rgba(46, 107, 167, .68);
   background: color-mix(in srgb, var(--accent) 68%, transparent);
 }
-.color-decorators { position: absolute; z-index: 3; inset: 0; overflow: hidden; pointer-events: none; }
+.color-decorators { position: absolute; z-index: 3; inset: 0; pointer-events: none; }
 .color-decorator {
   position: absolute;
   width: 12px !important;

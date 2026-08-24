@@ -1344,8 +1344,8 @@ function updateEditorChrome() {
   lineNumbers.style.transform = "translateY(" + -source.scrollTop + "px)";
   currentLine.style.transform = "translateY(" + (14 + line * 20 - source.scrollTop) + "px)";
   for (const swatch of colorDecorators.children) {
-    const left = 52 + (Number(swatch.dataset.column) + Number(swatch.dataset.length)) * 7.23 - source.scrollLeft + 8;
-    const top = 18 + Number(swatch.dataset.line) * 20 - source.scrollTop;
+    const left = 52 + (Number(swatch.dataset.column) + Number(swatch.dataset.length)) * 7.23 + 8;
+    const top = 18 + Number(swatch.dataset.line) * 20;
     swatch.style.transform = `translate(${left}px, ${top}px)`;
   }
   const showVimCursor = source.dataset.vimMode === "normal" && document.activeElement === source;

@@ -11,7 +11,9 @@ function selectionOffset(element, node, offset) {
 
 function textPosition(element, requestedOffset) {
   const offset = Math.max(0, requestedOffset);
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => node.parentElement?.closest(".color-decorators") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+  });
   let traversed = 0;
   let node = walker.nextNode();
   while (node) {
@@ -33,10 +35,12 @@ export function attachTextEditor(element) {
   Object.defineProperties(element, {
     value: {
       get() {
-        return element.textContent ?? "";
+        return [...element.childNodes].filter((node) => !node.classList?.contains("color-decorators")).map((node) => node.textContent ?? "").join("");
       },
       set(value) {
-        element.textContent = String(value);
+        const decorations = element.querySelector(":scope > .color-decorators");
+        element.replaceChildren(document.createTextNode(String(value)));
+        if (decorations) element.append(decorations);
       },
     },
     selectionStart: {
