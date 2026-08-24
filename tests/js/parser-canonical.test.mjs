@@ -86,6 +86,35 @@ test("applies @node, @flow, @annotation, and .defaults > .flow styles", () => {
   assert.equal(warning.portDistribution, "distributed");
 });
 
+test("exposes effective flow annotation colors and editable text borders", () => {
+  const result = parseDiagram("@flow incident\n  .color #f59e0b\n#canvas\n  .background #f8fafc\n  graph\n    .node\n      .id alerting\n      .label Alerting\n    .node\n      .id oncall\n      .label On-call\n    .flow\n      .from alerting\n      .to oncall\n      .label page\n      .incident\n      .annotation-above-color #ffffff\n      .annotation-above-text-outline #172554\n      .annotation-above-text-outline-width 2");
+  assert.deepEqual(result.errors, []);
+  const edge = result.edges[0];
+  assert.equal(edge.annotationAbove, "page");
+  assert.deepEqual(edge.annotationAboveStyle, {
+    color: "#ffffff",
+    fontFamily: null,
+    fontSize: 12,
+    fontWeight: "normal",
+    fontStyle: "normal",
+    textDecoration: "none",
+    textOutline: "#172554",
+    textOutlineWidth: 2,
+  });
+  assert.equal(edge.annotationBelowStyle.textOutline, "transparent");
+  assert.equal(edge.annotationBelowStyle.textOutlineWidth, 0);
+});
+
+test("defaults every text border to transparent and zero width", () => {
+  const result = parseDiagram("#canvas\n  graph\n    .label Main\n    .node\n      .id first\n      .label First\n      .annotation\n        .above Note\n    .node\n      .id second\n      .label Second\n    .flow\n      .from first\n      .to second\n      .label Flow note");
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual([result.groups[0].textOutline, result.groups[0].textOutlineWidth], ["transparent", 0]);
+  assert.deepEqual([result.nodes[0].style.textOutline, result.nodes[0].style.textOutlineWidth], ["transparent", 0]);
+  assert.deepEqual([result.nodes[0].annotations[0].textOutline, result.nodes[0].annotations[0].textOutlineWidth], ["transparent", 0]);
+  assert.deepEqual([result.edges[0].textOutline, result.edges[0].textOutlineWidth], ["transparent", 0]);
+  assert.deepEqual([result.edges[0].annotationAboveStyle.textOutline, result.edges[0].annotationAboveStyle.textOutlineWidth], ["transparent", 0]);
+});
+
 test("resolves flow endpoints declared after the flow", () => {
   const result = parseDiagram("#canvas\n  graph\n    .flow\n      .from first\n      .to second\n    .node\n      .id first\n      .label First\n    .node\n      .id second\n      .label Second");
   assert.deepEqual(result.errors, []);

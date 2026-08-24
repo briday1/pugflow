@@ -244,7 +244,7 @@ export function setNodeAnnotationField(value, labelLineNumber, position, field, 
   return setStructuralField(annotation.value, annotation.lineNumber, field, fieldValue);
 }
 
-export function appendNodeAnnotation(value, labelLineNumber, { position = "above", text = "Annotation", type = "", color = "", fontSize = "", fontFamily = "", fontWeight = "", fontStyle = "", textDecoration = "" } = {}) {
+export function appendNodeAnnotation(value, labelLineNumber, { position = "above", text = "Annotation", type = "", color = "", fontSize = "", fontFamily = "", fontWeight = "", fontStyle = "", textDecoration = "", textOutline = "", textOutlineWidth = "" } = {}) {
   const lines = value.split("\n");
   const range = nodeRange(lines, labelLineNumber);
   const annotationIndent = indentationWidth(range.fieldIndent);
@@ -257,6 +257,8 @@ export function appendNodeAnnotation(value, labelLineNumber, { position = "above
     ...(fontWeight ? [`${range.fieldIndent}    .font-weight ${fontWeight}`] : []),
     ...(fontStyle ? [`${range.fieldIndent}    .font-style ${fontStyle}`] : []),
     ...(textDecoration ? [`${range.fieldIndent}    .text-decoration ${textDecoration}`] : []),
+    ...(textOutline ? [`${range.fieldIndent}    .text-outline ${textOutline}`] : []),
+    ...(textOutlineWidth ? [`${range.fieldIndent}    .text-outline-width ${textOutlineWidth}`] : []),
   ];
   let group = lines.findIndex((line, index) => index > range.start && index < range.end
     && indentationWidth(line) === annotationIndent && line.trim() === ".annotation");

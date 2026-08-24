@@ -9,16 +9,19 @@ const FIELD_MAPS = {
     ["image-opacity", "imageOpacity"], ["image-padding", "imagePadding"],
     ["font-family", "fontFamily"], ["font-size", "fontSize"], ["font-weight", "fontWeight"],
     ["font-style", "fontStyle"], ["text-decoration", "textDecoration"],
+    ["text-outline", "textOutline"], ["text-outline-width", "textOutlineWidth"],
   ],
   flow: [
     ["color", "color"], ["width", "width"], ["roundness", "roundness"],
     ["stroke-style", "style"], ["arrow-style", "direction"], ["label-position", "labelPosition"],
     ["font-family", "fontFamily"], ["font-size", "fontSize"], ["font-weight", "fontWeight"],
     ["font-style", "fontStyle"], ["text-decoration", "textDecoration"],
+    ["text-outline", "textOutline"], ["text-outline-width", "textOutlineWidth"],
   ],
   annotation: [
     ["color", "color"], ["font-family", "fontFamily"], ["font-size", "fontSize"],
     ["font-weight", "fontWeight"], ["font-style", "fontStyle"], ["text-decoration", "textDecoration"],
+    ["text-outline", "textOutline"], ["text-outline-width", "textOutlineWidth"],
   ],
 };
 

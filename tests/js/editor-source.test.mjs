@@ -117,6 +117,15 @@ test("creates missing annotation text and style fields", () => {
   assert.equal(annotation.fontStyle, "italic");
 });
 
+test("creates node annotations with editable text borders", () => {
+  const updated = appendNodeAnnotation(FLAT_GRAPH, 6, {
+    position: "below", text: "Outlined", textOutline: "rebeccapurple", textOutlineWidth: "1.5",
+  });
+  const annotation = parseDiagram(updated).nodes[0].annotations[0];
+  assert.equal(annotation.textOutline, "rebeccapurple");
+  assert.equal(annotation.textOutlineWidth, 1.5);
+});
+
 test("writes node image geometry as one stable edit", () => {
   const source = FLAT_GRAPH.replace("      .label Root", "      .image photo.png\n      .image-width 40\n      .label Root");
   const root = parseDiagram(source).nodes.find((node) => node.id === "root");

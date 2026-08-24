@@ -112,6 +112,14 @@ function annotationTop(node, annotation, index) {
 }
 function edgeColor(edge, colors) { return edge.color === "merge" ? colors.merge : edge.color ?? colors.label; }
 function dashArray(style) { return style === "dashed" ? "8 6" : style === "dotted" ? "2 5" : null; }
+function textBorder(style, fallback = "transparent") {
+  return {
+    "paint-order": "stroke",
+    stroke: style.textOutline ?? fallback,
+    "stroke-width": style.textOutlineWidth ?? 0,
+    "stroke-linejoin": "round",
+  };
+}
 
 function ensureShadow(defs, node) {
   if (!node.style.shadowColor) return null;
@@ -174,6 +182,7 @@ function addRichLabel(group, node, colors, x, top, anchor, textColor) {
           "font-family": node.style.fontFamily ?? colors.font, "font-size": node.style.fontSize,
           "font-weight": node.style.fontWeight, "font-style": node.style.fontStyle,
           "text-decoration": node.style.textDecoration, "dominant-baseline": "middle",
+          ...textBorder(node.style),
         });
         text.textContent = run.text;
         label.append(text);
@@ -190,7 +199,7 @@ function addBlockAnnotation(group, node, annotation, index, colors) {
   const top = annotationTop(node, annotation, index);
   const attributes = {
     class: "block-annotation", "data-line": annotation.lineNumber, "data-id": node.id,
-    "data-select-kind": "annotation", "data-selection-key": `annotation:${annotation.lineNumber}`,
+    "data-select-kind": "node", "data-selection-key": `node:${node.id}`,
     "data-drag-kind": "block-annotation", "data-current-x": annotation.offsetX,
     "data-current-y": annotation.offsetY, role: "link", tabindex: 0,
     "aria-label": "Move or edit annotation " + annotation.text,
@@ -201,6 +210,7 @@ function addBlockAnnotation(group, node, annotation, index, colors) {
       "font-family": annotation.fontFamily ?? colors.font, "font-size": annotation.fontSize,
       "font-weight": annotation.fontWeight, "font-style": annotation.fontStyle,
       "text-decoration": annotation.textDecoration,
+      ...textBorder(annotation),
     });
     text.textContent = annotation.text;
     group.append(text);
@@ -218,6 +228,7 @@ function addBlockAnnotation(group, node, annotation, index, colors) {
           "font-family": annotation.fontFamily ?? colors.font, "font-size": annotation.fontSize,
           "font-weight": annotation.fontWeight, "font-style": annotation.fontStyle,
           "text-decoration": annotation.textDecoration, "dominant-baseline": "middle",
+          ...textBorder(annotation),
         });
         text.textContent = run.text;
         wrapper.append(text);
@@ -308,6 +319,7 @@ function addNode(svg, node, colors, defs) {
     "font-family": node.style.fontFamily ?? colors.font,
     "font-size": node.style.fontSize, "font-weight": node.style.fontWeight,
     "font-style": node.style.fontStyle, "text-decoration": node.style.textDecoration,
+    ...textBorder(node.style),
     "text-anchor": anchor,
     "dominant-baseline": "middle",
     "data-line": node.lineNumber,
@@ -588,6 +600,8 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
     { text: edge.annotationBelow, position: "below", hidden: edge.annotationBelowHidden, lineNumber: edge.annotationBelowLineNumber },
   ];
   annotations.filter((annotation) => annotation.text && !annotation.hidden).forEach((annotation) => {
+    const annotationStyle = annotation.position === "below" ? edge.annotationBelowStyle : edge.annotationAboveStyle;
+    const annotationColor = annotationStyle?.color === "merge" ? colors.merge : annotationStyle?.color ?? color;
     const offset = annotation.position === "below" ? 16 : -8;
     const rich = containsMath(annotation.text);
     const richLayout = rich ? richTextLayout(annotation.text, edge, colors) : null;
@@ -607,13 +621,14 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
       richLayout.lines.forEach((line) => {
         let cursor = x - line.width / 2;
         line.runs.forEach((run) => {
-          if (run.kind === "math") wrapper.append(mathSvg(run, { x: cursor, y: rowTop + (line.height - run.height) / 2, color }));
+          if (run.kind === "math") wrapper.append(mathSvg(run, { x: cursor, y: rowTop + (line.height - run.height) / 2, color: annotationColor }));
           else {
             const text = svgElement("text", {
-              x: cursor, y: rowTop + line.height / 2, fill: color,
-              "font-family": edge.fontFamily ?? colors.font, "font-size": edge.fontSize,
-              "font-weight": edge.fontWeight, "font-style": edge.fontStyle,
-              "text-decoration": edge.textDecoration, "dominant-baseline": "middle",
+              x: cursor, y: rowTop + line.height / 2, fill: annotationColor,
+              "font-family": annotationStyle?.fontFamily ?? colors.font, "font-size": annotationStyle?.fontSize,
+              "font-weight": annotationStyle?.fontWeight, "font-style": annotationStyle?.fontStyle,
+              "text-decoration": annotationStyle?.textDecoration, "dominant-baseline": "middle",
+              ...textBorder(annotationStyle ?? {}),
             });
             text.textContent = run.text;
             wrapper.append(text);
@@ -627,10 +642,11 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
     }
     const label = svgElement("text", {
       ...common, x, y: baseline,
-      fill: color,
-      "font-family": edge.fontFamily ?? colors.font,
-      "font-size": edge.fontSize, "font-weight": edge.fontWeight,
-      "font-style": edge.fontStyle, "text-decoration": edge.textDecoration,
+      fill: annotationColor,
+      "font-family": annotationStyle?.fontFamily ?? colors.font,
+      "font-size": annotationStyle?.fontSize, "font-weight": annotationStyle?.fontWeight,
+      "font-style": annotationStyle?.fontStyle, "text-decoration": annotationStyle?.textDecoration,
+      ...textBorder(annotationStyle ?? {}),
     });
     label.textContent = annotation.text;
     svg.append(label);
@@ -722,6 +738,7 @@ function addDiagramFrame(parent, group, colors) {
       "font-weight": group.fontWeight ?? "600",
       "font-style": group.fontStyle ?? "normal",
       "text-decoration": group.textDecoration ?? "none",
+      ...textBorder(group),
       "text-anchor": align === "center" ? "middle" : align === "right" ? "end" : "start",
       "pointer-events": "none",
     });
@@ -801,7 +818,6 @@ function renderSvg(container, graph, options) {
     .diagram-background { fill: ${colors.background}; }
     .label { user-select: none; }
     .block-annotation, .connection-annotation { text-anchor: middle; user-select: none; }
-    .connection-annotation { paint-order: stroke; stroke: ${colors.background}; stroke-width: 4px; stroke-linejoin: round; }
     .subdiagram-label { user-select: none; }
     .connector { fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .interactive [data-line] { cursor: pointer; }
@@ -886,12 +902,13 @@ function renderSvg(container, graph, options) {
           const connector = completed.target.closest?.(".connector");
           const additive = event.shiftKey || event.ctrlKey || event.metaKey;
           const selectedTarget = completed.target.closest?.("[data-select-kind]") ?? completed.target;
+          const kind = selectedTarget.dataset.selectKind ?? (connector ? "line" : "node");
           options.onElementClick?.({
-            kind: selectedTarget.dataset.selectKind ?? (connector ? "line" : "node"),
+            kind,
             id: entry?.dataset.id ?? selectedTarget.dataset.id ?? null,
             from: connector?.dataset.from ?? selectedTarget.dataset.from ?? null,
             to: connector?.dataset.to ?? selectedTarget.dataset.to ?? null,
-            lineNumber: Number(selectedTarget.dataset.line ?? completed.target.dataset.line),
+            lineNumber: Number(kind === "line" ? selectedTarget.dataset.offsetLine ?? selectedTarget.dataset.line : selectedTarget.dataset.line ?? completed.target.dataset.line),
             offsetLineNumber: Number(selectedTarget.dataset.offsetLine ?? selectedTarget.dataset.line),
             selectionKey: selectedTarget.dataset.selectionKey ?? connector?.dataset.selectionKey ?? entry?.dataset.selectionKey ?? null,
             additive,

@@ -39,7 +39,11 @@ test("the built-in showcase presents a restrained layered production architectur
   assert.ok(result.edges.filter((edge) => edge.graphId === "application").every((edge) => edge.roundness === 0 && edge.color === "#172554"));
   assert.deepEqual([parsed.get("collector")?.style.shape, parsed.get("metrics")?.style.shape, parsed.get("oncall")?.style.shape], ["hexagon", "pill", "diamond"]);
   assert.deepEqual([parsed.get("collector")?.style.fill, parsed.get("collector")?.style.color, parsed.get("metrics")?.style.outlineStyle], ["#0f172a", "#67e8f9", "dotted"]);
-  assert.equal(result.edges.find((edge) => edge.from === "alerting" && edge.to === "oncall")?.color, "#f59e0b");
+  const incident = result.edges.find((edge) => edge.from === "alerting" && edge.to === "oncall");
+  assert.equal(incident?.color, "#f59e0b");
+  assert.equal(incident?.annotationAboveStyle.color, "#f59e0b");
+  assert.equal(incident?.annotationAboveStyle.textOutline, "transparent");
+  assert.equal(incident?.annotationAboveStyle.textOutlineWidth, 0);
 });
 
 test("source saving writes the active document through a system file handle", () => {
@@ -132,14 +136,34 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /data-line-field="arrow-style"/);
   assert.match(app, /data-line-field="stroke-style"/);
   assert.match(app, /data-line-field="roundness"/);
+  assert.match(app, /data-line-endpoint="from"/);
+  assert.match(app, /data-line-endpoint="to"/);
+  assert.match(app, /data-line-face="source-face"/);
+  assert.match(app, /data-line-face="target-face"/);
+  assert.match(app, /Auto \(\$\{effective\}\)/);
+  assert.match(app, /selectionKey: `line:\$\{from\}:\$\{to\}:\$\{edge\.lineNumber\}`/);
   assert.match(html, /class="inspector-footer"[^>]*>.*id="save-reusable-style"/);
   assert.match(html, /id="style-builder-preview"[^>]*readonly/);
   assert.match(html, /<button class="primary" value="default">Save<\/button>/);
   assert.doesNotMatch(app, />Save as reusable (?:node|line|annotation) type/);
   assert.match(app, /<label>ID <small>optional<\/small><input data-node-field="id"/);
   assert.match(app, /data-add-annotation>\+ Add Annotation/);
+  assert.match(app, /data-add-line-annotation>\+ Add Annotation/);
+  assert.match(app, /openAnnotationBuilder\("line"\)/);
   assert.match(html, /id="annotation-builder-position"/);
   assert.match(html, /id="annotation-builder-text"/);
+  assert.match(html, /id="annotation-builder-text-outline"/);
+  assert.match(html, /id="annotation-builder-text-outline-width"/);
+  assert.doesNotMatch(html, /node-annotation-only/);
+  assert.match(app, /annotation-\$\{position\}-\$\{field\}/);
+  assert.match(app, /CSS\.supports\("color"/);
+  assert.match(app, /currentTrigger\?\.style\.setProperty\("--swatch", color\)/);
+  assert.match(app, /\^#\[0-9a-f\]\{6\}00\$\/i\.test\(color\)/);
+  assert.match(renderer, /annotationAboveStyle/);
+  assert.match(renderer, /function textBorder/);
+  assert.match(renderer, /class: "block-annotation"[\s\S]*?"data-select-kind": "node", "data-selection-key": `node:\$\{node\.id\}`/);
+  assert.doesNotMatch(renderer, /"data-select-kind": "annotation"/);
+  assert.match(renderer, /kind === "line" \? selectedTarget\.dataset\.offsetLine/);
   assert.match(app, /data-delete-annotation/);
   assert.match(app, /data-remove-annotation-offset/);
   assert.doesNotMatch(app, /data-group-as-graph|Group as Graph|\.members/);

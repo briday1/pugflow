@@ -477,7 +477,16 @@ function hsvToHex(h, s, v) {
   return `#${[r, g, b].map((channel) => Math.round((channel + match) * 255).toString(16).padStart(2, "0")).join("")}`;
 }
 function colorToHsva(value) {
-  const match = String(value).match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+  let normalized = String(value).trim();
+  if (!/^#/.test(normalized) && CSS.supports("color", normalized)) {
+    const probe = document.createElement("span");
+    probe.style.color = normalized;
+    document.body.append(probe);
+    const channels = getComputedStyle(probe).color.match(/[\d.]+/g)?.map(Number) ?? [];
+    probe.remove();
+    if (channels.length >= 3) normalized = `#${channels.slice(0, 3).map((channel) => Math.round(channel).toString(16).padStart(2, "0")).join("")}${channels.length > 3 ? Math.round(channels[3] * 255).toString(16).padStart(2, "0") : ""}`;
+  }
+  const match = normalized.match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
   if (!match) return null;
   const expanded = match[1].length <= 4 ? [...match[1]].map((digit) => digit + digit).join("") : match[1];
   return { ...rgbToHsv(`#${expanded.slice(0, 6)}`), a: expanded.length === 8 ? parseInt(expanded.slice(6), 16) / 255 : 1 };
@@ -599,36 +608,41 @@ document.addEventListener("pointerdown", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !colorPickerPopup.hidden) colorPickerPopup.hidden = true;
 });
-function colorControl(label, field, value, scope = "node") {
-  const hex = /^#[0-9a-f]{3,4}$/i.test(value ?? "") || /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(value ?? "") ? value : "#00000000";
+function colorControl(label, field, value, scope = "node", key = `${scope}:${field}`) {
   const noColor = ["none", "transparent"].includes(String(value ?? "").toLowerCase());
-  return `<label>${label}<span class="inspector-color"><button class="color-popup-trigger${noColor ? " none" : ""}" type="button" data-color-popup="${scope}:${field}" style="--swatch:${hex}" aria-label="Choose ${label.toLowerCase()}"></button><input data-${scope}-field="${field}" data-color-text="${scope}:${field}" value="${escapeHtml(value ?? "")}" placeholder="CSS color"></span></label>`;
+  const swatch = !noColor && CSS.supports("color", String(value ?? "").trim()) ? String(value).trim() : "transparent";
+  return `<label>${label}<span class="inspector-color"><button class="color-popup-trigger${noColor ? " none" : ""}" type="button" data-color-popup="${key}" style="--swatch:${escapeHtml(swatch)}" aria-label="Choose ${label.toLowerCase()}"></button><input data-${scope}-field="${field}" data-color-text="${key}" value="${escapeHtml(value ?? "")}" placeholder="CSS color"></span></label>`;
 }
 
-function fontOptions(scope, style = {}, includeColor = true) {
+function fontOptions(scope, style = {}, includeColor = true, fieldPrefix = "") {
   const option = (value, current) => `<option value="${value}"${String(current) === value ? " selected" : ""}>${value}</option>`;
-  return `<details class="font-options"><summary>Font options</summary>${includeColor ? colorControl("Color", "color", style.color, scope) : ""}<label>Font family<input data-${scope}-field="font-family" value="${escapeHtml(style.fontFamily ?? "")}" placeholder="inherit"></label><div class="inspector-grid"><label>Size<input data-${scope}-field="font-size" type="number" min="1" value="${style.fontSize ?? 12}"></label><label>Weight<select data-${scope}-field="font-weight">${["normal","500","600","bold"].map((v) => option(v, style.fontWeight ?? "normal")).join("")}</select></label><label>Style<select data-${scope}-field="font-style">${["normal","italic","oblique"].map((v) => option(v, style.fontStyle ?? "normal")).join("")}</select></label><label>Decoration<select data-${scope}-field="text-decoration">${["none","underline","line-through","overline"].map((v) => option(v, style.textDecoration ?? "none")).join("")}</select></label></div></details>`;
+  const field = (name) => `${fieldPrefix}${name}`;
+  return `<details class="font-options"><summary>Font options</summary>${includeColor ? colorControl("Color", field("color"), style.color, scope) : ""}<label>Font family<input data-${scope}-field="${field("font-family")}" value="${escapeHtml(style.fontFamily ?? "")}" placeholder="inherit"></label><div class="inspector-grid"><label>Size<input data-${scope}-field="${field("font-size")}" type="number" min="1" value="${style.fontSize ?? 12}"></label><label>Weight<select data-${scope}-field="${field("font-weight")}">${["normal","500","600","bold"].map((v) => option(v, style.fontWeight ?? "normal")).join("")}</select></label><label>Style<select data-${scope}-field="${field("font-style")}">${["normal","italic","oblique"].map((v) => option(v, style.fontStyle ?? "normal")).join("")}</select></label><label>Decoration<select data-${scope}-field="${field("text-decoration")}">${["none","underline","line-through","overline"].map((v) => option(v, style.textDecoration ?? "none")).join("")}</select></label></div><div class="inspector-grid">${colorControl("Text border", field("text-outline"), style.textOutline, scope)}<label>Border width<input data-${scope}-field="${field("text-outline-width")}" type="number" min="0" step="0.5" value="${style.textOutlineWidth ?? 0}"></label></div></details>`;
 }
 
 function nodeAnnotationControls(node) {
   const option = (value, current) => `<option value="${value}"${String(current) === value ? " selected" : ""}>${value}</option>`;
   const fields = node.annotations.map((annotation, index) => {
     const position = annotation.position;
-    const hex = /^#[0-9a-f]{3,4}$/i.test(annotation.color ?? "") || /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(annotation.color ?? "") ? annotation.color : "#00000000";
     const colorKey = `node-annotation:${annotation.lineNumber}`;
     const noColor = ["none", "transparent"].includes(String(annotation.color ?? "").toLowerCase());
     const target = `data-annotation-line="${annotation.lineNumber}"`;
     const title = `${position === "below" ? "Below" : "Above"} ${node.annotations.filter((item) => item.position === position).indexOf(annotation) + 1}`;
-    return `<details class="annotation-editor"><summary><span>${title}</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-node-annotation-hidden ${target} type="checkbox"${annotation.hidden ? " checked" : ""}></label></summary><label>Position<select data-node-annotation-position ${target}>${["above","below"].map((value) => option(value, position)).join("")}</select></label><label>Text<textarea data-node-annotation-text ${target} rows="2">${escapeHtml(annotation.text)}</textarea></label><details class="font-options"><summary>Font options</summary><label>Color<span class="inspector-color"><button class="color-popup-trigger${noColor ? " none" : ""}" type="button" data-color-popup="${colorKey}" style="--swatch:${hex}" aria-label="Choose color"></button><input ${target} data-node-annotation-field="color" data-color-text="${colorKey}" value="${escapeHtml(annotation.color ?? "")}" placeholder="CSS color"></span></label><label>Font family<input ${target} data-node-annotation-field="font-family" value="${escapeHtml(annotation.fontFamily ?? "")}" placeholder="inherit"></label><div class="inspector-grid"><label>Size<input ${target} data-node-annotation-field="font-size" type="number" min="1" value="${annotation.fontSize ?? 12}"></label><label>Weight<select ${target} data-node-annotation-field="font-weight">${["normal","500","600","bold"].map((v) => option(v, annotation.fontWeight ?? "normal")).join("")}</select></label><label>Style<select ${target} data-node-annotation-field="font-style">${["normal","italic","oblique"].map((v) => option(v, annotation.fontStyle ?? "normal")).join("")}</select></label><label>Decoration<select ${target} data-node-annotation-field="text-decoration">${["none","underline","line-through","overline"].map((v) => option(v, annotation.textDecoration ?? "none")).join("")}</select></label></div></details><div class="inspector-inline-field"><label>Offset<input value="(${annotation.offsetX ?? 0}, ${annotation.offsetY ?? 0})" readonly></label><button type="button" data-remove-annotation-offset="${annotation.lineNumber}"${annotation.offsetX || annotation.offsetY ? "" : " disabled"}>Remove</button></div><button type="button" class="danger annotation-delete" data-delete-annotation="${annotation.lineNumber}">Delete annotation</button></details>`;
+    const swatch = !noColor && CSS.supports("color", String(annotation.color ?? "").trim()) ? annotation.color : "transparent";
+    return `<details class="annotation-editor"><summary><span>${title}</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-node-annotation-hidden ${target} type="checkbox"${annotation.hidden ? " checked" : ""}></label></summary><label>Position<select data-node-annotation-position ${target}>${["above","below"].map((value) => option(value, position)).join("")}</select></label><label>Text<textarea data-node-annotation-text ${target} rows="2">${escapeHtml(annotation.text)}</textarea></label><details class="font-options"><summary>Font options</summary><label>Color<span class="inspector-color"><button class="color-popup-trigger${noColor ? " none" : ""}" type="button" data-color-popup="${colorKey}" style="--swatch:${escapeHtml(swatch)}" aria-label="Choose color"></button><input ${target} data-node-annotation-field="color" data-color-text="${colorKey}" value="${escapeHtml(annotation.color ?? "")}" placeholder="CSS color"></span></label><label>Font family<input ${target} data-node-annotation-field="font-family" value="${escapeHtml(annotation.fontFamily ?? "")}" placeholder="inherit"></label><div class="inspector-grid"><label>Size<input ${target} data-node-annotation-field="font-size" type="number" min="1" value="${annotation.fontSize ?? 12}"></label><label>Weight<select ${target} data-node-annotation-field="font-weight">${["normal","500","600","bold"].map((v) => option(v, annotation.fontWeight ?? "normal")).join("")}</select></label><label>Style<select ${target} data-node-annotation-field="font-style">${["normal","italic","oblique"].map((v) => option(v, annotation.fontStyle ?? "normal")).join("")}</select></label><label>Decoration<select ${target} data-node-annotation-field="text-decoration">${["none","underline","line-through","overline"].map((v) => option(v, annotation.textDecoration ?? "none")).join("")}</select></label></div><div class="inspector-grid">${colorControl("Text border", "text-outline", annotation.textOutline, "node-annotation", `${colorKey}:outline`).replaceAll("data-node-annotation-field", `${target} data-node-annotation-field`)}<label>Border width<input ${target} data-node-annotation-field="text-outline-width" type="number" min="0" step="0.5" value="${annotation.textOutlineWidth ?? 0}"></label></div></details><div class="inspector-inline-field"><label>Offset<input value="(${annotation.offsetX ?? 0}, ${annotation.offsetY ?? 0})" readonly></label><button type="button" data-remove-annotation-offset="${annotation.lineNumber}"${annotation.offsetX || annotation.offsetY ? "" : " disabled"}>Remove</button></div><button type="button" class="danger annotation-delete" data-delete-annotation="${annotation.lineNumber}">Delete annotation</button></details>`;
   }).join("");
   const allHidden = node.annotations.length && node.annotations.every((annotation) => annotation.hidden);
   return `<details class="annotations-editor"><summary><span>Annotations <small>${node.annotations.length}</small></span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-node-annotations-hidden type="checkbox"${allHidden ? " checked" : ""}${node.annotations.length ? "" : " disabled"}></label></summary>${fields || '<p class="inspector-empty">No annotations.</p>'}</details><button type="button" class="inspector-primary-action" data-add-annotation>+ Add Annotation</button>`;
 }
 
-function openAnnotationBuilder() {
+function openAnnotationBuilder(target = "node") {
+  annotationBuilder.dataset.target = target;
+  document.querySelector("#annotation-builder-help").textContent = `Add another annotation to the selected ${target === "line" ? "flow" : "node"}.`;
   const type = document.querySelector("#annotation-builder-type");
   type.innerHTML = `<option value="">Default annotation</option>${reusableNames("annotation").map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}`;
-  document.querySelector("#annotation-builder-position").value = "above";
+  const edge = target === "line" ? selectedEdges()[0] : null;
+  const availablePosition = edge?.annotationAbove && !edge?.annotationBelow ? "below" : "above";
+  document.querySelector("#annotation-builder-position").value = availablePosition;
   document.querySelector("#annotation-builder-text").value = "Annotation";
   document.querySelector("#annotation-builder-color").value = "";
   document.querySelector("#annotation-builder-font-size").value = "";
@@ -636,6 +650,8 @@ function openAnnotationBuilder() {
   document.querySelector("#annotation-builder-font-weight").value = "";
   document.querySelector("#annotation-builder-font-style").value = "";
   document.querySelector("#annotation-builder-decoration").value = "";
+  document.querySelector("#annotation-builder-text-outline").value = "";
+  document.querySelector("#annotation-builder-text-outline-width").value = "";
   document.querySelector("#annotation-builder-error").textContent = "";
   annotationBuilder.showModal();
   document.querySelector("#annotation-builder-text").select();
@@ -671,6 +687,26 @@ function paintSelections() {
 function selectedNodes() {
   const selectedIds = new Set(selections.filter((item) => item.kind === "node").map((item) => item.id));
   return diagram?.layout?.nodes.filter((node) => selectedIds.has(node.id)) ?? [];
+}
+
+function selectedEdges() {
+  return selections.filter((item) => item.kind === "line").map((item) => diagram?.layout?.edges.find((edge) => edge.from === item.from && edge.to === item.to && (!item.lineNumber || edge.lineNumber === item.lineNumber))).filter(Boolean);
+}
+
+function flowConnectionControls(edge) {
+  if (!edge) return "";
+  const owningGroup = edge.graphId ? currentGraph.groups.find((group) => group.id === edge.graphId) : null;
+  const allowedIds = owningGroup ? new Set(owningGroup.nodeIds) : null;
+  const nodes = currentGraph.nodes.filter((node) => !allowedIds || allowedIds.has(node.id));
+  const endpointOptions = (selected, excluded) => nodes.map((node) => {
+    const group = graphForNode(node.id);
+    const label = `${node.label || node.id}${group ? ` — ${group.label || group.id}` : ""}`;
+    return `<option value="${escapeHtml(node.id)}"${node.id === selected ? " selected" : ""}${node.id === excluded ? " disabled" : ""}>${escapeHtml(label)}</option>`;
+  }).join("");
+  const sourceFace = edge.sourceFace ?? ({ up: "top", right: "right", down: "bottom", left: "left" }[edge.sourceDirection] ?? "right");
+  const targetFace = edge.targetFace ?? ({ down: "top", left: "right", up: "bottom", right: "left" }[edge.targetLayoutDirection ?? edge.layoutDirection] ?? "left");
+  const faceOptions = (explicit, effective) => `<option value=""${explicit ? "" : " selected"}>Auto (${effective})</option>${["top", "right", "bottom", "left"].map((face) => `<option value="${face}"${explicit === face ? " selected" : ""}>${face}</option>`).join("")}`;
+  return `<details open class="flow-connection-editor"><summary>Connection</summary><div class="inspector-grid"><label>From node<select data-line-endpoint="from">${endpointOptions(edge.from, edge.to)}</select></label><label>To node<select data-line-endpoint="to">${endpointOptions(edge.to, edge.from)}</select></label><label>Leaves source<select data-line-face="source-face">${faceOptions(edge.sourceFace, sourceFace)}</select></label><label>Enters target<select data-line-face="target-face">${faceOptions(edge.targetFace, targetFace)}</select></label></div></details>`;
 }
 
 function connectedItemsControls(node) {
@@ -805,20 +841,23 @@ function renderInspector() {
     if (annotations.length === 1) setReusableStyleAction("annotation");
     return;
   }
-  const edges = selections.filter((item) => item.kind === "line").map((item) => diagram.layout.edges.find((edge) => edge.from === item.from && edge.to === item.to && (!item.lineNumber || edge.lineNumber === item.lineNumber)));
+  const edges = selectedEdges();
   const edge = edges[0];
   const lineTypes = [...`${pugSource}\n${cssSource}`.matchAll(/^@flow\s+([\w-]+)/gm)].map((match) => match[1]);
   const sharedType = edges.every((candidate) => candidate?.lineType === edge?.lineType) ? edge?.lineType ?? "" : "";
-  inspectorContent.innerHTML = `<h3>${edges.length} flow${edges.length === 1 ? "" : "s"}</h3><label>Flow type<select data-line-type><option value="">Choose…</option>${lineTypes.map((name) => `<option value="${escapeHtml(name)}"${sharedType === name ? " selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><details open><summary>Flow appearance <small>local overrides</small></summary>${colorControl("Color", "color", edge?.color, "line")}<div class="inspector-grid"><label>Width<input data-line-field="width" type="number" min="0.5" step="0.5" value="${edge?.width ?? 2}"></label><label>Roundness<input data-line-field="roundness" type="number" min="0" step="1" value="${edge?.roundness ?? 9}"></label></div><label>Stroke<select data-line-field="stroke-style">${["solid","dashed","dotted"].map((value) => `<option${edge?.style === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Arrow<select data-line-field="arrow-style">${["forward","backward","both","none"].map((value) => `<option${edge?.direction === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details>`;
+  inspectorContent.innerHTML = `<h3>${edges.length} flow${edges.length === 1 ? "" : "s"}</h3>${edges.length === 1 ? flowConnectionControls(edge) : ""}<label>Flow type<select data-line-type><option value="">Choose…</option>${lineTypes.map((name) => `<option value="${escapeHtml(name)}"${sharedType === name ? " selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><details open><summary>Flow appearance <small>local overrides</small></summary>${colorControl("Color", "color", edge?.color, "line")}<div class="inspector-grid"><label>Width<input data-line-field="width" type="number" min="0.5" step="0.5" value="${edge?.width ?? 2}"></label><label>Roundness<input data-line-field="roundness" type="number" min="0" step="1" value="${edge?.roundness ?? 9}"></label></div><label>Stroke<select data-line-field="stroke-style">${["solid","dashed","dotted"].map((value) => `<option${edge?.style === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Arrow<select data-line-field="arrow-style">${["forward","backward","both","none"].map((value) => `<option${edge?.direction === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details>`;
   inspectorContent.querySelector("h3")?.insertAdjacentHTML("beforeend", `<label class="inspector-switch inspector-switch-heading"><span>Hidden</span><input data-line-hidden type="checkbox"${edges.length && edges.every((item) => item?.hidden) ? " checked" : ""}></label>`);
   const connectorAnnotation = (position) => {
     const title = position === "below" ? "Below" : "Above";
     const text = position === "below" ? edge?.annotationBelow : edge?.annotationAbove;
     const hidden = position === "below" ? edge?.annotationBelowHidden : edge?.annotationAboveHidden;
-    return `<details class="annotation-editor"><summary><span>${title}</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-line-annotation-hidden="annotation-${position}-hidden" type="checkbox"${hidden ? " checked" : ""}></label></summary><label>Text<input data-line-field="annotation-${position}" value="${escapeHtml(text ?? "")}"></label>${fontOptions("line", edge ?? {})}</details>`;
+    if (!text) return "";
+    const style = position === "below" ? edge?.annotationBelowStyle : edge?.annotationAboveStyle;
+    return `<details class="annotation-editor"><summary><span>${title}</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-line-annotation-hidden="annotation-${position}-hidden" type="checkbox"${hidden ? " checked" : ""}></label></summary><label>Text<input data-line-field="annotation-${position}" value="${escapeHtml(text)}"></label>${fontOptions("line", style ?? {}, true, `annotation-${position}-`)}<button type="button" class="danger annotation-delete" data-delete-line-annotation="annotation-${position}">Delete annotation</button></details>`;
   };
+  const annotationCount = Number(Boolean(edge?.annotationAbove)) + Number(Boolean(edge?.annotationBelow));
   const allAnnotationsHidden = edges.length && edges.every((item) => item?.annotationAboveHidden && item?.annotationBelowHidden);
-  inspectorContent.insertAdjacentHTML("beforeend", `<details class="annotations-editor"><summary><span>Annotations</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-line-annotations-hidden type="checkbox"${allAnnotationsHidden ? " checked" : ""}></label></summary>${connectorAnnotation("above")}${connectorAnnotation("below")}</details>`);
+  inspectorContent.insertAdjacentHTML("beforeend", `<details class="annotations-editor"><summary><span>Annotations <small>${annotationCount}</small></span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-line-annotations-hidden type="checkbox"${allAnnotationsHidden ? " checked" : ""}${annotationCount ? "" : " disabled"}></label></summary>${connectorAnnotation("above")}${connectorAnnotation("below") || (annotationCount ? "" : '<p class="inspector-empty">No annotations.</p>')}</details>${annotationCount < 2 && edges.length === 1 ? '<button type="button" class="inspector-primary-action" data-add-line-annotation>+ Add Annotation</button>' : ""}`);
   if (edges.length === 1) setReusableStyleAction("flow");
 }
 
@@ -1457,13 +1496,13 @@ function availableStructureCompletions() {
 const completionLabels = {
   root: new Set(["@node", "@flow", "@annotation", "#canvas"]),
   canvas: new Set(["graph", ".defaults", ".background", ".font", ".flow"]),
-  graph: new Set([".node", ".flow", ".id", ".label", ".layer", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".hidden"]),
-  node: new Set([".id", ".label", ".layer", ".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".offset", ".label-offset", ".annotation", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".image", ".image-width", ".image-height", ".image-fit", ".image-opacity", ".image-offset", ".image-padding", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".hidden"]),
-  flow: new Set([".from", ".to", ".from-direction", ".to-direction", ".direction", ".ports", ".color", ".width", ".arrow-style", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".hidden"]),
-  flowStyle: new Set([".color", ".width", ".arrow-style", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".hidden"]),
+  graph: new Set([".node", ".flow", ".id", ".label", ".layer", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  node: new Set([".id", ".label", ".layer", ".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".offset", ".label-offset", ".annotation", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".image", ".image-width", ".image-height", ".image-fit", ".image-opacity", ".image-offset", ".image-padding", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  flow: new Set([".from", ".to", ".from-direction", ".to-direction", ".direction", ".ports", ".color", ".width", ".arrow-style", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  flowStyle: new Set([".color", ".width", ".arrow-style", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   annotation: new Set([".above", ".below"]),
-  annotationStyle: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".hidden"]),
-  annotationEntry: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".hidden"]),
+  annotationStyle: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  annotationEntry: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   defaults: new Set([".node", ".flow", ".annotation"]),
 };
 
@@ -1473,9 +1512,9 @@ const cssRootCompletions = [
   { label: "@annotation", insert: "@annotation custom_note {\n  \n}", cursorBack: 2, detail: "Define a reusable annotation style" },
 ];
 const cssPropertyLabels = {
-  node: ["shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align", "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity", "image", "image-width", "image-height", "image-fit", "image-opacity", "image-padding", "font-family", "font-size", "font-weight", "font-style", "text-decoration"],
-  flow: ["color", "width", "arrow-style", "stroke-style", "roundness", "source-face", "target-face", "label", "label-position", "label-offset", "label-hidden", "annotation-above", "annotation-below", "annotation-above-hidden", "annotation-below-hidden", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "hidden"],
-  annotation: ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration"],
+  node: ["shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align", "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity", "image", "image-width", "image-height", "image-fit", "image-opacity", "image-padding", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"],
+  flow: ["color", "width", "arrow-style", "stroke-style", "roundness", "source-face", "target-face", "label", "label-position", "label-offset", "label-hidden", "annotation-above", "annotation-below", "annotation-above-hidden", "annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `annotation-${position}-${property}`)), "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width", "hidden"],
+  annotation: ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"],
 };
 
 function cssPropertyCompletions(kind) {
@@ -2055,18 +2094,39 @@ inspectorContent.addEventListener("click", (event) => {
     const key = colorPopup.dataset.colorPopup;
     const textInput = inspectorContent.querySelector(`[data-color-text="${key}"]`);
     if (textInput) openColorPickerPopup(colorPopup, textInput.value, (color) => {
-      textInput.value = color;
-      textInput.dispatchEvent(new Event("change", { bubbles: true }));
+      const currentInput = inspectorContent.querySelector(`[data-color-text="${key}"]`);
+      if (!currentInput) return;
+      currentInput.value = color;
+      const currentTrigger = inspectorContent.querySelector(`[data-color-popup="${key}"]`);
+      currentTrigger?.style.setProperty("--swatch", color);
+      currentTrigger?.classList.toggle("none", /^#[0-9a-f]{6}00$/i.test(color));
+      currentInput.dispatchEvent(new Event("change", { bubbles: true }));
     });
     return;
   }
   if (event.target.closest("[data-add-annotation]")) {
-    if (selectedNodes()[0]) openAnnotationBuilder();
+    if (selectedNodes()[0]) openAnnotationBuilder("node");
+    return;
+  }
+  if (event.target.closest("[data-add-line-annotation]")) {
+    if (selectedEdges()[0]) openAnnotationBuilder("line");
     return;
   }
   const deletedAnnotation = Number(event.target.closest("[data-delete-annotation]")?.dataset.deleteAnnotation);
   if (deletedAnnotation) {
     setSource(removeNodeAnnotation(source.value, deletedAnnotation));
+    return;
+  }
+  const deletedLineAnnotation = event.target.closest("[data-delete-line-annotation]")?.dataset.deleteLineAnnotation;
+  if (deletedLineAnnotation) {
+    const edge = selectedEdges()[0];
+    if (edge) {
+      const position = deletedLineAnnotation.replace("annotation-", "");
+      const fields = [deletedLineAnnotation, `${deletedLineAnnotation}-hidden`, ...["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `annotation-${position}-${property}`)];
+      let nextSource = source.value;
+      fields.forEach((field) => { nextSource = removeDeclarationField(nextSource, edge.lineNumber, field); });
+      setSource(nextSource);
+    }
     return;
   }
   const annotationOffset = Number(event.target.closest("[data-remove-annotation-offset]")?.dataset.removeAnnotationOffset);
@@ -2157,19 +2217,59 @@ builderToGraph.addEventListener("change", () => renderBuilderNodeChoices(builder
   const choice = event.target.closest("[data-node-choice]");
   if (choice) chooseBuilderNode(container, choice.dataset.nodeChoice);
 }));
+function annotationBuilderStyle() {
+  const type = document.querySelector("#annotation-builder-type").value;
+  const preset = {};
+  if (type) {
+    const escaped = type.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const body = cssSource.match(new RegExp(`@annotation\\s+${escaped}\\s*\\{([\\s\\S]*?)\\}`))?.[1] ?? "";
+    for (const declaration of body.split(";")) {
+      const separator = declaration.indexOf(":");
+      if (separator > 0) preset[declaration.slice(0, separator).trim()] = declaration.slice(separator + 1).trim();
+    }
+  }
+  const entered = {
+    color: document.querySelector("#annotation-builder-color").value.trim(),
+    "font-size": document.querySelector("#annotation-builder-font-size").value,
+    "font-family": document.querySelector("#annotation-builder-font-family").value.trim(),
+    "font-weight": document.querySelector("#annotation-builder-font-weight").value,
+    "font-style": document.querySelector("#annotation-builder-font-style").value,
+    "text-decoration": document.querySelector("#annotation-builder-decoration").value,
+    "text-outline": document.querySelector("#annotation-builder-text-outline").value.trim(),
+    "text-outline-width": document.querySelector("#annotation-builder-text-outline-width").value,
+  };
+  return { type, values: Object.fromEntries(Object.entries({ ...preset, ...Object.fromEntries(Object.entries(entered).filter(([, value]) => value !== "")) }).filter(([, value]) => value !== "")) };
+}
 annotationBuilderForm.addEventListener("submit", (event) => {
   if (event.submitter?.value === "cancel") return;
   event.preventDefault();
-  const node = selectedNodes()[0];
-  if (!node) { annotationBuilder.close(); return; }
   const text = document.querySelector("#annotation-builder-text").value.trim();
   if (!text) {
     document.querySelector("#annotation-builder-error").textContent = "Enter annotation text.";
     return;
   }
+  const position = document.querySelector("#annotation-builder-position").value;
+  const annotationStyle = annotationBuilderStyle();
+  if (annotationBuilder.dataset.target === "line") {
+    const edge = selectedEdges()[0];
+    if (!edge) { annotationBuilder.close(); return; }
+    if (position === "above" ? edge.annotationAbove : edge.annotationBelow) {
+      document.querySelector("#annotation-builder-error").textContent = `This flow already has an ${position} annotation.`;
+      return;
+    }
+    let nextSource = setStructuralField(source.value, edge.lineNumber, `annotation-${position}`, text);
+    Object.entries(annotationStyle.values).forEach(([field, value]) => {
+      nextSource = setStructuralField(nextSource, edge.lineNumber, `annotation-${position}-${field}`, value);
+    });
+    setSource(nextSource);
+    annotationBuilder.close();
+    return;
+  }
+  const node = selectedNodes()[0];
+  if (!node) { annotationBuilder.close(); return; }
   setSource(appendNodeAnnotation(source.value, node.lineNumber, {
-    position: document.querySelector("#annotation-builder-position").value,
-    type: document.querySelector("#annotation-builder-type").value,
+    position,
+    type: annotationStyle.type,
     text,
     color: document.querySelector("#annotation-builder-color").value.trim(),
     fontSize: document.querySelector("#annotation-builder-font-size").value,
@@ -2177,6 +2277,8 @@ annotationBuilderForm.addEventListener("submit", (event) => {
     fontWeight: document.querySelector("#annotation-builder-font-weight").value,
     fontStyle: document.querySelector("#annotation-builder-font-style").value,
     textDecoration: document.querySelector("#annotation-builder-decoration").value,
+    textOutline: document.querySelector("#annotation-builder-text-outline").value.trim(),
+    textOutlineWidth: document.querySelector("#annotation-builder-text-outline-width").value,
   }));
   annotationBuilder.close();
 });
@@ -2221,6 +2323,27 @@ nodeImageFile.addEventListener("change", () => {
 inspectorContent.addEventListener("change", (event) => {
   const nodes = selectedNodes();
   const node = nodes[0];
+  const lineEndpoint = event.target.dataset.lineEndpoint;
+  if (lineEndpoint) {
+    const edge = selectedEdges()[0];
+    if (!edge || !event.target.value) return;
+    const from = lineEndpoint === "from" ? event.target.value : edge.from;
+    const to = lineEndpoint === "to" ? event.target.value : edge.to;
+    if (from === to) { renderInspector(); return; }
+    selections = [{ kind: "line", from, to, lineNumber: edge.lineNumber, selectionKey: `line:${from}:${to}:${edge.lineNumber}`, additive: false }];
+    setSource(setStructuralField(source.value, edge.lineNumber, lineEndpoint, event.target.value));
+    return;
+  }
+  const lineFace = event.target.dataset.lineFace;
+  if (lineFace) {
+    const edge = selectedEdges()[0];
+    if (!edge) return;
+    const nextSource = event.target.value
+      ? setStructuralField(source.value, edge.lineNumber, lineFace, event.target.value)
+      : removeDeclarationField(source.value, edge.lineNumber, lineFace);
+    setSource(nextSource);
+    return;
+  }
   const connectedField = event.target.dataset.connectedField;
   if (connectedField) {
     const [from, to, line] = event.target.dataset.connectedEdge.split("|");
