@@ -2,56 +2,44 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
-import { layoutDiagram } from "../../src/pugflow/web/layout.mjs";
 import { pugDefinitionsToStyleSheet } from "../../src/pugflow/web/style-sheet.mjs";
 
-test("the built-in showcase presents two simple independent branch-and-merge graphs", () => {
+test("the built-in showcase presents a restrained layered production architecture", () => {
   const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
   const document = app.match(/const EXAMPLE_DOCUMENT = `([\s\S]*?)`;/)?.[1];
   assert.ok(document, "could not locate the built-in example");
   const start = document.indexOf("#canvas");
   const result = parseDiagram(document.slice(start), pugDefinitionsToStyleSheet(document.slice(0, start)));
   assert.deepEqual(result.errors, []);
-  assert.equal(result.nodes.length, 10);
-  assert.deepEqual(result.groups.map((group) => group.id), ["checkout", "publishing"]);
-  assert.deepEqual(result.groups.map((group) => group.layer), [1, 0]);
-  assert.deepEqual(result.groups.map((group) => group.fill), ["#2563eb80", "#7c3aed80"]);
-  assert.equal(result.edges.filter((edge) => edge.to === "receipt").length, 2);
-  assert.equal(result.edges.filter((edge) => edge.to === "publish").length, 2);
-  assert.ok(result.edges.filter((edge) => ["receipt", "publish"].includes(edge.to)).every((edge) => edge.kind === "merge"));
+  assert.equal(result.nodes.length, 13);
+  assert.deepEqual(result.groups.map((group) => group.id), ["edge", "application", "operations"]);
+  assert.deepEqual(result.groups.map((group) => group.layer), [2, 1, 0]);
+  assert.deepEqual(result.groups.map((group) => group.fill), ["#dbeafe70", "#fef3c750", "#082f49e8"]);
+  assert.ok(result.groups.every((group) => group.labelPosition === "inside" && group.align === "center"));
+  assert.deepEqual([result.groups[2].outline, result.groups[2].outlineWidth], ["transparent", 0]);
   const ownership = new Map(result.groups.flatMap((group) => group.nodeIds.map((id) => [id, group.id])));
-  assert.ok(result.edges.every((edge) => ownership.get(edge.from) === ownership.get(edge.to)));
-  assert.ok(result.edges.filter((edge) => ownership.get(edge.from) === "checkout").every((edge) => edge.layoutDirection === "down"));
-  assert.equal(result.edges.find((edge) => edge.to === "approve")?.sourceDirection, "down");
-  assert.ok(result.edges.filter((edge) => ownership.get(edge.from) === "publishing").every((edge) => edge.layoutDirection === "right"));
-  for (const [from, to] of [["cart", "payment"], ["payment", "retry"]]) {
+  assert.equal(result.edges.filter((edge) => ownership.get(edge.from) !== ownership.get(edge.to)).length, 2);
+  assert.equal(result.edges.find((edge) => edge.from === "policy" && edge.to === "api")?.graphId, null);
+  assert.equal(result.edges.some((edge) => edge.from === "gateway" && edge.to === "collector"), false);
+  assert.ok(result.edges.filter((edge) => edge.graphId === "operations" && edge.to !== "oncall").every((edge) => edge.style === "dotted"));
+  for (const [from, to] of [["client", "gateway"], ["api", "orders"]]) {
     const edge = result.edges.find((candidate) => candidate.from === from && candidate.to === to);
-    assert.equal(edge?.sourceFace, "bottom");
-    assert.equal(edge?.targetFace, "top");
+    assert.equal(edge?.direction, "forward");
   }
-  const approval = result.edges.find((edge) => edge.from === "payment" && edge.to === "approve");
-  assert.equal(approval?.sourceFace, "bottom");
-  assert.equal(approval?.targetFace, "top");
-  const receiptEdges = result.edges.filter((edge) => edge.to === "receipt");
-  assert.deepEqual(receiptEdges.map((edge) => edge.from), ["retry", "approve"]);
-  assert.ok(receiptEdges.every((edge) => edge.sourceFace === "bottom" && edge.targetFace === "top"));
-  const checkoutNodeIds = new Set(result.groups.find((group) => group.id === "checkout").nodeIds);
-  const checkoutLayout = layoutDiagram(
-    result.nodes.filter((node) => checkoutNodeIds.has(node.id)),
-    result.edges.filter((edge) => checkoutNodeIds.has(edge.from) && checkoutNodeIds.has(edge.to)),
-  );
-  const placed = new Map(checkoutLayout.nodes.map((node) => [node.id, node]));
-  const centerX = (node) => node.x + node.width / 2;
-  assert.equal(centerX(placed.get("receipt")), (centerX(placed.get("retry")) + centerX(placed.get("approve"))) / 2);
   const parsed = new Map(result.nodes.map((node) => [node.id, node]));
-  assert.equal(parsed.get("cart")?.annotations.length, 1);
-  assert.equal(parsed.get("receipt")?.annotations.length, 1);
-  assert.equal(parsed.get("draft")?.annotations.length, 1);
-  assert.equal(parsed.get("publish")?.annotations.length, 1);
+  assert.equal(parsed.get("client")?.annotations.length, 1);
+  assert.equal(parsed.get("event-stream")?.annotations.length, 0);
+  assert.deepEqual([parsed.get("gateway")?.layer, parsed.get("identity")?.layer, parsed.get("policy")?.layer], [2, 1, 0]);
   assert.ok(result.nodes.every((node) => !node.style.image));
-  assert.equal(parsed.get("cart")?.style.color, "#ffffff");
-  assert.equal(parsed.get("draft")?.style.shape, "hexagon");
-  assert.equal(parsed.get("draft")?.style.width, 100);
+  assert.equal(parsed.get("gateway")?.style.color, "#172554");
+  assert.equal(parsed.get("policy")?.style.shape, "diamond");
+  assert.deepEqual([parsed.get("api")?.style.shape, parsed.get("api")?.style.fill, parsed.get("api")?.style.color, parsed.get("api")?.style.outline], ["square", "#172554", "#fef3c7", "#fde68a"]);
+  assert.deepEqual([parsed.get("api")?.style.shadowOffsetX, parsed.get("api")?.style.shadowOffsetY, parsed.get("api")?.style.shadowBlur], [5, 5, 0]);
+  assert.deepEqual([parsed.get("primary-db")?.style.fill, parsed.get("primary-db")?.style.color, parsed.get("primary-db")?.style.outline, parsed.get("primary-db")?.style.outlineStyle], ["#fef3c7", "#172554", "#172554", "dotted"]);
+  assert.ok(result.edges.filter((edge) => edge.graphId === "application").every((edge) => edge.roundness === 0 && edge.color === "#172554"));
+  assert.deepEqual([parsed.get("collector")?.style.shape, parsed.get("metrics")?.style.shape, parsed.get("oncall")?.style.shape], ["hexagon", "pill", "diamond"]);
+  assert.deepEqual([parsed.get("collector")?.style.fill, parsed.get("collector")?.style.color, parsed.get("metrics")?.style.outlineStyle], ["#0f172a", "#67e8f9", "dotted"]);
+  assert.equal(result.edges.find((edge) => edge.from === "alerting" && edge.to === "oncall")?.color, "#f59e0b");
 });
 
 test("source saving writes the active document through a system file handle", () => {
@@ -73,10 +61,19 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   const renderer = readFileSync(new URL("../../src/pugflow/web/pugflow.mjs", import.meta.url), "utf8");
   assert.match(html, /id="new-pug"/);
   assert.match(html, /id="new-css"/);
+  assert.match(html, /<kbd>Ctrl<\/kbd>\+<kbd>Space<\/kbd> suggestions/);
   assert.match(html, /id="toggle-source"/);
   assert.match(html, /class="theme-toggle" id="theme" type="button"/);
   assert.doesNotMatch(html, /<select id="theme"/);
   assert.match(html, /<nav class="global-actions"[^>]*>[\s\S]*id="add-diagram"[\s\S]*id="open-save-export"/);
+  assert.match(html, /id="open-copy-export"/);
+  assert.match(html, /class="export-dialog" id="copy-export-dialog"[\s\S]*class="export-form"[\s\S]*id="copy-export-target"[\s\S]*id="copy-export-format"[\s\S]*id="copy-export-dpi"/);
+  assert.match(html, /class="export-dialog" id="save-export-dialog"[\s\S]*class="export-form"[\s\S]*id="save-export-target"[\s\S]*id="save-export-format"[\s\S]*id="save-export-dpi"/);
+  assert.match(styles, /\.export-form, #style-builder-form \{ padding: 16px; \}/);
+  assert.match(styles, /\.export-dialog \{ width: min\(390px/);
+  assert.match(app, /new Option\("Entire canvas", ""\)/);
+  assert.match(app, /diagram\.toSVGString\(graphId\)/);
+  assert.match(app, /diagram\.toPNGBlob\(Number\(copyExport\.dpi\.value\) \/ 96, graphId\)/);
   assert.doesNotMatch(html, /Live preview/);
   assert.match(html, /class="zoom-controls canvas-zoom-controls"/);
   assert.match(html, /<div class="canvas-shell"[^>]*>[\s\S]*?<\/div>\s*<div class="zoom-controls canvas-zoom-controls"/);
@@ -89,6 +86,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /Title position<select data-graph-field="label-position"/);
   assert.match(app, /Title alignment<select data-graph-field="align"/);
   assert.match(app, /fontOptions\("graph", group\)/);
+  assert.match(app, /fontOptions\("graph", group\).*<details open><summary>Layout<\/summary>.*data-graph-field="x-spacing".*data-graph-field="y-spacing"/);
   assert.match(app, /graphSelections\.length > 1[\s\S]*Align \/ distribute[\s\S]*return;/);
   assert.match(renderer, /event\.shiftKey \|\| event\.ctrlKey \|\| event\.metaKey/);
   assert.match(renderer, /event\.metaKey \|\| event\.ctrlKey \|\| event\.shiftKey/);
@@ -108,6 +106,13 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /openColorPickerPopup\([^,]+, color, replaceColor\)/);
   assert.match(app, /"sbd-color"/);
   assert.match(app, /match\[6\] \? "sbd-color"/);
+  assert.match(app, /@\(\?:node\|flow\|line\|annotation\)\\b/);
+  assert.match(app, /const cssPropertyLabels = \{/);
+  assert.match(app, /node: \["shape", "fill", "color"/);
+  assert.match(app, /flow: \["color", "width", "arrow-style"/);
+  assert.match(app, /annotation: \["color", "font-family"/);
+  assert.match(app, /activeDocument === "css"\) return cssCompletionContext\(caret\)/);
+  assert.match(app, /event\.inputType === "insertLineBreak" \|\| \/\^\[a-z@-\]\$\/i\.test/);
   assert.match(styles, /::highlight\(sbd-color\)/);
   assert.match(styles, /::highlight\(sbd-number\)/);
   assert.match(diagramStyles, /--diagram-annotation: #000000/);
@@ -179,6 +184,13 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /cleanupAlignmentOffsets[\s\S]*setNodeOffsetField/);
   assert.match(renderer, /Math\.max\(sourceLayer, targetLayer\)/);
   assert.match(renderer, /class: "diagram-layer"/);
+  assert.match(renderer, /class: "connector-hit"/);
+  assert.match(renderer, /"stroke-width": Math\.max\(14, edge\.width \+ 10\)/);
+  assert.match(renderer, /"data-select-kind": "line"/);
+  assert.match(renderer, /function exportSvgClone\(svg, layout, graphId = ""\)/);
+  assert.match(renderer, /function toSVGString\(graphId = ""\)/);
+  assert.match(renderer, /function toPNGBlob\(scale = 2, graphId = ""\)/);
+  assert.match(renderer, /nodeIds\.has\(element\.dataset\.from\).*nodeIds\.has\(element\.dataset\.to\)/);
   assert.match(renderer, /\(a\.layer \?\? 0\) - \(b\.layer \?\? 0\)/);
   assert.ok(renderer.indexOf('class: "connector-layer"') < renderer.indexOf('class: "graph-node-layer"'));
   assert.doesNotMatch(html, /id="add-merge"/);

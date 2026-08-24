@@ -6,187 +6,314 @@ import { arrangeNodeOffsets, cleanupAlignmentOffsets, independentMoveOffsets } f
 import { pugDefinitionsToStyleSheet } from "./style-sheet.mjs";
 import { appendReusableStyle, reusableStyleDeclarations } from "./reusable-style.mjs";
 
-const EXAMPLE_DOCUMENT = `// Two simple, independent branching and merging flows
-@node step
+const EXAMPLE_DOCUMENT = `// Production delivery architecture — layered graphs and cross-graph flows
+@node edge-service
   .shape rounded
-  .fill #1e3a8a
-  .color #ffffff
-  .outline #60a5fa
-  .outline-width 2
-  .width 160
+  .fill #dbeafe
+  .color #172554
+  .outline #3b82f6
+  .outline-width 1.5
+  .width 150
 
-@node decision
-  .shape rounded
-  .fill #f59e0b
-  .color #422006
-  .outline #92400e
-  .outline-width 2
+@node edge-decision
+  .shape diamond
+  .fill #bfdbfe
+  .color #172554
+  .outline #2563eb
+  .width 140
 
-@node result
+@node edge-external
   .shape pill
-  .fill #047857
-  .color #ffffff
-  .outline #34d399
-  .outline-width 2
+  .fill #eff6ff
+  .color #1e3a8a
+  .outline #60a5fa
+  .width 145
 
-@node editorial
+@node application-service
+  .shape square
+  .fill #172554
+  .color #fef3c7
+  .outline #fde68a
+  .outline-width 2
+  .shadow-color #0f172a
+  .shadow-offset-x 5
+  .shadow-offset-y 5
+  .shadow-blur 0
+  .shadow-opacity 0.35
+  .width 150
+
+@node application-datastore
+  .shape square
+  .fill #fef3c7
+  .color #172554
+  .outline #172554
+  .outline-style dotted
+  .outline-width 2
+  .shadow-color #0f172a
+  .shadow-offset-x 5
+  .shadow-offset-y 5
+  .shadow-blur 0
+  .shadow-opacity 0.25
+  .width 150
+
+@node operations-service
   .shape hexagon
-  .fill #6d28d9
-  .color #ffffff
-  .outline #c4b5fd
+  .fill #0f172a
+  .color #67e8f9
+  .outline #22d3ee
   .outline-width 2
-  .width 100
+  .font-family SFMono-Regular, Consolas, monospace
+  .width 150
 
-@flow editorial_flow
-  .color #7c3aed
-  .width 3
+@node operations-datastore
+  .shape pill
+  .fill #164e63
+  .color #cffafe
+  .outline #22d3ee
+  .outline-style dotted
+  .outline-width 2
+  .font-family SFMono-Regular, Consolas, monospace
+  .width 150
+
+@node operations-external
+  .shape diamond
+  .fill #451a03
+  .color #fde68a
+  .outline #f59e0b
+  .outline-width 2
+  .font-family SFMono-Regular, Consolas, monospace
+  .width 145
+
+@flow edge-flow
+  .color #2563eb
+  .width 1.5
+
+@flow application-flow
+  .color #172554
+  .width 2
+  .roundness 0
+
+@flow asynchronous
+  .color #172554
+  .width 2
+  .roundness 0
   .stroke-style dashed
 
-@annotation note
+@flow telemetry
+  .color #22d3ee
+  .width 2
+  .roundness 0
+  .stroke-style dotted
+
+@flow incident
+  .color #f59e0b
+  .width 3
+  .roundness 0
+
+@flow edge-to-application
+  .color #0f766e
+  .width 2
+
+@flow application-to-operations
+  .color #0891b2
+  .width 2
+  .stroke-style dashed
+
+@annotation context
+  .color #475569
   .font-style italic
 
 #canvas
-  .background #f1f5f9
+  .background #f8fafc
   .defaults
+    .node
+      .font-family Inter, sans-serif
+      .font-size 14
     .flow
       .color #475569
-      .width 2
-      .roundness 10
+      .width 1.5
+      .roundness 8
+      .arrow-style forward
+    .annotation
+      .color #64748b
+      .font-size 11
 
   graph
-    .id checkout
-    .label Checkout flow
-    .layer 1
-    .fill #2563eb80
-    .color #172554
-    .outline #2563eb
-    .outline-width 3
-    .padding 28
-    .step
-      .id cart
-      .label Cart ready
+    .id edge
+    .label Edge and identity
+    .label-position inside
+    .align center
+    .layer 2
+    .fill #dbeafe70
+    .color #1e3a8a
+    .outline #60a5fa
+    .outline-width 1.5
+    .padding 30
+    .x-spacing 72
+    .y-spacing 48
+    .edge-external
+      .id client
+      .label Client application
       .annotation
         .above
-          .note
-          | Customer starts here
+          .context
+          | Public entry point
 
-    .decision
-      .id payment
-      .label Payment valid?
+    .edge-service
+      .id gateway
+      .label API gateway
+      .layer 2
 
-    .step
-      .id retry
-      .label Retry payment
+    .edge-service
+      .id identity
+      .label Identity provider
+      .layer 1
 
-    .step
-      .id approve
-      .label Approve order
-
-    .result
-      .id receipt
-      .label Send receipt
-      .annotation
-        .below Merge: both paths finish here
+    .edge-decision
+      .id policy
+      .label Access policy
+      .layer 0
 
     .flow
-      .from cart
-      .to payment
-      .direction down
-      .source-face bottom
-      .target-face top
+      .from client
+      .to gateway
+      .label HTTPS
+      .edge-flow
 
     .flow
-      .from payment
-      .to retry
-      .direction down
-      .source-face bottom
-      .target-face top
+      .from gateway
+      .to identity
+      .label validate token
+      .edge-flow
 
     .flow
-      .from payment
-      .to approve
-      .direction down
-      .source-face bottom
-      .target-face top
-
-    .flow
-      .from retry
-      .to receipt
-      .direction down
-      .ports shared
-      .source-face bottom
-      .target-face top
-
-    .flow
-      .from approve
-      .to receipt
-      .direction down
-      .ports shared
-      .source-face bottom
-      .target-face top
+      .from identity
+      .to policy
+      .label claims
+      .edge-flow
 
   graph
-    .id publishing
-    .label Publishing flow
+    .id application
+    .label Application services
+    .label-position inside
+    .align center
+    .layer 1
+    .fill #fef3c750
+    .color #172554
+    .outline #172554
+    .outline-width 2
+    .padding 30
+    .x-spacing 76
+    .y-spacing 48
+    .application-service
+      .id api
+      .label Application API
+
+    .application-service
+      .id orders
+      .label Order service
+
+    .application-service
+      .id inventory
+      .label Inventory service
+
+    .application-datastore
+      .id primary-db
+      .label Primary database
+
+    .application-datastore
+      .id event-stream
+      .label Event stream
+
+    .flow
+      .from api
+      .to orders
+      .direction right
+      .application-flow
+
+    .flow
+      .from orders
+      .to inventory
+      .direction right
+      .application-flow
+
+    .flow
+      .from orders
+      .to primary-db
+      .direction down
+      .application-flow
+
+    .flow
+      .from orders
+      .to event-stream
+      .direction down
+      .asynchronous
+
+    .flow
+      .from inventory
+      .to primary-db
+      .direction down
+      .application-flow
+
+  graph
+    .id operations
+    .label Operations plane
+    .label-position inside
+    .align center
     .layer 0
-    .fill #7c3aed80
-    .color #2e1065
-    .outline #7c3aed
-    .outline-width 3
-    .padding 28
-    .editorial
-      .id draft
-      .label Draft article
-      .annotation
-        .below Add title and summary
+    .fill #082f49e8
+    .color #67e8f9
+    .outline transparent
+    .outline-width 0
+    .padding 30
+    .x-spacing 72
+    .operations-service
+      .id collector
+      .label Telemetry collector
 
-    .decision
-      .id review
-      .label Review outcome?
+    .operations-datastore
+      .id metrics
+      .label Metrics store
 
-    .editorial
-      .id revise
-      .label Request changes
+    .operations-service
+      .id alerting
+      .label Alert manager
 
-    .editorial
-      .id accept
-      .label Accept
-
-    .result
-      .id publish
-      .label Publish
-      .annotation
-        .above Ready for readers
+    .operations-external
+      .id oncall
+      .label On-call engineer
 
     .flow
-      .from draft
-      .to review
-      .direction right
-      .editorial_flow
+      .from collector
+      .to metrics
+      .telemetry
 
     .flow
-      .from review
-      .to revise
-      .direction right
-      .editorial_flow
+      .from metrics
+      .to alerting
+      .telemetry
 
     .flow
-      .from review
-      .to accept
-      .direction right
-      .editorial_flow
+      .from alerting
+      .to oncall
+      .label page
+      .incident
 
-    .flow
-      .from revise
-      .to publish
-      .direction right
-      .editorial_flow
+  .flow
+    .from policy
+    .to api
+    .label authorized request
+    .direction down
+    .source-face bottom
+    .target-face top
+    .edge-to-application
 
-    .flow
-      .from accept
-      .to publish
-      .direction right
-      .editorial_flow
+  .flow
+    .from event-stream
+    .to collector
+    .label delivery metrics
+    .direction down
+    .application-to-operations
 `;
 const EXAMPLE_DIAGRAM_START = EXAMPLE_DOCUMENT.indexOf("#canvas");
 const EXAMPLE = `// Pugflow showcase — edit anything and watch the preview update\n${EXAMPLE_DOCUMENT.slice(EXAMPLE_DIAGRAM_START)}`;
@@ -214,7 +341,6 @@ const completionMenu = document.querySelector("#completion-menu");
 const canvas = document.querySelector("#diagram");
 const canvasShell = document.querySelector(".canvas-shell");
 const canvasZoom = document.querySelector("#canvas-zoom");
-const PNG_COPY_SCALE = 2;
 const canvasToast = document.querySelector("#canvas-toast");
 let canvasToastTimer = null;
 
@@ -646,7 +772,7 @@ function renderInspector() {
     }
     const group = currentGraph.groups.find((candidate) => candidate.id === graphSelections[0].id);
     const layerOptions = `<option value="">Layer ${group?.layer ?? 0}</option><option value="front">Send to front</option><option value="back">Send to back</option>`;
-    inspectorContent.innerHTML = `<h3>Graph</h3><label>Graph Layer<select data-graph-field="layer-order">${layerOptions}</select></label><small class="inspector-help">Send this graph to the front or back, or drag it in the Graphs panel. Dragging the graph itself changes only its offset.</small><label>Title<input data-graph-field="label" value="${escapeHtml(group?.label ?? "")}"></label><div class="inspector-grid"><label>Title position<select data-graph-field="label-position">${["inside","outside"].map((value) => `<option${group?.labelPosition === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Title alignment<select data-graph-field="align">${["left","center","right"].map((value) => `<option${group?.align === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></div><div class="inspector-grid"><label>X spacing<input data-graph-field="x-spacing" type="number" min="0" value="${group?.xSpacing ?? 60}"></label><label>Y spacing<input data-graph-field="y-spacing" type="number" min="0" value="${group?.ySpacing ?? 40}"></label></div>${fontOptions("graph", group)}<details open><summary>Frame</summary>${colorControl("Fill", "fill", group?.fill, "graph")}${colorControl("Outline", "outline", group?.outline, "graph")}<label>Outline style<select data-graph-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${group?.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Outline width<input data-graph-field="outline-width" type="number" min="0" value="${group?.outlineWidth ?? 1.5}"></label><label>Padding<input data-graph-field="padding" type="number" min="0" value="${group?.padding ?? 24}"></label><label class="inspector-switch"><span>Hidden</span><input data-graph-hidden type="checkbox"${group?.hidden ? " checked" : ""}></label></details>`;
+    inspectorContent.innerHTML = `<h3>Graph</h3><label>Graph Layer<select data-graph-field="layer-order">${layerOptions}</select></label><small class="inspector-help">Send this graph to the front or back, or drag it in the Graphs panel. Dragging the graph itself changes only its offset.</small><label>Title<input data-graph-field="label" value="${escapeHtml(group?.label ?? "")}"></label><div class="inspector-grid"><label>Title position<select data-graph-field="label-position">${["inside","outside"].map((value) => `<option${group?.labelPosition === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Title alignment<select data-graph-field="align">${["left","center","right"].map((value) => `<option${group?.align === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></div>${fontOptions("graph", group)}<details open><summary>Layout</summary><div class="inspector-grid"><label>X spacing<input data-graph-field="x-spacing" type="number" min="0" value="${group?.xSpacing ?? 60}"></label><label>Y spacing<input data-graph-field="y-spacing" type="number" min="0" value="${group?.ySpacing ?? 40}"></label></div></details><details open><summary>Frame</summary>${colorControl("Fill", "fill", group?.fill, "graph")}${colorControl("Outline", "outline", group?.outline, "graph")}<label>Outline style<select data-graph-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${group?.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Outline width<input data-graph-field="outline-width" type="number" min="0" value="${group?.outlineWidth ?? 1.5}"></label><label>Padding<input data-graph-field="padding" type="number" min="0" value="${group?.padding ?? 24}"></label><label class="inspector-switch"><span>Hidden</span><input data-graph-hidden type="checkbox"${group?.hidden ? " checked" : ""}></label></details>`;
     return;
   }
   const nodes = selectedNodes();
@@ -1210,7 +1336,7 @@ function highlightSource() {
   for (const name of ["sbd-comment", "sbd-string", "sbd-math", "sbd-structure", "sbd-attribute", "sbd-color", "sbd-number"]) {
     CSS.highlights.delete(name);
   }
-  const pattern = /(\/\/.*$)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\$[^$\n]*\$)|(@(?:node|line|annotation)\b|#canvas|^\s*\||[a-zA-Z][\w-]*(?:\.[\w-]+)+|(?:\.[\w-]+)+|^\s*(?:node|graph)\b)|([\w-]+)(?=\s*=)|(#[\da-fA-F]{8}\b|#[\da-fA-F]{6}\b|#[\da-fA-F]{3}\b)|(\b\d+(?:\.\d+)?\b)/gm;
+  const pattern = /(\/\/.*$)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\$[^$\n]*\$)|(@(?:node|flow|line|annotation)\b|#canvas|^\s*\||[a-zA-Z][\w-]*(?:\.[\w-]+)+|(?:\.[\w-]+)+|^\s*(?:node|graph)\b)|([\w-]+)(?=\s*=)|(#[\da-fA-F]{8}\b|#[\da-fA-F]{6}\b|#[\da-fA-F]{3}\b)|(\b\d+(?:\.\d+)?\b)/gm;
   const start = source.selectionStart;
   const end = source.selectionEnd;
   if (source.childNodes.length !== 1 || source.firstChild?.nodeType !== Node.TEXT_NODE) {
@@ -1341,6 +1467,46 @@ const completionLabels = {
   defaults: new Set([".node", ".flow", ".annotation"]),
 };
 
+const cssRootCompletions = [
+  { label: "@node", insert: "@node custom_node {\n  \n}", cursorBack: 2, detail: "Define a reusable node type" },
+  { label: "@flow", insert: "@flow custom_flow {\n  \n}", cursorBack: 2, detail: "Define a reusable flow type" },
+  { label: "@annotation", insert: "@annotation custom_note {\n  \n}", cursorBack: 2, detail: "Define a reusable annotation style" },
+];
+const cssPropertyLabels = {
+  node: ["shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align", "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity", "image", "image-width", "image-height", "image-fit", "image-opacity", "image-padding", "font-family", "font-size", "font-weight", "font-style", "text-decoration"],
+  flow: ["color", "width", "arrow-style", "stroke-style", "roundness", "source-face", "target-face", "label", "label-position", "label-offset", "label-hidden", "annotation-above", "annotation-below", "annotation-above-hidden", "annotation-below-hidden", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "hidden"],
+  annotation: ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration"],
+};
+
+function cssPropertyCompletions(kind) {
+  const templates = new Map(structureCompletions.map((item) => [item.label.slice(1), item]));
+  return (cssPropertyLabels[kind] ?? []).map((property) => {
+    const template = templates.get(property);
+    const value = template?.insert.match(/^\.[\w-]+(?:\s+([\s\S]*))?$/)?.[1] ?? "";
+    return {
+      label: property,
+      insert: `${property}: ${value || "value"};`,
+      detail: template?.detail ?? `Reusable ${kind} property`,
+    };
+  });
+}
+
+function cssCompletionContext(caret) {
+  const before = source.value.slice(0, caret);
+  const lineStart = before.lastIndexOf("\n") + 1;
+  const current = before.slice(lineStart);
+  const match = current.match(/(@?[a-zA-Z][\w-]*)$/);
+  const start = match ? caret - match[1].length : caret;
+  if (current.includes(":")) return { items: [], prefix: "", start: caret, end: caret };
+  const openBrace = before.lastIndexOf("{");
+  const closeBrace = before.lastIndexOf("}");
+  if (openBrace > closeBrace) {
+    const header = before.slice(0, openBrace).match(/@(node|flow|annotation)\s+[a-zA-Z][\w-]*\s*$/);
+    if (header) return { items: cssPropertyCompletions(header[1]), prefix: match?.[1] ?? "", start, end: caret };
+  }
+  return { items: cssRootCompletions, prefix: match?.[1] ?? "", start, end: caret };
+}
+
 function completionScope(caret) {
   const before = source.value.slice(0, caret);
   const lines = before.split("\n");
@@ -1397,6 +1563,7 @@ let completionRange = null;
 
 function completionContext() {
   const caret = source.selectionStart;
+  if (activeDocument === "css") return cssCompletionContext(caret);
   const lineStart = source.value.lastIndexOf("\n", caret - 1) + 1;
   const before = source.value.slice(lineStart, caret);
   const openParen = before.lastIndexOf("(");
@@ -1566,6 +1733,11 @@ function arrangeSelection(action) {
 function filename(extension) {
   const stem = pugFileName.replace(/\.pug$/i, "") || "Untitled";
   return `${stem}.${extension}`;
+}
+
+function exportFilename(extension, graphId = "") {
+  const stem = pugFileName.replace(/\.pug$/i, "") || "Untitled";
+  return `${stem}${graphId ? `-${graphId}` : ""}.${extension}`;
 }
 
 function sourceFilename(extension) {
@@ -1767,7 +1939,7 @@ source.addEventListener("input", (event) => {
   storeActiveDocument();
   highlightSource();
   update();
-  if (event.data === "." || event.data === "(") showCompletions();
+  if (event.data === "." || event.data === "(" || (activeDocument === "css" && (event.inputType === "insertLineBreak" || /^[a-z@-]$/i.test(event.data ?? "")))) showCompletions();
   else if (!completionMenu.hidden) showCompletions();
 });
 source.addEventListener("keydown", (event) => {
@@ -2337,27 +2509,53 @@ sourceFile.addEventListener("change", async () => {
   await loadSourceFiles(files);
   sourceFile.value = "";
 });
-document.querySelector("#copy-png").addEventListener("click", async () => {
-  if (!diagram) return;
+function populateExportTargets(select) {
+  select.replaceChildren(new Option("Entire canvas", ""), ...(currentGraph?.groups ?? []).map((group) => new Option(group.label || group.id, group.id)));
+}
+
+function configureExportDialog(prefix) {
+  const dialog = document.querySelector(`#${prefix}-export-dialog`);
+  const format = document.querySelector(`#${prefix}-export-format`);
+  const dpiRow = document.querySelector(`#${prefix}-export-dpi-row`);
+  const target = document.querySelector(`#${prefix}-export-target`);
+  document.querySelector(`#open-${prefix}-export`).addEventListener("click", () => {
+    populateExportTargets(target);
+    target.value = "";
+    dialog.showModal();
+  });
+  format.addEventListener("change", () => { dpiRow.hidden = format.value !== "png"; });
+  return { dialog, format, target, dpi: document.querySelector(`#${prefix}-export-dpi`) };
+}
+
+const copyExport = configureExportDialog("copy");
+document.querySelector("#copy-export-form").addEventListener("submit", async (event) => {
+  if (event.submitter?.value === "cancel" || !diagram) return;
+  event.preventDefault();
   try {
-    const png = await diagram.toPNGBlob(PNG_COPY_SCALE);
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
-    showCanvasToast("PNG copied to clipboard");
+    const graphId = copyExport.target.value;
+    const svg = copyExport.format.value === "svg";
+    const type = svg ? "image/svg+xml" : "image/png";
+    const blob = svg
+      ? new Blob([diagram.toSVGString(graphId)], { type })
+      : await diagram.toPNGBlob(Number(copyExport.dpi.value) / 96, graphId);
+    await navigator.clipboard.write([new ClipboardItem({ [type]: blob })]);
+    copyExport.dialog.close();
+    showCanvasToast(`${svg ? "SVG" : "PNG"} ${graphId ? "graph" : "canvas"} copied to clipboard`);
   } catch (error) {
-    status.textContent = `Could not copy PNG: ${error.message}`;
+    status.textContent = `Could not copy export: ${error.message}`;
+    status.className = "status error";
   }
 });
 const saveExportDialog = document.querySelector("#save-export-dialog");
 const saveExportFormat = document.querySelector("#save-export-format");
-const saveExportDpiRow = document.querySelector("#save-export-dpi-row");
 const saveExportDpi = document.querySelector("#save-export-dpi");
-document.querySelector("#open-save-export").addEventListener("click", () => saveExportDialog.showModal());
-saveExportFormat.addEventListener("change", () => { saveExportDpiRow.hidden = saveExportFormat.value !== "png"; });
+const saveExport = configureExportDialog("save");
 document.querySelector("#save-export-form").addEventListener("submit", (event) => {
   if (event.submitter?.value === "cancel" || !diagram) return;
   event.preventDefault();
-  if (saveExportFormat.value === "svg") diagram.saveSVG(filename("svg"));
-  else diagram.savePNG(filename("png"), Number(saveExportDpi.value) / 96);
+  const graphId = saveExport.target.value;
+  if (saveExportFormat.value === "svg") diagram.saveSVG(exportFilename("svg", graphId), graphId);
+  else diagram.savePNG(exportFilename("png", graphId), Number(saveExportDpi.value) / 96, graphId);
   saveExportDialog.close();
 });
 

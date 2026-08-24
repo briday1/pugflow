@@ -18,7 +18,7 @@
         </div>
       </div>
       <nav class="global-actions" aria-label="Canvas actions">
-        <details class="new-menu"><summary>+ New</summary><div><button id="add-diagram" type="button">Graph</button><button id="add-node" type="button">Node</button><button id="add-flow" type="button">Flow</button></div></details><button id="undo-canvas" type="button">Undo</button><button id="redo-canvas" type="button">Redo</button><button id="cleanup-diagram" type="button" title="Align connected flow nodes and collapse bends without changing connector faces">Clean up</button><button class="export-action-first" id="copy-png" type="button" title="Copy a 2× high-DPI PNG">Copy</button><button id="open-save-export" type="button">Save</button>
+        <details class="new-menu"><summary>+ New</summary><div><button id="add-diagram" type="button">Graph</button><button id="add-node" type="button">Node</button><button id="add-flow" type="button">Flow</button></div></details><button id="undo-canvas" type="button">Undo</button><button id="redo-canvas" type="button">Redo</button><button id="cleanup-diagram" type="button" title="Align connected flow nodes and collapse bends without changing connector faces">Clean up</button><button id="open-copy-export" type="button">Copy</button><button id="open-save-export" type="button">Save</button>
       </nav>
       <input id="source-file" type="file" accept=".pug,.css,text/plain,text/css" multiple hidden />
       <input id="node-image-file" type="file" accept="image/*" hidden />
@@ -54,7 +54,7 @@
           <div id="source" role="textbox" aria-label="Diagram source" aria-describedby="editor-hint" aria-multiline="true" contenteditable="plaintext-only" autocapitalize="off" spellcheck="false"></div>
           <div class="completion-menu" id="completion-menu" role="listbox" aria-label="Source completions" hidden></div>
         </div>
-        <div class="editor-hint" id="editor-hint"><p class="status" id="status" role="status"></p><span class="editor-hint-actions"><strong id="vim-status" hidden></strong><a class="docs-link" href="docs.html" target="_blank" rel="noopener">Open Documentation</a></span></div>
+        <div class="editor-hint" id="editor-hint"><p class="status" id="status" role="status"></p><span class="editor-hint-actions"><span class="completion-hint"><kbd>Ctrl</kbd>+<kbd>Space</kbd> suggestions</span><strong id="vim-status" hidden></strong><a class="docs-link" href="docs.html" target="_blank" rel="noopener">Open Documentation</a></span></div>
       </aside>
 
       <button class="source-toggle panel-toggle" id="toggle-source" type="button" aria-controls="source-panel" aria-expanded="true" aria-label="Hide source panel" title="Hide source panel"><span class="toggle-arrow" aria-hidden="true">‹</span><span class="toggle-label">Source</span></button>
@@ -133,11 +133,24 @@
         <div class="dialog-actions"><button value="cancel">Cancel</button><button class="primary" value="default">Add Annotation</button></div>
       </form>
     </dialog>
-    <dialog id="save-export-dialog">
-      <form method="dialog" id="save-export-form">
-        <div class="dialog-title"><div><small>EXPORT</small><h2>Save diagram</h2></div></div>
-        <p class="export-help">Choose an export format.</p>
+    <dialog class="export-dialog" id="copy-export-dialog">
+      <form class="export-form" method="dialog" id="copy-export-form">
+        <div class="dialog-title"><div><small>EXPORT</small><h2>Copy diagram</h2></div></div>
+        <p class="export-help">Choose what to copy and its format.</p>
         <div class="builder-grid">
+          <label class="builder-wide">Content<select id="copy-export-target"></select></label>
+          <label>Format<select id="copy-export-format"><option value="png">PNG image</option><option value="svg">SVG vector</option></select></label>
+          <label id="copy-export-dpi-row">PNG resolution<select id="copy-export-dpi"><option value="96">96 DPI</option><option value="150">150 DPI</option><option value="300" selected>300 DPI</option><option value="600">600 DPI</option></select></label>
+        </div>
+        <div class="dialog-actions"><button value="cancel">Cancel</button><button class="primary" value="default">Copy</button></div>
+      </form>
+    </dialog>
+    <dialog class="export-dialog" id="save-export-dialog">
+      <form class="export-form" method="dialog" id="save-export-form">
+        <div class="dialog-title"><div><small>EXPORT</small><h2>Save diagram</h2></div></div>
+        <p class="export-help">Choose what to save and its format.</p>
+        <div class="builder-grid">
+          <label class="builder-wide">Content<select id="save-export-target"></select></label>
           <label>Format<select id="save-export-format"><option value="png">PNG image</option><option value="svg">SVG vector</option></select></label>
           <label id="save-export-dpi-row">PNG resolution<select id="save-export-dpi"><option value="96">96 DPI</option><option value="150">150 DPI</option><option value="300" selected>300 DPI</option><option value="600">600 DPI</option></select></label>
         </div>

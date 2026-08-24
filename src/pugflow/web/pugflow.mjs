@@ -551,7 +551,27 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
   const targetPortOffset = (edge.targetPortFraction ?? 0) * (targetVertical ? target.width : target.height);
   const sourcePortOffset = (edge.sourcePortFraction ?? 0) * (vertical ? source.width : source.height);
   const route = connectionPathAvoidingNodes(source, target, edge.kind, sourceDirection, nodes, targetPortOffset, sourcePortOffset, targetDirection, edge.roundness);
+  const selection = {
+    "data-line": edge.lineNumber,
+    "data-select-kind": "line",
+    "data-selection-key": `line:${edge.from}:${edge.to}:${edge.lineNumber}`,
+    "data-from": edge.from,
+    "data-to": edge.to,
+    role: "link",
+    tabindex: 0,
+    "aria-label": "Edit connection",
+  };
+  const hitPath = svgElement("path", {
+    ...selection,
+    d: route.d,
+    class: "connector-hit",
+    fill: "none",
+    stroke: "transparent",
+    "stroke-width": Math.max(14, edge.width + 10),
+    "pointer-events": "stroke",
+  });
   const path = svgElement("path", {
+    ...selection,
     d: route.d,
     class: `connector ${edge.kind}`,
     stroke: color,
@@ -559,14 +579,9 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
     "stroke-dasharray": dashArray(edge.style),
     "marker-start": ["backward", "both"].includes(edge.direction) ? `url(#${marker})` : null,
     "marker-end": ["forward", "both"].includes(edge.direction) ? `url(#${marker})` : null,
-    "data-line": edge.lineNumber,
-    "data-selection-key": `line:${edge.from}:${edge.to}:${edge.lineNumber}`,
-    "data-from": edge.from,
-    "data-to": edge.to,
-    role: "link",
-    tabindex: 0,
-    "aria-label": "Edit connection",
+    "pointer-events": "none",
   });
+  svg.append(hitPath);
   svg.append(path);
   const annotations = [
     { text: edge.annotationAbove, position: "above", hidden: edge.annotationAboveHidden, lineNumber: edge.annotationAboveLineNumber },
@@ -997,6 +1012,42 @@ function serialize(svg) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(svg)}`;
 }
 
+function exportSvgClone(svg, layout, graphId = "") {
+  const clone = svg.cloneNode(true);
+  clone.classList.remove("interactive");
+  clone.querySelectorAll(".connector-hit").forEach((element) => element.remove());
+  clone.querySelectorAll(".selected-element").forEach((element) => element.classList.remove("selected-element"));
+  if (!graphId) return clone;
+  const group = layout?.groups.find((candidate) => candidate.id === graphId);
+  if (!group) throw new Error(`Graph "${graphId}" was not found.`);
+  const nodeIds = new Set(group.nodeIds);
+  clone.querySelectorAll("[data-select-kind='graph']").forEach((element) => {
+    if (element.dataset.id !== graphId) element.remove();
+  });
+  clone.querySelectorAll(".graph-node-layer").forEach((element) => {
+    if (element.dataset.graphId !== graphId) element.remove();
+  });
+  clone.querySelectorAll("[data-from][data-to]").forEach((element) => {
+    if (!nodeIds.has(element.dataset.from) || !nodeIds.has(element.dataset.to)) element.remove();
+  });
+  const padding = 20;
+  const x = group.visualLeft - padding;
+  const y = group.visualTop - padding;
+  const width = group.visualRight - group.visualLeft + padding * 2;
+  const height = group.bottom - group.visualTop + padding * 2;
+  clone.setAttribute("viewBox", `${x} ${y} ${width} ${height}`);
+  clone.setAttribute("width", width);
+  clone.setAttribute("height", height);
+  const background = clone.querySelector(".diagram-background");
+  if (background) {
+    background.setAttribute("x", x);
+    background.setAttribute("y", y);
+    background.setAttribute("width", width);
+    background.setAttribute("height", height);
+  }
+  return clone;
+}
+
 function download(blob, filename) {
   const anchor = document.createElement("a");
   anchor.href = URL.createObjectURL(blob);
@@ -1023,17 +1074,21 @@ export function createBlockDiagram(container, source, options = {}) {
     container.replaceChildren(currentSvg);
     return graph;
   }
-  function toSVGString() { if (!currentSvg) render(); return serialize(currentSvg); }
-  function saveSVG(filename = "diagram.svg") { download(new Blob([toSVGString()], { type: "image/svg+xml;charset=utf-8" }), filename); }
+  function exportSvg(graphId = "") {
+    if (!currentSvg) render();
+    return exportSvgClone(currentSvg, currentLayout, graphId);
+  }
+  function toSVGString(graphId = "") { return serialize(exportSvg(graphId)); }
+  function saveSVG(filename = "diagram.svg", graphId = "") { download(new Blob([toSVGString(graphId)], { type: "image/svg+xml;charset=utf-8" }), filename); }
   function saveSource(filename = "diagram.pug") { download(new Blob([currentSource], { type: "text/plain;charset=utf-8" }), filename); }
-  function toPNGBlob(scale = 2) {
+  function toPNGBlob(scale = 2, graphId = "") {
     return new Promise((resolve, reject) => {
-      if (!currentSvg) render();
-      const url = URL.createObjectURL(new Blob([toSVGString()], { type: "image/svg+xml;charset=utf-8" }));
+      const exported = exportSvg(graphId);
+      const viewBox = exported.viewBox.baseVal;
+      const url = URL.createObjectURL(new Blob([serialize(exported)], { type: "image/svg+xml;charset=utf-8" }));
       const image = new Image();
       image.onload = () => {
         const canvas = document.createElement("canvas");
-        const viewBox = currentSvg.viewBox.baseVal;
         canvas.width = viewBox.width * scale;
         canvas.height = viewBox.height * scale;
         const context = canvas.getContext("2d");
@@ -1049,7 +1104,7 @@ export function createBlockDiagram(container, source, options = {}) {
       image.src = url;
     });
   }
-  async function savePNG(filename = "diagram.png", scale = 2) { download(await toPNGBlob(scale), filename); }
+  async function savePNG(filename = "diagram.png", scale = 2, graphId = "") { download(await toPNGBlob(scale, graphId), filename); }
   render();
   return {
     render, toSVGString, toPNGBlob, saveSVG, savePNG, saveSource,
