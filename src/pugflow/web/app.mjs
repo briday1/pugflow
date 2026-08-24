@@ -2169,6 +2169,7 @@ document.addEventListener("keyup", (event) => {
   }
 });
 canvasShell.addEventListener("wheel", (event) => {
+  if (inspector.contains(event.target)) return;
   const mouseWheel = event.deltaMode !== WheelEvent.DOM_DELTA_PIXEL
     || (Math.abs(event.deltaX) < 1 && Math.abs(event.deltaY) >= 80);
   if (!event.ctrlKey && !mouseWheel) return;
