@@ -35,6 +35,7 @@ class ServerTests(unittest.TestCase):
         status, headers, body = self.get("/")
         self.assertEqual(status, 200)
         self.assertIn(b"Pugflow", body)
+        self.assertIn(f"Version {__version__}".encode(), body)
         self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
 
         status, headers, bundle = self.get("/app.mjs")

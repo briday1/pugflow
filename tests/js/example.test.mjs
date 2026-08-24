@@ -85,6 +85,8 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.doesNotMatch(html, /[☀☾✋]/);
   assert.doesNotMatch(html, /<select id="theme"/);
   assert.match(html, /<nav class="global-actions"[^>]*>/);
+  assert.match(html, /class="toolbar-menu header-brand"[\s\S]*<strong>Pugflow<\/strong>[\s\S]*class="app-version">Version \d{4}\.\d+<\/span>[\s\S]*>Open Documentation<\/a>/);
+  assert.doesNotMatch(html, /class="docs-link"/);
   assert.match(html, /id="add-diagram"/);
   assert.match(html, /id="open-save-export"/);
   assert.match(html, /id="open-copy-export"/);
@@ -202,6 +204,10 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(diagramStyles, /\.pugflow-svg\.empty-diagram \{\s*display: none;/);
   assert.match(renderer, /class: `connector connector-outline/);
   assert.match(renderer, /class: "block-annotation"[\s\S]*?"data-select-kind": "node", "data-selection-key": `node:\$\{node\.id\}`/);
+  assert.doesNotMatch(app, /onNodeClick: selectSourceLine/);
+  assert.match(app, /setNodeField\(nextSource, selected\.lineNumber, "shadow-color", event\.target\.checked \? "#000000" : "transparent"\)/);
+  assert.match(renderer, /\/\^\(\?:none\|transparent\)\$\/i\.test\(node\.style\.shadowColor\)/);
+  assert.match(styles, /\.canvas-inspector \.inspector-inline-field button \{[^}]*align-self: center;[^}]*margin: 10px 0 0;/);
   assert.doesNotMatch(renderer, /"data-select-kind": "annotation"/);
   assert.match(renderer, /kind === "line" \? selectedTarget\.dataset\.offsetLine/);
   assert.match(app, /data-delete-annotation/);
