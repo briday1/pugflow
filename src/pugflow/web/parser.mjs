@@ -242,6 +242,7 @@ function offsetTuple(value, name, lineNumber, errors) {
 function blockStyle(attrs, lineNumber, errors, defaults = {}) {
   const shape = attrs.shape ?? defaults.shape ?? "round";
   const outlineStyle = attrs["outline-style"] ?? defaults.outlineStyle ?? "solid";
+  const shadowColor = attrs["shadow-color"] ?? defaults.shadowColor ?? null;
   if (!SHAPES.has(shape)) errors.push(`Line ${lineNumber}: unknown block shape "${shape}".`);
   if (!LINE_STYLES.has(outlineStyle)) errors.push(`Line ${lineNumber}: unknown outline style "${outlineStyle}".`);
   return {
@@ -254,7 +255,7 @@ function blockStyle(attrs, lineNumber, errors, defaults = {}) {
     width: numberAttribute(attrs.width, defaults.width ?? "auto", 48, "width", lineNumber, errors),
     height: numberAttribute(attrs.height, defaults.height ?? "auto", 28, "height", lineNumber, errors),
     align: ["left", "center", "right"].includes(attrs.align) ? attrs.align : defaults.align ?? "center",
-    shadowColor: attrs["shadow-color"] ?? defaults.shadowColor ?? null,
+    shadowColor: /^(?:none|transparent)$/i.test(shadowColor ?? "") ? null : shadowColor,
     shadowOffsetX: numberAttribute(attrs["shadow-offset-x"], defaults.shadowOffsetX ?? 4, -100, "shadow-offset-x", lineNumber, errors),
     shadowOffsetY: numberAttribute(attrs["shadow-offset-y"], defaults.shadowOffsetY ?? 5, -100, "shadow-offset-y", lineNumber, errors),
     shadowBlur: numberAttribute(attrs["shadow-blur"], defaults.shadowBlur ?? 6, 0, "shadow-blur", lineNumber, errors),

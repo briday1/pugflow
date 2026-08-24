@@ -86,6 +86,13 @@ test("applies @node, @flow, @annotation, and .defaults > .flow styles", () => {
   assert.equal(warning.portDistribution, "distributed");
 });
 
+test("allows nodes to disable inherited shadows", () => {
+  const result = parseDiagram("@node raised\n  .shadow-color #000000\n#canvas\n  graph\n    .raised\n      .label Shadow\n    .raised\n      .shadow-color transparent\n      .label Flat");
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.nodes[0].style.shadowColor, "#000000");
+  assert.equal(result.nodes[1].style.shadowColor, null);
+});
+
 test("exposes effective flow annotation colors and editable text borders", () => {
   const result = parseDiagram("@flow incident\n  .color #f59e0b\n#canvas\n  .background #f8fafc\n  graph\n    .node\n      .id alerting\n      .label Alerting\n    .node\n      .id oncall\n      .label On-call\n    .flow\n      .from alerting\n      .to oncall\n      .label page\n      .incident\n      .annotation-above-color #ffffff\n      .annotation-above-text-outline #172554\n      .annotation-above-text-outline-width 2");
   assert.deepEqual(result.errors, []);
