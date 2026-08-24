@@ -270,6 +270,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(styles, /\.canvas-inspector \{ position: fixed/);
   assert.match(app, /canvasShell\.getBoundingClientRect\(\)/);
   assert.match(app, /new ResizeObserver\(constrainInspectorToCanvas\)\.observe\(canvasShell\)/);
+  assert.match(app, /canvasShell\.addEventListener\("wheel", \(event\) => \{\s+if \(inspector\.contains\(event\.target\)\) return;/);
   assert.match(styles, /writing-mode: vertical-rl/);
   assert.match(styles, /\.inspector-footer \{ position: sticky/);
   assert.match(styles, /button\.danger[^}]*var\(--danger\)[^}]*background:/);
