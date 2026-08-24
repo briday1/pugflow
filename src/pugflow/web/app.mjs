@@ -2120,6 +2120,8 @@ function setCanvasMode(mode) {
   canvasMode = mode;
   modeSelectButton.classList.toggle("mode-active", mode === "select");
   modePanButton.classList.toggle("mode-active", mode === "pan");
+  modeSelectButton.setAttribute("aria-pressed", String(mode === "select"));
+  modePanButton.setAttribute("aria-pressed", String(mode === "pan"));
   canvasShell.classList.toggle("pan-mode", mode === "pan");
 }
 modeSelectButton.addEventListener("click", () => setCanvasMode("select"));
@@ -2140,14 +2142,14 @@ canvasShell.addEventListener("pointermove", (event) => {
   canvasShell.scrollLeft = panPointer.scrollLeft - (event.clientX - panPointer.x);
   canvasShell.scrollTop = panPointer.scrollTop - (event.clientY - panPointer.y);
 });
-canvasShell.addEventListener("pointerup", (event) => {
+function finishCanvasPan(event) {
   if (!panPointer || panPointer.pointerId !== event.pointerId) return;
   panPointer = null;
   canvasShell.classList.remove("panning");
-});
-canvasShell.addEventListener("pointercancel", (event) => {
-  if (panPointer?.pointerId === event.pointerId) { panPointer = null; canvasShell.classList.remove("panning"); }
-});
+}
+canvasShell.addEventListener("pointerup", finishCanvasPan);
+canvasShell.addEventListener("pointercancel", finishCanvasPan);
+canvasShell.addEventListener("lostpointercapture", finishCanvasPan);
 
 let spaceHeld = false;
 document.addEventListener("keydown", (event) => {
