@@ -1,13 +1,14 @@
 import { compileStyleSheet } from "./style-sheet.mjs";
 
 const ID_PATTERN = /^[a-zA-Z][\w-]*$/;
-const SHAPES = new Set(["square", "round", "rounded", "pill", "diamond", "hexagon"]);
+const SHAPES = new Set(["square", "round", "rounded", "pill", "diamond", "hexagon", "cylinder"]);
 const DIRECTIONS = new Set(["forward", "backward", "both", "none"]);
+const ARROW_SHAPES = new Set(["triangle", "open", "diamond", "circle"]);
 const FLOW_DIRECTIONS = new Set(["right", "left", "up", "down"]);
 const PORT_DISTRIBUTIONS = new Set(["shared", "distributed"]);
 const LINE_STYLES = new Set(["solid", "dashed", "dotted"]);
 const LINE_FIELDS = new Set([
-  "line.arrow-style", "line.color", "line.outline", "line.outline-width", "line.stroke-style", "line.width",
+  "line.arrow-style", "line.arrow-shape", "line.color", "line.outline", "line.outline-width", "line.stroke-style", "line.width",
   "line.source-face", "line.target-face", "line.roundness",
   "line.label", "line.label-position", "line.label-offset", "line.label-hidden",
   "line.annotation-above", "line.annotation-below", "line.annotation-above-hidden", "line.annotation-below-hidden",
@@ -25,6 +26,7 @@ const LINE_FIELDS = new Set([
 ]);
 const LINE_DEFINITION_FIELDS = new Map([
   ["arrow-style", "line.arrow-style"],
+  ["arrow-shape", "line.arrow-shape"],
   ["source-face", "line.source-face"],
   ["target-face", "line.target-face"],
   ["roundness", "line.roundness"],
@@ -323,6 +325,8 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
   const style = effective["line.stroke-style"] ?? defaults.style ?? "solid";
   const resolvedDirection = effective["line.arrow-style"] ?? defaults.direction ?? "forward";
   if (!DIRECTIONS.has(resolvedDirection)) errors.push(`Line ${lineNumber}: unknown arrow direction "${resolvedDirection}".`);
+  const resolvedArrowShape = effective["line.arrow-shape"] ?? defaults.arrowShape ?? "triangle";
+  if (!ARROW_SHAPES.has(resolvedArrowShape)) errors.push(`Line ${lineNumber}: unknown arrow shape "${resolvedArrowShape}". Must be triangle, open, diamond, or circle.`);
   if (!LINE_STYLES.has(style)) errors.push(`Line ${lineNumber}: unknown line style "${style}".`);
   const layoutDirection = attrs.direction ?? defaults.layoutDirection ?? "right";
   if (!FLOW_DIRECTIONS.has(layoutDirection)) errors.push(`Line ${lineNumber}: direction must be right, left, up, or down.`);
@@ -341,6 +345,7 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
   return {
     lineType: presetName,
     direction: DIRECTIONS.has(resolvedDirection) ? resolvedDirection : "forward",
+    arrowShape: ARROW_SHAPES.has(resolvedArrowShape) ? resolvedArrowShape : "triangle",
     color: effective["line.color"] ?? defaults.color ?? null,
     outline: effective["line.outline"] ?? defaults.outline ?? "transparent",
     outlineWidth: numberAttribute(effective["line.outline-width"], defaults.outlineWidth ?? 0, 0, "line.outline-width", lineNumber, errors),

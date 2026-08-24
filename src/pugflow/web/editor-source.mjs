@@ -141,7 +141,7 @@ function setReusableLine(value, start, end, fieldIndent, type, knownTypes) {
   if (existing >= 0) lines[existing] = replacement;
   else lines.splice(start + 1, 0, replacement);
   const baseIndent = indentationWidth(fieldIndent);
-  const appearance = new Set(["color", "width", "stroke-style", "arrow-style", "label-position"]);
+  const appearance = new Set(["color", "width", "stroke-style", "arrow-style", "arrow-shape", "label-position"]);
   for (let index = lines.length - 1; index > start; index -= 1) {
     if (index >= end + (existing < 0 ? 1 : 0)) continue;
     const indent = indentationWidth(lines[index]);
@@ -150,7 +150,7 @@ function setReusableLine(value, start, end, fieldIndent, type, knownTypes) {
       lines.splice(index, 1);
       continue;
     }
-    if (indent === baseIndent && /^\.line\.(color|width|stroke-style|arrow-style|label-position)(?:\s|$)/.test(text)) {
+    if (indent === baseIndent && /^\.line\.(color|width|stroke-style|arrow-style|arrow-shape|label-position)(?:\s|$)/.test(text)) {
       lines.splice(index, 1);
       continue;
     }

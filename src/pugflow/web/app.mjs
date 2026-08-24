@@ -434,6 +434,9 @@ let selections = [];
 let browsedGraphId = "";
 let canvasUndo = [];
 let canvasRedo = [];
+let canvasMode = "select";
+let colorPickerActive = false;
+let colorPickerSourceAnchor = null;
 let activeDocument = "pug";
 const launchParams = new URLSearchParams(location.search);
 let pugSource = launchParams.get("demo") === "1" ? EXAMPLE : "#canvas";
@@ -554,7 +557,19 @@ function syncColorPicker({ apply = false, repaint = false } = {}) {
   if (repaint) paintColorSurface();
   if (apply) applyPopupColor?.(color);
 }
+function hideColorPicker() {
+  if (colorPickerPopup.hidden) return;
+  colorPickerPopup.hidden = true;
+  if (colorPickerActive && colorPickerSourceAnchor !== null && pugSource !== colorPickerSourceAnchor) {
+    canvasUndo.push(colorPickerSourceAnchor);
+    canvasRedo = [];
+  }
+  colorPickerActive = false;
+  colorPickerSourceAnchor = null;
+}
 function openColorPickerPopup(trigger, value, apply) {
+  colorPickerSourceAnchor = pugSource;
+  colorPickerActive = true;
   const hsva = colorToHsva(value);
   if (hsva) {
     popupHue = hsva.h;
@@ -630,10 +645,10 @@ function updatePickerFromHsvFields() {
 }
 [colorPickerH, colorPickerS, colorPickerV].forEach((input) => input.addEventListener("input", updatePickerFromHsvFields));
 document.addEventListener("pointerdown", (event) => {
-  if (!colorPickerPopup.hidden && !colorPickerPopup.contains(event.target) && !event.target.closest("[data-color-popup]")) colorPickerPopup.hidden = true;
+  if (!colorPickerPopup.hidden && !colorPickerPopup.contains(event.target) && !event.target.closest("[data-color-popup]")) hideColorPicker();
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !colorPickerPopup.hidden) colorPickerPopup.hidden = true;
+  if (event.key === "Escape" && !colorPickerPopup.hidden) hideColorPicker();
 });
 function colorControl(label, field, value, scope = "node", key = `${scope}:${field}`) {
   const noColor = ["none", "transparent"].includes(String(value ?? "").toLowerCase());
@@ -846,7 +861,7 @@ function renderInspector() {
   if (nodes.length === selections.length) {
     const custom = [...`${pugSource}\n${cssSource}`.matchAll(/^@node\s+([\w-]+)/gm)].map((match) => match[1]);
     if (nodes.length > 1) {
-      inspectorContent.innerHTML = `<h3>${nodes.length} nodes selected</h3><label>Node Layer<select data-node-layer-order><option value="">Choose…</option><option value="front">Send to front</option><option value="back">Send to back</option></select></label><label>Type<select data-node-type><option value="">Choose…</option><option value="node">node</option>${custom.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label><details><summary>Appearance</summary><label>Shape<select data-node-field="shape"><option value="">Choose…</option>${["square","rounded","round","pill","diamond","hexagon"].map((shape) => `<option>${shape}</option>`).join("")}</select></label>${colorControl("Fill", "fill", "")}${colorControl("Text", "color", "")}${colorControl("Border", "outline", "")}<label>Border style<select data-node-field="outline-style"><option value="">Choose…</option><option>solid</option><option>dashed</option><option>dotted</option></select></label><label>Border width<input data-node-field="outline-width" type="number" min="0"></label></details><details><summary><label class="shadow-toggle"><input type="checkbox" data-shadow-toggle> Shadow</label></summary>${colorControl("Color", "shadow-color", "#000000")}<label>X offset<input data-node-field="shadow-offset-x" type="number" value="4"></label><label>Y offset<input data-node-field="shadow-offset-y" type="number" value="5"></label><label>Blur<input data-node-field="shadow-blur" type="number" min="0" value="6"></label><label>Opacity<input data-node-field="shadow-opacity" type="number" min="0" max="1" step="0.05" value="0.3"></label></details><label>Align / distribute<select data-arrange-select><option value="">Choose…</option><option value="left">Align left</option><option value="center">Align center</option><option value="right">Align right</option><option value="top">Align top</option><option value="middle">Align middle</option><option value="bottom">Align bottom</option><option value="horizontal">Distribute horizontally</option><option value="vertical">Distribute vertically</option></select></label><button data-arrange="remove-offsets">Remove offsets</button>`;
+      inspectorContent.innerHTML = `<h3>${nodes.length} nodes selected</h3><label>Node Layer<select data-node-layer-order><option value="">Choose…</option><option value="front">Send to front</option><option value="back">Send to back</option></select></label><label>Type<select data-node-type><option value="">Choose…</option><option value="node">node</option>${custom.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label><details><summary>Appearance</summary><label>Shape<select data-node-field="shape"><option value="">Choose…</option>${["square","rounded","round","pill","diamond","hexagon","cylinder"].map((shape) => `<option>${shape}</option>`).join("")}</select></label>${colorControl("Fill", "fill", "")}${colorControl("Text", "color", "")}${colorControl("Border", "outline", "")}<label>Border style<select data-node-field="outline-style"><option value="">Choose…</option><option>solid</option><option>dashed</option><option>dotted</option></select></label><label>Border width<input data-node-field="outline-width" type="number" min="0"></label></details><details><summary><label class="shadow-toggle"><input type="checkbox" data-shadow-toggle> Shadow</label></summary>${colorControl("Color", "shadow-color", "#000000")}<label>X offset<input data-node-field="shadow-offset-x" type="number" value="4"></label><label>Y offset<input data-node-field="shadow-offset-y" type="number" value="5"></label><label>Blur<input data-node-field="shadow-blur" type="number" min="0" value="6"></label><label>Opacity<input data-node-field="shadow-opacity" type="number" min="0" max="1" step="0.05" value="0.3"></label></details><label>Align / distribute<select data-arrange-select><option value="">Choose…</option><option value="left">Align left</option><option value="center">Align center</option><option value="right">Align right</option><option value="top">Align top</option><option value="middle">Align middle</option><option value="bottom">Align bottom</option><option value="horizontal">Distribute horizontally</option><option value="vertical">Distribute vertically</option></select></label><button data-arrange="remove-offsets">Remove offsets</button>`;
       inspectorContent.querySelector("h3")?.insertAdjacentHTML("beforeend", `<label class="inspector-switch inspector-switch-heading"><span>Hidden</span><input data-node-hidden type="checkbox"${nodes.every((item) => item.hidden) ? " checked" : ""}></label>`);
       inspectorContent.querySelector("details")?.insertAdjacentHTML("afterend", fontOptions("node", { fontSize: 16 }));
       inspectorContent.querySelectorAll("details")[1]?.insertAdjacentHTML("afterend", imageControls());
@@ -854,7 +869,7 @@ function renderInspector() {
       return;
     }
     const node = currentGraph.nodes.find((candidate) => candidate.id === nodes[0].id);
-    inspectorContent.innerHTML = `<h3>Node</h3><label>Node Layer<select data-node-layer-order><option value="">Layer ${node.layer ?? 0}</option><option value="front">Send to front</option><option value="back">Send to back</option></select></label><small class="inspector-help">Send this node to the front or back within its graph, or drag it in the Objects panel.</small><label>Label<input data-node-field="label" value="${escapeHtml(node.label.replace(/\n/g, " "))}"></label><label>ID <small>optional</small><input data-node-field="id" value="${escapeHtml(node.explicitId)}" placeholder="${escapeHtml(node.id)}" pattern="[A-Za-z][A-Za-z0-9_-]*" title="Start with a letter; use letters, numbers, underscores, or hyphens."></label>${fontOptions("node", node.style)}<label>Type<select data-node-type><option value="node">node</option>${custom.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label><details><summary>Appearance</summary><label>Shape<select data-node-field="shape">${["square","rounded","round","pill","diamond","hexagon"].map((shape) => `<option${node.style.shape === shape ? " selected" : ""}>${shape}</option>`).join("")}</select></label>${colorControl("Fill", "fill", node.style.fill)}${colorControl("Border", "outline", node.style.outline)}<label>Border style<select data-node-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${node.style.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Border width<input data-node-field="outline-width" type="number" min="0" value="${node.style.outlineWidth}"></label><label>Width<input data-node-field="width" value="${node.style.width}"></label><label>Height<input data-node-field="height" value="${node.style.height}"></label><label>Text alignment<select data-node-field="align">${["left","center","right"].map((value) => `<option${node.style.align === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details><details${node.style.shadowColor ? " open" : ""}><summary><label class="shadow-toggle"><input type="checkbox" data-shadow-toggle${node.style.shadowColor ? " checked" : ""}> Shadow</label></summary>${colorControl("Color", "shadow-color", node.style.shadowColor ?? "#000000")}<label>X offset<input data-node-field="shadow-offset-x" type="number" value="${node.style.shadowOffsetX}"></label><label>Y offset<input data-node-field="shadow-offset-y" type="number" value="${node.style.shadowOffsetY}"></label><label>Blur<input data-node-field="shadow-blur" type="number" min="0" value="${node.style.shadowBlur}"></label><label>Opacity<input data-node-field="shadow-opacity" type="number" min="0" max="1" step="0.05" value="${node.style.shadowOpacity}"></label></details><div class="inspector-inline-field"><label>Offset<input value="(${node.offsetX}, ${node.offsetY})" readonly></label><button type="button" data-arrange="remove-offsets">Remove</button></div>`;
+    inspectorContent.innerHTML = `<h3>Node</h3><label>Node Layer<select data-node-layer-order><option value="">Layer ${node.layer ?? 0}</option><option value="front">Send to front</option><option value="back">Send to back</option></select></label><small class="inspector-help">Send this node to the front or back within its graph, or drag it in the Objects panel.</small><label>Label<input data-node-field="label" value="${escapeHtml(node.label.replace(/\n/g, " "))}"></label><label>ID <small>optional</small><input data-node-field="id" value="${escapeHtml(node.explicitId)}" placeholder="${escapeHtml(node.id)}" pattern="[A-Za-z][A-Za-z0-9_-]*" title="Start with a letter; use letters, numbers, underscores, or hyphens."></label>${fontOptions("node", node.style)}<label>Type<select data-node-type><option value="node">node</option>${custom.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label><details><summary>Appearance</summary><label>Shape<select data-node-field="shape">${["square","rounded","round","pill","diamond","hexagon","cylinder"].map((shape) => `<option${node.style.shape === shape ? " selected" : ""}>${shape}</option>`).join("")}</select></label>${colorControl("Fill", "fill", node.style.fill)}${colorControl("Border", "outline", node.style.outline)}<label>Border style<select data-node-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${node.style.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Border width<input data-node-field="outline-width" type="number" min="0" value="${node.style.outlineWidth}"></label><label>Width<input data-node-field="width" value="${node.style.width}"></label><label>Height<input data-node-field="height" value="${node.style.height}"></label><label>Text alignment<select data-node-field="align">${["left","center","right"].map((value) => `<option${node.style.align === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details><details${node.style.shadowColor ? " open" : ""}><summary><label class="shadow-toggle"><input type="checkbox" data-shadow-toggle${node.style.shadowColor ? " checked" : ""}> Shadow</label></summary>${colorControl("Color", "shadow-color", node.style.shadowColor ?? "#000000")}<label>X offset<input data-node-field="shadow-offset-x" type="number" value="${node.style.shadowOffsetX}"></label><label>Y offset<input data-node-field="shadow-offset-y" type="number" value="${node.style.shadowOffsetY}"></label><label>Blur<input data-node-field="shadow-blur" type="number" min="0" value="${node.style.shadowBlur}"></label><label>Opacity<input data-node-field="shadow-opacity" type="number" min="0" max="1" step="0.05" value="${node.style.shadowOpacity}"></label></details><div class="inspector-inline-field"><label>Offset<input value="(${node.offsetX}, ${node.offsetY})" readonly></label><button type="button" data-arrange="remove-offsets">Remove</button></div>`;
     inspectorContent.querySelector("h3")?.insertAdjacentHTML("beforeend", `<label class="inspector-switch inspector-switch-heading"><span>Hidden</span><input data-node-hidden type="checkbox"${node.hidden ? " checked" : ""}></label>`);
     inspectorContent.querySelectorAll("details")[1]?.insertAdjacentHTML("afterend", imageControls(node));
     tidyInspectorSections();
@@ -876,7 +891,7 @@ function renderInspector() {
   const edge = edges[0];
   const lineTypes = [...`${pugSource}\n${cssSource}`.matchAll(/^@flow\s+([\w-]+)/gm)].map((match) => match[1]);
   const sharedType = edges.every((candidate) => candidate?.lineType === edge?.lineType) ? edge?.lineType ?? "" : "";
-  inspectorContent.innerHTML = `<h3>${edges.length} flow${edges.length === 1 ? "" : "s"}</h3>${edges.length === 1 ? flowConnectionControls(edge) : ""}<label>Flow type<select data-line-type><option value="">Choose…</option>${lineTypes.map((name) => `<option value="${escapeHtml(name)}"${sharedType === name ? " selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><details open><summary>Flow appearance <small>local overrides</small></summary>${colorControl("Color", "color", edge?.color, "line")}${colorControl("Outline", "outline", edge?.outline, "line")}<div class="inspector-grid"><label>Width<input data-line-field="width" type="number" min="0.5" step="0.5" value="${edge?.width ?? 2}"></label><label>Outline width<input data-line-field="outline-width" type="number" min="0" step="0.5" value="${edge?.outlineWidth ?? 0}"></label><label>Roundness<input data-line-field="roundness" type="number" min="0" step="1" value="${edge?.roundness ?? 9}"></label></div><label>Stroke<select data-line-field="stroke-style">${["solid","dashed","dotted"].map((value) => `<option${edge?.style === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Arrow<select data-line-field="arrow-style">${["forward","backward","both","none"].map((value) => `<option${edge?.direction === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details>`;
+  inspectorContent.innerHTML = `<h3>${edges.length} flow${edges.length === 1 ? "" : "s"}</h3>${edges.length === 1 ? flowConnectionControls(edge) : ""}<label>Flow type<select data-line-type><option value="">Choose…</option>${lineTypes.map((name) => `<option value="${escapeHtml(name)}"${sharedType === name ? " selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><details open><summary>Flow appearance <small>local overrides</small></summary>${colorControl("Color", "color", edge?.color, "line")}${colorControl("Outline", "outline", edge?.outline, "line")}<div class="inspector-grid"><label>Width<input data-line-field="width" type="number" min="0.5" step="0.5" value="${edge?.width ?? 2}"></label><label>Outline width<input data-line-field="outline-width" type="number" min="0" step="0.5" value="${edge?.outlineWidth ?? 0}"></label><label>Roundness<input data-line-field="roundness" type="number" min="0" step="1" value="${edge?.roundness ?? 9}"></label></div><label>Stroke<select data-line-field="stroke-style">${["solid","dashed","dotted"].map((value) => `<option${edge?.style === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Arrow direction<select data-line-field="arrow-style">${["forward","backward","both","none"].map((value) => `<option${edge?.direction === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Arrow shape<select data-line-field="arrow-shape">${["triangle","open","diamond","circle"].map((value) => `<option${edge?.arrowShape === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details>`;
   inspectorContent.querySelector("h3")?.insertAdjacentHTML("beforeend", `<label class="inspector-switch inspector-switch-heading"><span>Hidden</span><input data-line-hidden type="checkbox"${edges.length && edges.every((item) => item?.hidden) ? " checked" : ""}></label>`);
   const connectorAnnotation = (position) => {
     const title = position === "below" ? "Below" : "Above";
@@ -1493,6 +1508,7 @@ const structureCompletions = [
   { label: ".outline-style", insert: ".outline-style solid", detail: "solid, dashed, or dotted" },
   { label: ".outline-width", insert: ".outline-width 2", detail: "Node outline width" },
   { label: ".arrow-style", insert: ".arrow-style forward", detail: "forward, backward, both, or none" },
+  { label: ".arrow-shape", insert: ".arrow-shape triangle", detail: "triangle, open, diamond, or circle" },
   { label: ".stroke-style", insert: ".stroke-style solid", detail: "solid, dashed, or dotted" },
   { label: ".roundness", insert: ".roundness 9", detail: "Connector corner radius; 0 makes sharp bends" },
   { label: ".source-face", insert: ".source-face right", detail: "Node face where the connector starts" },
@@ -1537,8 +1553,8 @@ const completionLabels = {
   canvas: new Set(["graph", ".defaults", ".background", ".font", ".flow"]),
   graph: new Set([".node", ".flow", ".id", ".label", ".layer", ".placement", ".relative-to", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   node: new Set([".id", ".label", ".layer", ".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".offset", ".label-offset", ".annotation", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".image", ".image-width", ".image-height", ".image-fit", ".image-opacity", ".image-offset", ".image-padding", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
-  flow: new Set([".from", ".to", ".from-direction", ".to-direction", ".direction", ".ports", ".color", ".outline", ".outline-width", ".width", ".arrow-style", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
-  flowStyle: new Set([".color", ".outline", ".outline-width", ".width", ".arrow-style", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  flow: new Set([".from", ".to", ".from-direction", ".to-direction", ".direction", ".ports", ".color", ".outline", ".outline-width", ".width", ".arrow-style", ".arrow-shape", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  flowStyle: new Set([".color", ".outline", ".outline-width", ".width", ".arrow-style", ".arrow-shape", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   annotation: new Set([".above", ".below"]),
   annotationStyle: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   annotationEntry: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
@@ -1552,7 +1568,7 @@ const cssRootCompletions = [
 ];
 const cssPropertyLabels = {
   node: ["shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align", "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity", "image", "image-width", "image-height", "image-fit", "image-opacity", "image-padding", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"],
-  flow: ["color", "outline", "outline-width", "width", "arrow-style", "stroke-style", "roundness", "source-face", "target-face", "label", "label-position", "label-offset", "label-hidden", "annotation-above", "annotation-below", "annotation-above-hidden", "annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `annotation-${position}-${property}`)), "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width", "hidden"],
+  flow: ["color", "outline", "outline-width", "width", "arrow-style", "arrow-shape", "stroke-style", "roundness", "source-face", "target-face", "label", "label-position", "label-offset", "label-hidden", "annotation-above", "annotation-below", "annotation-above-hidden", "annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `annotation-${position}-${property}`)), "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width", "hidden"],
   annotation: ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"],
 };
 
@@ -1986,7 +2002,7 @@ function zoomCanvasAt(clientX, clientY, percent) {
 
 function setSource(value, recordHistory = true) {
   if (activeDocument !== "pug") activateDocument("pug");
-  if (recordHistory && value !== pugSource) {
+  if (recordHistory && !colorPickerActive && value !== pugSource) {
     canvasUndo.push(pugSource);
     canvasRedo = [];
   }
@@ -2097,6 +2113,57 @@ canvasZoom.addEventListener("change", () => setCanvasZoom(Number(canvasZoom.valu
 document.querySelector("#zoom-out").addEventListener("click", () => setCanvasZoom(canvasZoomPercent - 25));
 document.querySelector("#zoom-in").addEventListener("click", () => setCanvasZoom(canvasZoomPercent + 25));
 document.querySelector("#zoom-fit").addEventListener("click", fitCanvasZoom);
+
+const modeSelectButton = document.querySelector("#mode-select");
+const modePanButton = document.querySelector("#mode-pan");
+function setCanvasMode(mode) {
+  canvasMode = mode;
+  modeSelectButton.classList.toggle("mode-active", mode === "select");
+  modePanButton.classList.toggle("mode-active", mode === "pan");
+  canvasShell.classList.toggle("pan-mode", mode === "pan");
+}
+modeSelectButton.addEventListener("click", () => setCanvasMode("select"));
+modePanButton.addEventListener("click", () => setCanvasMode("pan"));
+
+let panPointer = null;
+canvasShell.addEventListener("pointerdown", (event) => {
+  const effectivePan = canvasMode === "pan" || spaceHeld;
+  if (!effectivePan || event.button !== 0) return;
+  panPointer = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, scrollLeft: canvasShell.scrollLeft, scrollTop: canvasShell.scrollTop };
+  canvasShell.setPointerCapture(event.pointerId);
+  canvasShell.classList.add("panning");
+  event.preventDefault();
+  event.stopPropagation();
+}, { capture: true });
+canvasShell.addEventListener("pointermove", (event) => {
+  if (!panPointer || panPointer.pointerId !== event.pointerId) return;
+  canvasShell.scrollLeft = panPointer.scrollLeft - (event.clientX - panPointer.x);
+  canvasShell.scrollTop = panPointer.scrollTop - (event.clientY - panPointer.y);
+});
+canvasShell.addEventListener("pointerup", (event) => {
+  if (!panPointer || panPointer.pointerId !== event.pointerId) return;
+  panPointer = null;
+  canvasShell.classList.remove("panning");
+});
+canvasShell.addEventListener("pointercancel", (event) => {
+  if (panPointer?.pointerId === event.pointerId) { panPointer = null; canvasShell.classList.remove("panning"); }
+});
+
+let spaceHeld = false;
+document.addEventListener("keydown", (event) => {
+  if (event.code === "Space" && !event.target.matches("input, textarea, [contenteditable='true'], select, button") && !spaceHeld) {
+    spaceHeld = true;
+    if (canvasMode === "select") canvasShell.classList.add("pan-mode");
+  }
+  if (event.code === "KeyV" && !event.ctrlKey && !event.metaKey && !event.target.matches("input, textarea, [contenteditable='true'], select")) setCanvasMode("select");
+  if (event.code === "KeyH" && !event.ctrlKey && !event.metaKey && !event.target.matches("input, textarea, [contenteditable='true'], select")) setCanvasMode("pan");
+});
+document.addEventListener("keyup", (event) => {
+  if (event.code === "Space") {
+    spaceHeld = false;
+    if (canvasMode === "select") canvasShell.classList.remove("pan-mode");
+  }
+});
 canvasShell.addEventListener("wheel", (event) => {
   const mouseWheel = event.deltaMode !== WheelEvent.DOM_DELTA_PIXEL
     || (Math.abs(event.deltaX) < 1 && Math.abs(event.deltaY) >= 80);
@@ -2118,11 +2185,13 @@ document.addEventListener("pointerdown", (event) => toolbarMenus.forEach((menu) 
 }));
 document.querySelector("#undo-canvas").addEventListener("click", undoCanvas);
 document.querySelector("#redo-canvas").addEventListener("click", redoCanvas);
-document.querySelector(".preview").addEventListener("keydown", (event) => {
+document.addEventListener("keydown", (event) => {
   if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+  const focused = document.activeElement;
+  if (focused?.matches("input:not([type='button']):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='submit']), textarea, [contenteditable='true']")) return;
   if (event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redoCanvas() : undoCanvas(); }
   else if (event.key.toLowerCase() === "y") { event.preventDefault(); redoCanvas(); }
-});
+}, { capture: true });
 document.querySelector("#close-inspector").addEventListener("click", () => { selections = []; paintSelections(); renderInspector(); });
 document.querySelector("#delete-selection").addEventListener("click", deleteCanvasSelection);
 saveReusableStyle.addEventListener("click", () => openSelectedReusableStyle(saveReusableStyle.dataset.buildStyle));

@@ -152,6 +152,21 @@ function shapeElement(node, colors, defs) {
     tabindex: 0,
     "aria-label": "Move or edit block " + node.label.replace(/\n/g, " "),
   };
+  if (node.style.shape === "cylinder") {
+    const capRy = Math.min(Math.round(node.height * 0.18), 20);
+    const cx = node.x + node.width / 2;
+    const rx = node.width / 2;
+    const outlineColor = node.style.outline ?? colors.label;
+    const sw = node.style.outlineWidth;
+    const da = dashArray(node.style.outlineStyle);
+    const g = svgElement("g", common);
+    const bodyPath = `M ${node.x},${top + capRy} L ${node.x},${top + node.height - capRy} A ${rx},${capRy} 0 0 1 ${node.x + node.width},${top + node.height - capRy} L ${node.x + node.width},${top + capRy} A ${rx},${capRy} 0 0 0 ${node.x},${top + capRy} z`;
+    g.append(svgElement("path", { d: bodyPath, fill: node.style.fill, stroke: "none" }));
+    g.append(svgElement("ellipse", { cx, cy: top + node.height - capRy, rx, ry: capRy, fill: node.style.fill, stroke: outlineColor, "stroke-width": sw, "stroke-dasharray": da }));
+    g.append(svgElement("ellipse", { cx, cy: top + capRy, rx, ry: capRy, fill: node.style.fill, stroke: outlineColor, "stroke-width": sw, "stroke-dasharray": da }));
+    g.append(svgElement("path", { d: bodyPath, fill: "none", stroke: outlineColor, "stroke-width": sw, "stroke-dasharray": da, "stroke-linejoin": "round" }));
+    return g;
+  }
   if (node.style.shape === "diamond") {
     return svgElement("polygon", { ...common, points: `${node.x + node.width / 2},${top} ${node.x + node.width},${top + node.height / 2} ${node.x + node.width / 2},${top + node.height} ${node.x},${top + node.height / 2}` });
   }
@@ -344,18 +359,30 @@ function addNode(svg, node, colors, defs) {
   svg.append(group);
 }
 
-function markerId(color, outline = "transparent", outlineWidth = 0) {
+function markerId(color, outline = "transparent", outlineWidth = 0, arrowShape = "triangle") {
   let hash = 0;
-  for (const character of `${color}|${outline}|${outlineWidth}`) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
+  for (const character of `${color}|${outline}|${outlineWidth}|${arrowShape}`) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
   return `arrow-${Math.abs(hash)}`;
 }
 
-function ensureMarker(defs, color, outline = "transparent", outlineWidth = 0) {
-  const id = markerId(color, outline, outlineWidth);
+function ensureMarker(defs, color, outline = "transparent", outlineWidth = 0, arrowShape = "triangle") {
+  const id = markerId(color, outline, outlineWidth, arrowShape);
   if (defs.querySelector(`#${id}`)) return id;
-  const marker = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
-  marker.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke", "stroke-linejoin": "round" }));
-  defs.append(marker);
+  let markerEl;
+  if (arrowShape === "open") {
+    markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
+    markerEl.append(svgElement("path", { d: "M 1 1 L 9 5 L 1 9", fill: "none", stroke: color, "stroke-width": 1.5, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+  } else if (arrowShape === "diamond") {
+    markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
+    markerEl.append(svgElement("path", { d: "M 0 5 L 5 0 L 10 5 L 5 10 z", fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke" }));
+  } else if (arrowShape === "circle") {
+    markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 10, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
+    markerEl.append(svgElement("circle", { cx: 5, cy: 5, r: 4.5, fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke" }));
+  } else {
+    markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
+    markerEl.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke", "stroke-linejoin": "round" }));
+  }
+  defs.append(markerEl);
   return id;
 }
 
@@ -557,7 +584,8 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
   const color = edgeColor(edge, colors);
   const outline = edge.outline ?? "transparent";
   const outlineWidth = edge.outlineWidth ?? 0;
-  const marker = ensureMarker(defs, color, outline, outlineWidth);
+  const arrowShape = edge.arrowShape ?? "triangle";
+  const marker = ensureMarker(defs, color, outline, outlineWidth, arrowShape);
   const sourceDirection = edge.sourceDirection ?? edge.layoutDirection;
   const vertical = ["up", "down"].includes(sourceDirection);
   const targetDirection = edge.targetLayoutDirection ?? edge.layoutDirection;
