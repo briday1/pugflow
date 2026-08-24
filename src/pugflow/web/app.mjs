@@ -469,9 +469,9 @@ function storeActiveDocument() {
   }
 }
 
-function activateDocument(kind) {
-  if (kind === activeDocument) return;
-  storeActiveDocument();
+function activateDocument(kind, force = false) {
+  if (kind === activeDocument && !force) return;
+  if (!force) storeActiveDocument();
   activeDocument = kind;
   source.value = kind === "pug" ? pugSource : cssSource;
   document.querySelectorAll("[data-source-tab]").forEach((tab) => {
@@ -2073,7 +2073,7 @@ document.querySelector("#new-pug").addEventListener("click", () => {
   canvasRedo = [];
   selections = [];
   updateSourceFileNames();
-  activateDocument("pug");
+  activateDocument("pug", true);
   fileMenu.open = false;
 });
 document.querySelector("#new-css").addEventListener("click", () => {
@@ -2084,7 +2084,7 @@ document.querySelector("#new-css").addEventListener("click", () => {
   cssFileHandle = null;
   hasCssDocument = true;
   updateSourceFileNames();
-  activateDocument("css");
+  activateDocument("css", true);
   fileMenu.open = false;
 });
 document.querySelector("#save-source").addEventListener("click", () => saveActiveSource());

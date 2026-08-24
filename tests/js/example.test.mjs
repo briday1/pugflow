@@ -73,6 +73,8 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(html, /id="new-css"/);
   assert.match(app, /pugTab\.textContent = pugFileName \|\| "Pug"/);
   assert.doesNotMatch(app, /pugFileName === "Untitled\.pug" \? "Pug"/);
+  assert.match(app, /pugFileName = "Untitled\.pug";\s*pugFileHandle = null;[\s\S]*?activateDocument\("pug", true\)/);
+  assert.match(app, /cssFileName = "Untitled\.css";\s*cssFileHandle = null;[\s\S]*?activateDocument\("css", true\)/);
   assert.match(html, /<kbd>Ctrl<\/kbd>\+<kbd>Space<\/kbd> suggestions/);
   assert.match(html, /id="toggle-source"/);
   assert.match(html, /class="theme-toggle" id="theme" type="button"/);
