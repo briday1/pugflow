@@ -122,7 +122,7 @@ function textBorder(style, fallback = "transparent") {
 }
 
 function ensureShadow(defs, node) {
-  if (!node.style.shadowColor) return null;
+  if (!node.style.shadowColor || /^(?:none|transparent)$/i.test(node.style.shadowColor)) return null;
   const id = `shadow-${node.id.replace(/[^\w-]/g, "-")}`;
   const filter = svgElement("filter", { id, x: "-50%", y: "-50%", width: "200%", height: "200%" });
   filter.append(svgElement("feDropShadow", {

@@ -120,6 +120,7 @@ jobs:
           replacements = {
               Path("pyproject.toml"): (r'(?m)^version = "[^"]+"$', f'version = "{version}"'),
               Path("src/pugflow/__init__.py"): (r'(?m)^__version__ = "[^"]+"$', f'__version__ = "{version}"'),
+              Path("src/pugflow/web/index.html"): (r'(?m)(<span class="app-version">Version )[^<]+', rf'\g<1>{version}'),
           }
           for path, (pattern, replacement) in replacements.items():
               source = path.read_text()
@@ -148,7 +149,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pyproject.toml src/pugflow/__init__.py
+          git add pyproject.toml src/pugflow/__init__.py src/pugflow/web/index.html
           git commit -m "chore: bump version to $VERSION [skip ci]"
           git tag -a "v$VERSION" -m "Release v$VERSION"
           git push origin main "v$VERSION"

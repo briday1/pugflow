@@ -11,7 +11,14 @@
   </head>
   <body>
     <header class="app-toolbar">
-      <div class="header-brand"><strong>Pugflow</strong></div>
+      <details class="toolbar-menu header-brand">
+        <summary><strong>Pugflow</strong></summary>
+        <div class="toolbar-popover">
+          <strong>ABOUT</strong>
+          <span class="app-version">Version 2026.6</span>
+          <a href="docs.html" target="_blank" rel="noopener">Open Documentation</a>
+        </div>
+      </details>
       <nav class="global-actions" aria-label="Application menu">
         <details class="toolbar-menu file-menu">
           <summary>File</summary>
@@ -59,7 +66,7 @@
           <div id="source" role="textbox" aria-label="Diagram source" aria-describedby="editor-hint" aria-multiline="true" contenteditable="plaintext-only" autocapitalize="off" spellcheck="false"><div class="color-decorators" id="color-decorators" contenteditable="false"></div></div>
           <div class="completion-menu" id="completion-menu" role="listbox" aria-label="Source completions" hidden></div>
         </div>
-        <div class="editor-hint" id="editor-hint"><p class="status" id="status" role="status"></p><span class="editor-hint-actions"><span class="completion-hint"><kbd>Ctrl</kbd>+<kbd>Space</kbd> suggestions</span><strong id="vim-status" hidden></strong><a class="docs-link" href="docs.html" target="_blank" rel="noopener">Open Documentation</a></span></div>
+        <div class="editor-hint" id="editor-hint"><p class="status" id="status" role="status"></p><span class="editor-hint-actions"><span class="completion-hint"><kbd>Ctrl</kbd>+<kbd>Space</kbd> suggestions</span><strong id="vim-status" hidden></strong></span></div>
       </aside>
 
       <button class="source-toggle panel-toggle" id="toggle-source" type="button" aria-controls="source-panel" aria-expanded="true" aria-label="Hide source panel" title="Hide source panel"><span class="toggle-arrow" aria-hidden="true">‹</span><span class="toggle-label">Source</span></button>
