@@ -438,7 +438,7 @@ let activeDocument = "pug";
 const launchParams = new URLSearchParams(location.search);
 let pugSource = launchParams.get("demo") === "1" ? EXAMPLE : "#canvas";
 let cssSource = launchParams.get("demo") === "1" ? EXAMPLE_STYLES : "";
-let pugFileName = launchParams.get("pug_name") ?? (launchParams.get("demo") === "1" ? "demo.pug" : "Untitled.pug");
+let pugFileName = launchParams.get("pug_name") ?? (launchParams.get("demo") === "1" ? "demo.pug" : "");
 let cssFileName = launchParams.get("css_name") ?? (launchParams.get("demo") === "1" ? "demo.css" : "");
 let pugFileHandle = null;
 let cssFileHandle = null;
@@ -455,10 +455,10 @@ if (launchParams.get("project") === "1") {
 function updateSourceFileNames() {
   const pugTab = document.querySelector('[data-source-tab="pug"]');
   const cssTab = document.querySelector('[data-source-tab="css"]');
-  pugTab.textContent = pugFileName || "Pug";
+  pugTab.textContent = pugFileName || "PUG";
   cssTab.textContent = cssFileName || "CSS";
-  pugTab.title = pugFileName;
-  cssTab.title = cssFileName || "No CSS file loaded";
+  pugTab.title = pugFileName || "Unsaved PUG document";
+  cssTab.title = cssFileName || (hasCssDocument ? "Unsaved CSS document" : "No CSS file loaded");
 }
 
 function storeActiveDocument() {
@@ -2067,7 +2067,7 @@ document.querySelector("#new-pug").addEventListener("click", () => {
   storeActiveDocument();
   if (pugSource !== "#canvas" && !window.confirm("Replace the current Pug document with a new blank diagram?")) return;
   pugSource = "#canvas";
-  pugFileName = "Untitled.pug";
+  pugFileName = "";
   pugFileHandle = null;
   canvasUndo = [];
   canvasRedo = [];
@@ -2080,7 +2080,7 @@ document.querySelector("#new-css").addEventListener("click", () => {
   storeActiveDocument();
   if (cssSource && !window.confirm("Replace the current CSS document with a new blank file?")) return;
   cssSource = "";
-  cssFileName = "Untitled.css";
+  cssFileName = "";
   cssFileHandle = null;
   hasCssDocument = true;
   updateSourceFileNames();
@@ -2327,7 +2327,6 @@ styleBuilderForm.addEventListener("submit", (event) => {
   const name = styleBuilderName.value.trim();
   try {
     cssSource = appendReusableStyle(cssSource, pendingReusableStyle.kind, name, pendingReusableStyle.declarations);
-    cssFileName ||= "Untitled.css";
     hasCssDocument = true;
     pendingReusableStyle = null;
     styleBuilder.close();

@@ -71,10 +71,12 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   const renderer = readFileSync(new URL("../../src/pugflow/web/pugflow.mjs", import.meta.url), "utf8");
   assert.match(html, /id="new-pug"/);
   assert.match(html, /id="new-css"/);
-  assert.match(app, /pugTab\.textContent = pugFileName \|\| "Pug"/);
-  assert.doesNotMatch(app, /pugFileName === "Untitled\.pug" \? "Pug"/);
-  assert.match(app, /pugFileName = "Untitled\.pug";\s*pugFileHandle = null;[\s\S]*?activateDocument\("pug", true\)/);
-  assert.match(app, /cssFileName = "Untitled\.css";\s*cssFileHandle = null;[\s\S]*?activateDocument\("css", true\)/);
+  assert.match(html, /data-source-tab="pug"[^>]*>PUG<\/button>/);
+  assert.match(app, /pugTab\.textContent = pugFileName \|\| "PUG"/);
+  assert.match(app, /cssTab\.textContent = cssFileName \|\| "CSS"/);
+  assert.doesNotMatch(app, /FileName === "Untitled\.(?:pug|css)"/);
+  assert.match(app, /pugFileName = "";\s*pugFileHandle = null;[\s\S]*?activateDocument\("pug", true\)/);
+  assert.match(app, /cssFileName = "";\s*cssFileHandle = null;[\s\S]*?activateDocument\("css", true\)/);
   assert.match(html, /<kbd>Ctrl<\/kbd>\+<kbd>Space<\/kbd> suggestions/);
   assert.match(html, /id="toggle-source"/);
   assert.match(html, /class="theme-toggle" id="theme" type="button"/);
