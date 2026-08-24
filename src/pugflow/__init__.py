@@ -1,6 +1,6 @@
 """Pugflow diagram editor and renderer."""
 
-__version__ = "0.3.1"
+__version__ = "2026.1"
 
 from .server import DiagramServer, create_server, serve
 
