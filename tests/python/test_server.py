@@ -50,7 +50,7 @@ class ServerTests(unittest.TestCase):
         status, headers, body = self.get("/healthz")
         self.assertEqual(status, 200)
         self.assertEqual(headers.get_content_type(), "application/json")
-        self.assertEqual(json.loads(body), {"status": "ok", "version": "0.3.0"})
+        self.assertEqual(json.loads(body), {"status": "ok", "version": "0.3.1"})
 
     def test_serves_an_optional_paired_gui_project(self):
         self.server.project_pug = "#canvas\n"

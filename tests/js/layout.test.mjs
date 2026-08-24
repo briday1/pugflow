@@ -212,7 +212,7 @@ test("positions flow descendants from their parents' rendered offsets", () => {
   assert.deepEqual(offsets.get("merge"), { x: 0, y: 0 });
 });
 
-test("counter-adjusts descendants so manual node moves remain independent", () => {
+test("manual node moves never alter unselected flow descendants", () => {
   const nodes = [
     { id: "root", lineNumber: 1, offsetX: 30, offsetY: -20 },
     { id: "child", lineNumber: 2, offsetX: 5, offsetY: 7 },
@@ -224,11 +224,22 @@ test("counter-adjusts descendants so manual node moves remain independent", () =
   ];
   assert.deepEqual(independentMoveOffsets(nodes, edges, ["root"], 10, 4).map(({ id, offsetX, offsetY }) => ({ id, offsetX, offsetY })), [
     { id: "root", offsetX: 40, offsetY: -16 },
-    { id: "child", offsetX: -5, offsetY: 3 },
   ]);
   assert.deepEqual(independentMoveOffsets(nodes, edges, ["root", "child"], 10, 4).map(({ id, offsetX, offsetY }) => ({ id, offsetX, offsetY })), [
     { id: "root", offsetX: 40, offsetY: -16 },
-    { id: "grandchild", offsetX: -10, offsetY: -4 },
+    { id: "child", offsetX: 15, offsetY: 11 },
+  ]);
+});
+
+test("moving an intermediate flow node leaves its target unchanged", () => {
+  const nodes = ["collector", "metrics", "alerting", "oncall"].map((id) => ({ id, offsetX: 0, offsetY: 0 }));
+  const edges = [
+    { kind: "branch", from: "collector", to: "metrics" },
+    { kind: "branch", from: "metrics", to: "alerting" },
+    { kind: "branch", from: "alerting", to: "oncall" },
+  ];
+  assert.deepEqual(independentMoveOffsets(nodes, edges, ["alerting"], 20, 10).map(({ id, offsetX, offsetY }) => ({ id, offsetX, offsetY })), [
+    { id: "alerting", offsetX: 20, offsetY: 10 },
   ]);
 });
 

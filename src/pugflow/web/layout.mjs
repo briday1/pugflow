@@ -323,32 +323,14 @@ export function inheritedFlowOffsets(nodes, edges) {
   return memo;
 }
 
-/** Counter inherited flow translation so only explicitly moved nodes change visually. */
-export function independentMoveOffsets(nodes, edges, selectedIds, dx, dy) {
+/** Apply a drag delta only to explicitly selected nodes. */
+export function independentMoveOffsets(nodes, _edges, selectedIds, dx, dy) {
   const selected = new Set(selectedIds);
-  const byId = new Map(nodes.map((node) => [node.id, node]));
-  const parentByTarget = new Map();
-  edges.filter((edge) => edge.kind === "branch").forEach((edge) => {
-    if (!parentByTarget.has(edge.to)) parentByTarget.set(edge.to, edge.from);
-  });
-  const deltaById = new Map();
-  const netDelta = (id, visiting = new Set()) => {
-    if (deltaById.has(id)) return deltaById.get(id).net;
-    if (visiting.has(id)) return { x: 0, y: 0 };
-    const parentId = parentByTarget.get(id);
-    const inherited = parentId ? netDelta(parentId, new Set([...visiting, id])) : { x: 0, y: 0 };
-    const desired = selected.has(id) ? { x: dx, y: dy } : { x: 0, y: 0 };
-    const local = { x: desired.x - inherited.x, y: desired.y - inherited.y };
-    const net = { x: inherited.x + local.x, y: inherited.y + local.y };
-    deltaById.set(id, { local, net });
-    return net;
-  };
-  nodes.forEach((node) => netDelta(node.id));
-  return nodes.flatMap((node) => {
-    const local = deltaById.get(node.id)?.local ?? { x: 0, y: 0 };
-    if (Math.abs(local.x) < 0.0001 && Math.abs(local.y) < 0.0001) return [];
-    return [{ ...node, offsetX: (node.offsetX ?? 0) + local.x, offsetY: (node.offsetY ?? 0) + local.y }];
-  });
+  return nodes.filter((node) => selected.has(node.id)).map((node) => ({
+    ...node,
+    offsetX: (node.offsetX ?? 0) + dx,
+    offsetY: (node.offsetY ?? 0) + dy,
+  }));
 }
 
 export function cleanupAlignmentOffsets(nodes, edges) {
