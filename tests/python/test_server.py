@@ -35,6 +35,10 @@ class ServerTests(unittest.TestCase):
         status, headers, body = self.get("/")
         self.assertEqual(status, 200)
         self.assertIn(b"Pugflow", body)
+        self.assertIn(f"Version <span>{__version__}</span>".encode(), body)
+        self.assertIn(b"https://github.com/briday1/pugflow", body)
+        self.assertIn(b"https://pypi.org/project/pugflow/", body)
+        self.assertEqual(body.count(b"Open Documentation"), 1)
         self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
 
         status, headers, bundle = self.get("/app.mjs")
