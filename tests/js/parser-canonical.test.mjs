@@ -93,6 +93,13 @@ test("allows nodes to disable inherited shadows", () => {
   assert.equal(result.nodes[1].style.shadowColor, null);
 });
 
+test("validates per-face node ports and rejects flow-level ports", () => {
+  const invalidNode = parseDiagram("#canvas\n  graph\n    .node\n      .top-ports staggered\n      .label Invalid");
+  assert.match(invalidNode.errors.join("\n"), /top-ports must be shared or distributed/);
+  const flowPorts = parseDiagram("#canvas\n  graph\n    .node\n      .id a\n      .label A\n    .node\n      .id b\n      .label B\n    .flow\n      .from a\n      .to b\n      .ports distributed");
+  assert.match(flowPorts.errors.join("\n"), /\.ports.*not valid inside \.flow/);
+});
+
 test("exposes effective flow annotation colors and editable text borders", () => {
   const result = parseDiagram("@flow incident\n  .color #f59e0b\n#canvas\n  .background #f8fafc\n  graph\n    .node\n      .id alerting\n      .label Alerting\n    .node\n      .id oncall\n      .label On-call\n    .flow\n      .from alerting\n      .to oncall\n      .label page\n      .incident\n      .annotation-above-color #ffffff\n      .annotation-above-text-outline #172554\n      .annotation-above-text-outline-width 2");
   assert.deepEqual(result.errors, []);

@@ -118,6 +118,9 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /data-graph-field="relative-to"/);
   assert.match(html, /id="builder-diagram-placement"/);
   assert.match(html, /id="builder-diagram-relative-to"/);
+  assert.doesNotMatch(html, /id="builder-ports"/);
+  assert.match(app, /data-graph-add="connected-node"/);
+  assert.match(app, /data-node-field="\$\{face\}-ports"/);
   assert.match(app, /graphSelections\.length > 1[\s\S]*Align \/ distribute[\s\S]*return;/);
   assert.match(renderer, /event\.shiftKey \|\| event\.ctrlKey \|\| event\.metaKey/);
   assert.match(renderer, /event\.metaKey \|\| event\.ctrlKey \|\| event\.shiftKey/);
