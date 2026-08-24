@@ -441,6 +441,41 @@ export function appendFlowReference(value, scopeLineNumber, options = {}) {
   return lines.join("\n");
 }
 
+export function moveDeclarationToContainer(value, declarationLineNumber, containerLineNumber) {
+  const lines = value.split("\n");
+  const start = declarationLineNumber - 1;
+  const originalIndent = lines[start]?.match(/^\s*/)?.[0] ?? "";
+  const indent = indentationWidth(lines[start] ?? "");
+  let end = start + 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > indent)) end += 1;
+  const block = lines.slice(start, end);
+  lines.splice(start, end - start);
+  let containerIndex = containerLineNumber - 1;
+  if (start < containerIndex) containerIndex -= block.length;
+  const containerIndent = indentationWidth(lines[containerIndex] ?? "");
+  let containerEnd = containerIndex + 1;
+  while (containerEnd < lines.length && (!lines[containerEnd].trim() || indentationWidth(lines[containerEnd]) > containerIndent)) containerEnd += 1;
+  const targetIndent = (lines[containerIndex]?.match(/^\s*/)?.[0] ?? "") + "  ";
+  lines.splice(containerEnd, 0, ...block.map((line) => targetIndent + line.slice(originalIndent.length)));
+  return lines.join("\n");
+}
+
+export function moveNodeToGraph(value, labelLineNumber, graphLineNumber) {
+  const lines = value.split("\n");
+  const node = nodeRange(lines, labelLineNumber);
+  const originalIndent = lines[node.start]?.match(/^\s*/)?.[0] ?? "";
+  const block = lines.slice(node.start, node.end);
+  lines.splice(node.start, node.end - node.start);
+  let graphIndex = graphLineNumber - 1;
+  if (node.start < graphIndex) graphIndex -= block.length;
+  const graphIndent = indentationWidth(lines[graphIndex] ?? "");
+  let graphEnd = graphIndex + 1;
+  while (graphEnd < lines.length && (!lines[graphEnd].trim() || indentationWidth(lines[graphEnd]) > graphIndent)) graphEnd += 1;
+  const targetIndent = (lines[graphIndex]?.match(/^\s*/)?.[0] ?? "") + "  ";
+  lines.splice(graphEnd, 0, ...block.map((line) => targetIndent + line.slice(originalIndent.length)));
+  return lines.join("\n");
+}
+
 export function appendDiagramNode(value, { nodeType = "node", id = "", label = "", diagramId = "", diagramLabel = "", diagramPlacement = "", diagramRelativeTo = "", diagramFill = "", diagramOutline = "" } = {}) {
   let lines = ensureGraphComponents(value).split("\n");
   const rootIndex = lines.findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim()));

@@ -106,8 +106,9 @@
         <div class="builder-grid">
           <div class="flow-endpoints relationship-only">
             <section class="flow-endpoint">
-              <label><span id="builder-from-graph-label">From graph</span><select id="builder-from-graph"></select></label>
-              <fieldset class="flow-only"><legend>From Node</legend><div id="builder-sources" class="node-choice-list" role="listbox" aria-label="From node"></div></fieldset>
+              <label class="connected-source-choice"><span id="builder-from-graph-label">From graph</span><select id="builder-from-graph"></select></label>
+              <fieldset class="flow-only connected-source-choice"><legend>From Node</legend><div id="builder-sources" class="node-choice-list" role="listbox" aria-label="From node"></div></fieldset>
+              <label class="connected-node-only">Connected node<input id="builder-connected-node" readonly></label>
               <label class="flow-only">From direction<select id="builder-from-direction"><option>right</option><option>left</option><option>down</option><option>up</option></select></label>
             </section>
             <section class="flow-endpoint flow-only existing-target-only">
@@ -116,6 +117,8 @@
               <label>To direction<select id="builder-to-direction"><option>right</option><option>left</option><option>down</option><option>up</option></select></label>
             </section>
           </div>
+          <label class="connected-node-only">Flow direction<select id="builder-flow-direction"><option value="to">To new node</option><option value="from">From new node</option></select></label>
+          <label class="connected-node-only">New node graph<select id="builder-new-node-graph"></select></label>
           <label class="new-target-only">Node type<select id="builder-node-type"></select></label>
           <label class="relationship-only">Flow type<select id="builder-line-type"><option value="">Default flow</option></select></label>
           <label class="diagram-only">Graph ID<input id="builder-diagram-id" pattern="[A-Za-z][A-Za-z0-9_-]*"></label>
