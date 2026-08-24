@@ -1908,11 +1908,9 @@ function selectSourceLine({ lineNumber }) {
   if (activeDocument !== "pug") activateDocument("pug");
   const lines = source.value.split("\n");
   const start = lines.slice(0, lineNumber - 1).reduce((length, line) => length + line.length + 1, 0);
-  const end = start + (lines[lineNumber - 1]?.length ?? 0);
-  source.focus({ preventScroll: true });
+  lastEditorCaret = start;
   const lineHeight = Number.parseFloat(getComputedStyle(source).lineHeight) || 20;
   const reveal = () => {
-    source.setSelectionRange(start, end);
     source.scrollTop = Math.max(0, (lineNumber - 3) * lineHeight);
     updateEditorChrome();
   };
