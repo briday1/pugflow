@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pugflow"
-version = "2026.14"
+version = "2026.15"
 description = "Build and export polished flow diagrams from readable Pug source."
 readme = "README.md"
 requires-python = ">=3.9"
