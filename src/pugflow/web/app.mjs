@@ -707,7 +707,7 @@ function imageControls(node = null) {
   return `<details${enabled ? " open" : ""}><summary>Image</summary><label class="inspector-switch"><span>Enabled</span><input type="checkbox" data-image-toggle${enabled ? " checked" : ""}></label><div class="inspector-file-row"><label>Source<input data-node-field="image" value="${escapeHtml(style?.image ?? "")}" placeholder="image.png or https://…"></label><button type="button" data-choose-image>Choose file…</button></div><div class="inspector-grid"><label>Width<input data-node-field="image-width" type="number" min="1" value="${style?.imageWidth ?? 64}"></label><label>Height<input data-node-field="image-height" type="number" min="1" value="${style?.imageHeight ?? 64}"></label><label>Fit<select data-node-field="image-fit">${["contain", "cover", "fill"].map(option).join("")}</select></label><label>Opacity<input data-node-field="image-opacity" type="number" min="0" max="1" step="0.05" value="${style?.imageOpacity ?? 1}"></label></div>${node ? `<label>Image offset<input value="(${node.imageOffsetX}, ${node.imageOffsetY})" readonly></label><button data-remove-field="image-offset">Remove image offset</button>` : ""}</details>`;
 }
 
-function tidyInspectorSections() {
+function tidyInspectorSections(nodes = []) {
   inspectorContent.querySelectorAll("[data-shadow-toggle]").forEach((toggle) => {
     const details = toggle.closest("details");
     const label = toggle.closest("label");
@@ -717,6 +717,9 @@ function tidyInspectorSections() {
     label.className = "inspector-switch";
     label.replaceChildren(Object.assign(document.createElement("span"), { textContent: "Enabled" }), toggle);
     summary.insertAdjacentElement("afterend", label);
+    const enabled = nodes.filter((node) => Boolean(node.style.shadowColor)).length;
+    toggle.checked = Boolean(nodes.length) && enabled === nodes.length;
+    toggle.indeterminate = enabled > 0 && enabled < nodes.length;
   });
 }
 
@@ -866,14 +869,14 @@ function renderInspector() {
       inspectorContent.querySelector("h3")?.insertAdjacentHTML("beforeend", `<label class="inspector-switch inspector-switch-heading"><span>Hidden</span><input data-node-hidden type="checkbox"${nodes.every((item) => item.hidden) ? " checked" : ""}></label>`);
       inspectorContent.querySelector("details")?.insertAdjacentHTML("afterend", fontOptions("node", { fontSize: 16 }));
       inspectorContent.querySelectorAll("details")[1]?.insertAdjacentHTML("afterend", imageControls());
-      tidyInspectorSections();
+      tidyInspectorSections(nodes);
       return;
     }
     const node = currentGraph.nodes.find((candidate) => candidate.id === nodes[0].id);
     inspectorContent.innerHTML = `<h3>Node</h3><label>Node Layer<select data-node-layer-order><option value="">Layer ${node.layer ?? 0}</option><option value="front">Send to front</option><option value="back">Send to back</option></select></label><small class="inspector-help">Send this node to the front or back within its graph, or drag it in the Objects panel.</small><label>Label<input data-node-field="label" value="${escapeHtml(node.label.replace(/\n/g, " "))}"></label><label>ID <small>optional</small><input data-node-field="id" value="${escapeHtml(node.explicitId)}" placeholder="${escapeHtml(node.id)}" pattern="[A-Za-z][A-Za-z0-9_-]*" title="Start with a letter; use letters, numbers, underscores, or hyphens."></label>${fontOptions("node", node.style)}<label>Type<select data-node-type><option value="node">node</option>${custom.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label><details><summary>Appearance</summary><label>Shape<select data-node-field="shape">${["square","rounded","round","pill","diamond","hexagon","cylinder"].map((shape) => `<option${node.style.shape === shape ? " selected" : ""}>${shape}</option>`).join("")}</select></label>${colorControl("Fill", "fill", node.style.fill)}${colorControl("Border", "outline", node.style.outline)}<label>Border style<select data-node-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${node.style.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Border width<input data-node-field="outline-width" type="number" min="0" value="${node.style.outlineWidth}"></label><label>Width<input data-node-field="width" value="${node.style.width}"></label><label>Height<input data-node-field="height" value="${node.style.height}"></label><label>Text alignment<select data-node-field="align">${["left","center","right"].map((value) => `<option${node.style.align === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></details><details${node.style.shadowColor ? " open" : ""}><summary><label class="shadow-toggle"><input type="checkbox" data-shadow-toggle${node.style.shadowColor ? " checked" : ""}> Shadow</label></summary>${colorControl("Color", "shadow-color", node.style.shadowColor ?? "#000000")}<label>X offset<input data-node-field="shadow-offset-x" type="number" value="${node.style.shadowOffsetX}"></label><label>Y offset<input data-node-field="shadow-offset-y" type="number" value="${node.style.shadowOffsetY}"></label><label>Blur<input data-node-field="shadow-blur" type="number" min="0" value="${node.style.shadowBlur}"></label><label>Opacity<input data-node-field="shadow-opacity" type="number" min="0" max="1" step="0.05" value="${node.style.shadowOpacity}"></label></details><div class="inspector-inline-field"><label>Offset<input value="(${node.offsetX}, ${node.offsetY})" readonly></label><button type="button" data-arrange="remove-offsets">Remove</button></div>`;
     inspectorContent.querySelector("h3")?.insertAdjacentHTML("beforeend", `<label class="inspector-switch inspector-switch-heading"><span>Hidden</span><input data-node-hidden type="checkbox"${node.hidden ? " checked" : ""}></label>`);
     inspectorContent.querySelectorAll("details")[1]?.insertAdjacentHTML("afterend", imageControls(node));
-    tidyInspectorSections();
+    tidyInspectorSections(nodes);
     inspectorContent.insertAdjacentHTML("beforeend", nodeAnnotationControls(node));
     inspectorContent.insertAdjacentHTML("beforeend", connectedItemsControls(node));
     setReusableStyleAction("node");
@@ -2568,7 +2571,7 @@ inspectorContent.addEventListener("change", (event) => {
   if (event.target.matches("[data-shadow-toggle]")) {
     let nextSource = source.value;
     [...nodes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((selected) => {
-      nextSource = event.target.checked ? setNodeField(nextSource, selected.lineNumber, "shadow-color", "#000000") : removeNodeField(nextSource, selected.lineNumber, "shadow-color");
+      nextSource = setNodeField(nextSource, selected.lineNumber, "shadow-color", event.target.checked ? "#000000" : "none");
     });
     setSource(nextSource);
     return;

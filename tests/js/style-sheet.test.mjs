@@ -33,3 +33,10 @@ test("moves Pug definition preludes into active CSS rules", () => {
   assert.deepEqual(graph.errors, []);
   assert.equal(graph.nodes[0].style.fill, "#123456");
 });
+
+test("allows a node to disable an inherited shadow", () => {
+  const css = "@node card { shadow-color: #123456; }";
+  const graph = parseDiagram("#canvas\n  graph\n    .card\n      .label Root\n      .shadow-color none", css);
+  assert.deepEqual(graph.errors, []);
+  assert.equal(graph.nodes[0].style.shadowColor, null);
+});

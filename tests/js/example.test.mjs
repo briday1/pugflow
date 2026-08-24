@@ -85,9 +85,11 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.doesNotMatch(html, /[☀☾✋]/);
   assert.doesNotMatch(html, /<select id="theme"/);
   assert.match(html, /<nav class="global-actions"[^>]*>/);
+  assert.match(html, /class="toolbar-menu header-brand"[\s\S]*<summary>Pugflow<\/summary>[\s\S]*href="docs\.html"/);
   assert.match(html, /id="add-diagram"/);
   assert.match(html, /id="open-save-export"/);
   assert.match(html, /id="open-copy-export"/);
+  assert.match(app, /setNodeField\(nextSource, selected\.lineNumber, "shadow-color", event\.target\.checked \? "#000000" : "none"\)/);
   assert.match(html, /class="export-dialog" id="copy-export-dialog"[\s\S]*class="export-form"[\s\S]*id="copy-export-target"[\s\S]*id="copy-export-format"[\s\S]*id="copy-export-dpi"/);
   assert.match(html, /class="export-dialog" id="save-export-dialog"[\s\S]*class="export-form"[\s\S]*id="save-export-target"[\s\S]*id="save-export-format"[\s\S]*id="save-export-dpi"/);
   assert.match(styles, /\.export-form, #style-builder-form \{ padding: 16px; \}/);
