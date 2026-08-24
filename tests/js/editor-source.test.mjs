@@ -38,6 +38,12 @@ test("edits inspector-backed node properties", () => {
   assert.doesNotMatch(edited, /\.fill #123456/);
 });
 
+test("local shadow removal overrides a reusable shadow", () => {
+  const source = "@node raised\n  .shadow-color #123456\n" + FLAT_GRAPH.replace("    .node\n", "    .node\n      .raised\n      .shadow-color none\n");
+  const node = parseDiagram(source).nodes[0];
+  assert.equal(node.style.shadowColor, null);
+});
+
 test("renames node IDs in explicit flow endpoints", () => {
   const renamed = renameNodeReferences(FLAT_GRAPH, "root", "start");
   assert.match(renamed, /\.from start/);

@@ -713,10 +713,9 @@ function tidyInspectorSections() {
     const label = toggle.closest("label");
     const summary = details?.querySelector(":scope > summary");
     if (!details || !label || !summary) return;
-    summary.textContent = "Shadow";
-    label.className = "inspector-switch";
+    label.className = "inspector-switch inspector-switch-summary";
     label.replaceChildren(Object.assign(document.createElement("span"), { textContent: "Enabled" }), toggle);
-    summary.insertAdjacentElement("afterend", label);
+    summary.replaceChildren(Object.assign(document.createElement("span"), { textContent: "Shadow" }), label);
   });
 }
 
@@ -983,7 +982,9 @@ function selectCreatedNode(id) {
   if (!node) return;
   selections = [{ kind: "node", id, lineNumber: node.lineNumber, selectionKey: `node:${id}`, additive: false }];
   paintSelections();
-  renderInspector();
+  const inspectorControlFocused = inspectorContent.contains(document.activeElement)
+    && document.activeElement.matches("input, textarea, select");
+  if (!inspectorControlFocused) renderInspector();
 }
 
 function selectCanvasElement(item) {
@@ -2568,7 +2569,7 @@ inspectorContent.addEventListener("change", (event) => {
   if (event.target.matches("[data-shadow-toggle]")) {
     let nextSource = source.value;
     [...nodes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((selected) => {
-      nextSource = event.target.checked ? setNodeField(nextSource, selected.lineNumber, "shadow-color", "#000000") : removeNodeField(nextSource, selected.lineNumber, "shadow-color");
+      nextSource = setNodeField(nextSource, selected.lineNumber, "shadow-color", event.target.checked ? "#000000" : "none");
     });
     setSource(nextSource);
     return;

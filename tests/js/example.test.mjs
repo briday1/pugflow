@@ -143,6 +143,9 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /flow: \["color", "outline", "outline-width", "width", "arrow-style"/);
   assert.match(app, /annotation: \["color", "font-family"/);
   assert.match(app, /activeDocument === "css"\) return cssCompletionContext\(caret\)/);
+  assert.match(app, /inspectorControlFocused[\s\S]*if \(!inspectorControlFocused\) renderInspector\(\)/);
+  assert.match(app, /summary\.replaceChildren\([^;]+textContent: "Shadow"[^;]+label\)/);
+  assert.match(app, /"shadow-color", event\.target\.checked \? "#000000" : "none"/);
   assert.match(app, /event\.inputType === "insertLineBreak" \|\| \/\^\[a-z@-\]\$\/i\.test/);
   assert.match(styles, /::highlight\(sbd-color\)/);
   assert.match(styles, /::highlight\(sbd-number\)/);

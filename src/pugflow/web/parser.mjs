@@ -254,7 +254,7 @@ function blockStyle(attrs, lineNumber, errors, defaults = {}) {
     width: numberAttribute(attrs.width, defaults.width ?? "auto", 48, "width", lineNumber, errors),
     height: numberAttribute(attrs.height, defaults.height ?? "auto", 28, "height", lineNumber, errors),
     align: ["left", "center", "right"].includes(attrs.align) ? attrs.align : defaults.align ?? "center",
-    shadowColor: attrs["shadow-color"] ?? defaults.shadowColor ?? null,
+    shadowColor: attrs["shadow-color"] === "none" ? null : attrs["shadow-color"] ?? defaults.shadowColor ?? null,
     shadowOffsetX: numberAttribute(attrs["shadow-offset-x"], defaults.shadowOffsetX ?? 4, -100, "shadow-offset-x", lineNumber, errors),
     shadowOffsetY: numberAttribute(attrs["shadow-offset-y"], defaults.shadowOffsetY ?? 5, -100, "shadow-offset-y", lineNumber, errors),
     shadowBlur: numberAttribute(attrs["shadow-blur"], defaults.shadowBlur ?? 6, 0, "shadow-blur", lineNumber, errors),
