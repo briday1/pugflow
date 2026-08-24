@@ -50,11 +50,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ needs.pypi.outputs.release-sha }}
       - uses: actions/configure-pages@v5
       - name: Cache-bust browser assets
         env:
-          ASSET_VERSION: ${{ github.sha }}
+          ASSET_VERSION: ${{ needs.pypi.outputs.release-sha }}
         run: |
           python <<'PYTHON_EOF'
           import os
@@ -83,6 +83,8 @@ jobs:
   pypi:
     name: Version, build, and publish to PyPI
     needs: test
+    outputs:
+      release-sha: ${{ steps.release-commit.outputs.sha }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -168,6 +170,7 @@ jobs:
           password: ${{ secrets.PYPI_API_TOKEN }}
 
       - name: Commit version and tag release
+        id: release-commit
         env:
           VERSION: ${{ steps.set-version.outputs.version }}
         run: |
@@ -176,4 +179,5 @@ jobs:
           git add pyproject.toml src/pugflow/__init__.py src/pugflow/web/index.html
           git commit -m "chore: bump version to $VERSION [skip ci]"
           git tag -a "v$VERSION" -m "Release v$VERSION"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           git push origin main "v$VERSION"

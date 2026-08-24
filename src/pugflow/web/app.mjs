@@ -982,9 +982,7 @@ function selectCreatedNode(id) {
   if (!node) return;
   selections = [{ kind: "node", id, lineNumber: node.lineNumber, selectionKey: `node:${id}`, additive: false }];
   paintSelections();
-  const inspectorControlFocused = inspectorContent.contains(document.activeElement)
-    && document.activeElement.matches("input, textarea, select");
-  if (!inspectorControlFocused) renderInspector();
+  renderInspector();
 }
 
 function selectCanvasElement(item) {
@@ -1948,7 +1946,9 @@ function update() {
     });
     applyCanvasZoom();
     paintSelections();
-    renderInspector();
+    const inspectorControlFocused = inspectorContent.contains(document.activeElement)
+      && document.activeElement.matches("input, textarea, select");
+    if (!inspectorControlFocused) renderInspector();
     status.textContent = "";
     status.className = "status ready";
   } catch (error) {
