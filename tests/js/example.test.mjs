@@ -95,6 +95,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(html, /class="zoom-controls canvas-mode-controls"[\s\S]*id="mode-select"[\s\S]*<svg[\s\S]*id="mode-pan"[\s\S]*<svg/);
   assert.doesNotMatch(html, /&#(?:9654|9995);/);
   assert.match(app, /modeSelectButton\.setAttribute\("aria-pressed", String\(mode === "select"\)\)/);
+  assert.match(styles, /\.canvas-shell\.pan-mode \{ cursor: grab; touch-action: none; \}/);
   assert.match(styles, /\.canvas-shell\.pan-mode #diagram \{ pointer-events: none; user-select: none; \}/);
   assert.match(html, /<div class="canvas-shell"[^>]*>[\s\S]*?<\/div>\s*<div class="zoom-controls canvas-zoom-controls"/);
   assert.match(styles, /\.preview \{ position: relative;/);
