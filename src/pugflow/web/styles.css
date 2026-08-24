@@ -98,6 +98,7 @@ nav { display: flex; align-items: center; gap: 8px; }
 .icon-tool { display: grid; width: 30px; height: 30px; place-items: center; padding: 0; border: 0; border-radius: 5px; color: var(--muted); background: transparent; }
 .icon-tool:hover, .icon-tool:focus-visible { color: var(--heading); background: var(--code-bg); outline: none; }
 .icon-tool svg, .theme-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#cleanup-diagram svg { fill: currentColor; stroke: none; }
 .theme-toggle small { margin-left: auto; color: var(--faint); font-size: 9px; font-weight: 500; text-transform: capitalize; }
 .theme-toggle .theme-moon { display: none; }
 :root[data-theme="dark"] .theme-toggle .theme-sun { display: none; }
