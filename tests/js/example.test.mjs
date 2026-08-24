@@ -170,6 +170,9 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /annotation-\$\{position\}-\$\{field\}/);
   assert.match(app, /CSS\.supports\("color"/);
   assert.match(app, /currentTrigger\?\.style\.setProperty\("--swatch", color\)/);
+  assert.match(styles, /\.color-decorator \{\s*position: absolute;/);
+  assert.doesNotMatch(styles, /^\.color-popup-trigger \{[^}]*position: relative/m);
+  assert.match(styles, /\.inspector-color \.color-popup-trigger \{ position: relative; \}/);
   assert.match(styles, /\.color-popup-trigger::after[^}]*background: var\(--swatch, #000\)/);
   assert.match(styles, /\.color-picker-heading > span::after[^}]*background: var\(--preview-color, transparent\)/);
   assert.match(app, /\^#\[0-9a-f\]\{6\}00\$\/i\.test\(color\)/);
