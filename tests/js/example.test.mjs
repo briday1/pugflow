@@ -290,3 +290,10 @@ test("application startup does not wait for the math renderer", () => {
   assert.ok(appImport >= 0 && mathAwait >= 0 && appImport < mathAwait);
   assert.match(html, /pugflow-math-ready/);
 });
+
+test("Pages deployments cache-bust browser assets", () => {
+  const workflow = readFileSync(new URL("../../.github/workflows/test-and-publish.yml", import.meta.url), "utf8");
+  assert.match(workflow, /name: Cache-bust browser assets/);
+  assert.match(workflow, /ASSET_VERSION: \$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /(?:css\|mjs)/);
+});
