@@ -50,6 +50,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Cache-bust browser assets
+        env:
+          ASSET_VERSION: ${{ github.sha }}
+        run: |
+          python <<'PYTHON_EOF'
+          import os
+          import re
+          from pathlib import Path
+
+          web = Path("src/pugflow/web")
+          version = os.environ["ASSET_VERSION"]
+          patterns = {
+              ".html": re.compile(r'(?P<prefix>(?:href=|import\()["\'])(?P<path>(?:\./)?[^"\'?]+\.(?:css|mjs))'),
+              ".mjs": re.compile(r'(?P<prefix>(?:from\s+|import\()["\'])(?P<path>(?:\./)?[^"\'?]+\.mjs)'),
+          }
+          for path in [*web.glob("*.html"), *web.glob("*.mjs")]:
+              source = path.read_text()
+              path.write_text(patterns[path.suffix].sub(
+                  lambda match: f'{match["prefix"]}{match["path"]}?v={version}',
+                  source,
+              ))
+          PYTHON_EOF
       - uses: actions/upload-pages-artifact@v3
         with:
           path: src/pugflow/web
