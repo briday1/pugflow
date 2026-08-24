@@ -55,47 +55,53 @@ button, select, textarea { font: inherit; }
 button, select { cursor: pointer; }
 
 header {
-  height: 70px;
+  position: relative;
+  z-index: 40;
+  height: 42px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
+  gap: 10px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
 }
 
-.header-brand { display: flex; align-items: center; gap: 12px; }
-.title { display: flex; align-items: center; gap: 12px; color: var(--heading); }
-.title div { display: flex; flex-direction: column; }
-.title strong { font-size: 15px; }
-.title small { margin-top: 2px; color: var(--faint); font-size: 10px; }
-.theme-toggle { position: relative; width: 34px; height: 34px; flex: 0 0 34px; padding: 0; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 50%; color: var(--heading); background: var(--surface); line-height: 1; }
-.theme-toggle:hover, .theme-toggle:focus-visible { border-color: var(--accent); color: var(--accent); background: var(--code-bg); outline: none; }
-.theme-toggle span { position: absolute; inset: 0; display: grid; place-items: center; transition: opacity .15s ease, rotate .2s ease; }
-.theme-toggle svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.theme-toggle .theme-sun { opacity: 1; rotate: 0deg; }
-.theme-toggle .theme-moon { opacity: 0; rotate: -45deg; }
-:root[data-theme="dark"] .theme-toggle .theme-sun { opacity: 0; rotate: 45deg; }
-:root[data-theme="dark"] .theme-toggle .theme-moon { opacity: 1; rotate: 0deg; }
+.header-brand { display: flex; align-items: center; padding: 0 10px 0 2px; border-right: 1px solid var(--border); color: var(--heading); }
+.header-brand strong { font-size: 13px; letter-spacing: -.01em; }
 
 nav { display: flex; align-items: center; gap: 8px; }
-.global-actions { min-width: 0; justify-content: flex-end; }
-nav button, nav select, .editor-actions button, .editor-actions select {
-  min-height: 35px;
-  padding: 7px 11px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
+.global-actions { min-width: 0; flex: 1; gap: 2px; }
+.toolbar-menu { position: relative; height: 30px; margin: 0; padding: 0; border: 0; }
+.toolbar-menu > summary {
+  display: flex;
+  height: 30px;
+  align-items: center;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 5px;
   color: var(--text);
-  background: var(--surface);
+  background: transparent;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
 }
-nav button:hover, .editor-actions button:hover { border-color: var(--accent); background: var(--code-bg); }
-nav .primary { border-color: var(--accent); color: #fff; background: var(--accent); }
-nav .primary:hover { background: var(--accent-hover); }
-nav label, .editor-actions label { color: var(--faint); font-size: 10px; }
+.toolbar-menu > summary::-webkit-details-marker { display: none; }
+.toolbar-menu > summary:hover, .toolbar-menu[open] > summary { color: var(--heading); background: var(--code-bg); }
+.toolbar-popover { position: absolute; z-index: 50; top: calc(100% + 4px); left: 0; width: 210px; padding: 5px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--panel); box-shadow: 0 10px 28px var(--shadow); }
+.toolbar-popover > strong { display: block; padding: 7px 8px 4px; color: var(--faint); font-size: 8px; letter-spacing: .12em; }
+.toolbar-popover > button, .toolbar-popover > label { display: flex; width: 100%; min-height: 30px; align-items: center; gap: 8px; padding: 7px 8px; border: 0; border-radius: 5px; color: var(--text); background: transparent; font-size: 11px; text-align: left; }
+.toolbar-popover > button:hover, .toolbar-popover > label:hover { color: var(--heading); background: var(--code-bg); }
+.menu-separator { display: block; height: 1px; margin: 5px 3px; background: var(--border); }
+.toolbar-divider { width: 1px; height: 20px; margin: 0 5px; background: var(--border); }
+.icon-tool { display: grid; width: 30px; height: 30px; place-items: center; padding: 0; border: 0; border-radius: 5px; color: var(--muted); background: transparent; }
+.icon-tool:hover, .icon-tool:focus-visible { color: var(--heading); background: var(--code-bg); outline: none; }
+.icon-tool svg, .theme-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.menu-setting small { margin-left: auto; color: var(--faint); font-size: 9px; font-weight: 500; text-transform: capitalize; }
+.vim-toggle { justify-content: space-between; cursor: pointer; }
+.vim-toggle input { margin: 0; accent-color: var(--accent); }
 
-main { --panel-width: 430px; --layers-open-width: 230px; --layers-width: var(--layers-open-width); --graph-resizer-width: 9px; position: relative; height: calc(100vh - 70px); display: grid; grid-template-columns: var(--panel-width) 9px minmax(0, 1fr) var(--graph-resizer-width) var(--layers-width); transition: grid-template-columns .2s ease; }
+main { --panel-width: 430px; --layers-open-width: 230px; --layers-width: var(--layers-open-width); --graph-resizer-width: 9px; position: relative; height: calc(100vh - 42px); display: grid; grid-template-columns: var(--panel-width) 9px minmax(0, 1fr) var(--graph-resizer-width) var(--layers-width); transition: grid-template-columns .2s ease; }
 main.source-collapsed { grid-template-columns: 0 0 minmax(0, 1fr) var(--graph-resizer-width) var(--layers-width); }
 main.layers-collapsed { --layers-width: 0px; --graph-resizer-width: 0px; }
 #source-panel { display: flex; min-height: 0; flex-direction: column; padding: 22px 20px 16px; border-right: 1px solid var(--border); background: var(--panel); }
@@ -198,32 +204,9 @@ main.source-collapsed .panel-resizer { visibility: hidden; pointer-events: none;
 main.layers-collapsed .graph-panel-resizer { visibility: hidden; pointer-events: none; }
 body.resizing-panel { cursor: col-resize; user-select: none; }
 .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.editor-actions { display: flex; align-items: center; gap: 6px; }
-.editor-actions label { display: flex; align-items: center; gap: 5px; }
-.editor-actions button, .editor-actions select { min-height: 31px; padding: 5px 10px; }
-.file-menu { position: relative; height: 31px; margin: 0; padding: 0; border: 0; }
-.file-menu > summary { display: flex; min-width: 58px; height: 31px; align-items: center; justify-content: center; padding: 0 10px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--surface); font-size: 11px; font-weight: 650; list-style: none; }
-.file-menu > summary::-webkit-details-marker { display: none; }
-.file-menu > summary:hover, .file-menu[open] > summary { border-color: var(--accent); background: var(--code-bg); }
-.file-menu > div { position: absolute; z-index: 20; top: calc(100% + 5px); right: 0; width: 190px; padding: 6px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--panel); box-shadow: 0 10px 28px var(--shadow); }
-.file-menu strong { display: block; padding: 7px 7px 3px; color: var(--faint); font-size: 8px; letter-spacing: .12em; }
-.editor-actions .file-menu button { display: block; width: 100%; min-height: 0; padding: 7px 8px; border: 0; background: transparent; text-align: left; }
-.editor-actions .file-menu button:hover { color: var(--heading); background: var(--code-bg); }
 .source-tabs { display: flex; gap: 2px; margin: 2px 0 8px; border-bottom: 1px solid var(--border); }
 .source-tabs button { padding: 7px 11px 6px; border: 0; border-bottom: 2px solid transparent; border-radius: 5px 5px 0 0; color: var(--muted); background: transparent; font: 600 11px/1.2 Consolas, monospace; }
 .source-tabs button.active { border-bottom-color: var(--accent); color: var(--heading); background: var(--surface-soft); }
-.vim-toggle {
-  min-height: 31px;
-  padding: 5px 8px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  color: var(--text) !important;
-  background: var(--surface);
-  font-weight: 650;
-  cursor: pointer;
-}
-.vim-toggle:has(input:checked) { border-color: var(--accent); background: var(--code-bg); }
-.vim-toggle input { margin: 0; accent-color: var(--accent); }
 .preview-title span { color: var(--accent); font-size: 9px; font-weight: 800; letter-spacing: .13em; }
 h1, h2 { margin: 3px 0 0; color: var(--heading); letter-spacing: -.02em; }
 h1 { font-size: 20px; }
@@ -427,14 +410,6 @@ details p { margin-bottom: 0; }
 }
 .preview-title button:hover { border-color: var(--accent); background: var(--code-bg); }
 .canvas-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
-.canvas-actions > button, .new-menu > summary { display: flex; height: 35px; align-items: center; padding-block: 0; }
-.new-menu { position: relative; height: 35px; margin: 0; padding: 0; border: 0; font-size: 11px; }
-.new-menu > summary { padding-inline: 10px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--surface); font-size: 11px; font-weight: 650; line-height: 1; cursor: pointer; list-style: none; }
-.new-menu > summary::-webkit-details-marker { display: none; }
-.new-menu > summary:hover, .new-menu[open] > summary { border-color: var(--accent); background: var(--code-bg); }
-.new-menu > div { position: absolute; z-index: 12; top: calc(100% + 5px); right: 0; width: 130px; padding: 5px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--panel); box-shadow: 0 10px 28px var(--shadow); }
-.new-menu button { display: block; width: 100%; min-height: 0; padding: 7px 9px; border: 0; background: transparent; text-align: left; }
-.new-menu button:hover { color: var(--heading); background: var(--code-bg); }
 .zoom-controls { display: flex; align-items: stretch; gap: 0; margin-left: 5px; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-soft); box-shadow: inset 0 1px color-mix(in srgb, var(--panel) 72%, transparent); }
 .zoom-controls button { min-width: 28px; padding: 3px 7px; border: 0; border-radius: 5px; color: var(--muted); background: transparent; box-shadow: none; font-size: 11px; }
 .zoom-controls button:hover { color: var(--heading); background: var(--panel); }
