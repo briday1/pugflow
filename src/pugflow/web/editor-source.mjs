@@ -417,14 +417,15 @@ function appendToContainer(lines, containerLineNumber, declarations) {
   lines.splice(end, 0, ...declarations(indentation));
 }
 
-function flowDeclaration(indentation, { from = "", to = "", direction = "right", fromDirection = direction, toDirection = fromDirection, lineType = "" } = {}) {
+function flowDeclaration(indentation, { from = "", to = "", direction = "right", sourceFace = "", targetFace = "", lineType = "" } = {}) {
   const fieldIndent = indentation + "  ";
   return [
     `${indentation}.flow`,
     `${fieldIndent}.from ${from}`,
     `${fieldIndent}.to ${to}`,
-    `${fieldIndent}.from-direction ${fromDirection}`,
-    `${fieldIndent}.to-direction ${toDirection}`,
+    `${fieldIndent}.direction ${direction}`,
+    ...(sourceFace ? [`${fieldIndent}.source-face ${sourceFace}`] : []),
+    ...(targetFace ? [`${fieldIndent}.target-face ${targetFace}`] : []),
     ...(lineType ? [`${fieldIndent}.${lineType.replace(/^\./, "")}`] : []),
   ];
 }

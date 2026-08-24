@@ -214,8 +214,12 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(html, /id="builder-to-graph"/);
   assert.match(html, /id="builder-sources"[^>]*role="listbox"/);
   assert.match(html, /id="builder-targets"[^>]*role="listbox"/);
-  assert.match(html, /id="builder-from-direction"/);
-  assert.match(html, /id="builder-to-direction"/);
+  assert.doesNotMatch(html, /id="builder-from-direction"/);
+  assert.doesNotMatch(html, /id="builder-to-direction"/);
+  assert.match(html, /New node settings[\s\S]*id="builder-new-node-graph"[\s\S]*id="builder-node-type"[\s\S]*id="builder-id"[\s\S]*id="builder-label"/);
+  assert.match(html, /Flow and connection settings[\s\S]*id="builder-connected-node"[\s\S]*id="builder-flow-direction"[\s\S]*id="builder-layout-direction"[\s\S]*id="builder-source-face"[\s\S]*id="builder-target-face"[\s\S]*id="builder-line-type"/);
+  assert.match(app, /mode === "flow" \? "From face" : "Source face"/);
+  assert.match(app, /mode === "flow" \? "To face" : "Target face"/);
   assert.match(html, /id="builder-connected-node" readonly/);
   assert.match(html, /id="builder-flow-direction"/);
   assert.match(html, /id="builder-new-node-graph"/);
