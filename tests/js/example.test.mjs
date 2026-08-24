@@ -80,6 +80,9 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(html, /<kbd>Ctrl<\/kbd>\+<kbd>Space<\/kbd> suggestions/);
   assert.match(html, /id="toggle-source"/);
   assert.match(html, /class="theme-toggle" id="theme" type="button"/);
+  assert.match(html, /class="theme-sun"[^>]*><svg/);
+  assert.match(html, /class="theme-moon"[^>]*><svg/);
+  assert.doesNotMatch(html, /[☀☾✋]/);
   assert.doesNotMatch(html, /<select id="theme"/);
   assert.match(html, /<nav class="global-actions"[^>]*>[\s\S]*id="add-diagram"[\s\S]*id="open-save-export"/);
   assert.match(html, /id="open-copy-export"/);
@@ -92,6 +95,12 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /diagram\.toPNGBlob\(Number\(copyExport\.dpi\.value\) \/ 96, graphId\)/);
   assert.doesNotMatch(html, /Live preview/);
   assert.match(html, /class="zoom-controls canvas-zoom-controls"/);
+  assert.match(html, /class="zoom-controls canvas-mode-controls"[\s\S]*id="mode-select"[\s\S]*<svg[\s\S]*id="mode-pan"[\s\S]*<svg/);
+  assert.doesNotMatch(html, /&#(?:9654|9995);/);
+  assert.match(app, /modeSelectButton\.setAttribute\("aria-pressed", String\(mode === "select"\)\)/);
+  assert.match(styles, /\.canvas-shell\.pan-mode \{ cursor: grab; touch-action: none; \}/);
+  assert.match(styles, /\.canvas-shell\.pan-mode #diagram \{ pointer-events: none; user-select: none; \}/);
+  assert.match(styles, /#diagram \{ width: max-content; min-width: 100%; height: max-content; min-height: 100%;/);
   assert.match(html, /<div class="canvas-shell"[^>]*>[\s\S]*?<\/div>\s*<div class="zoom-controls canvas-zoom-controls"/);
   assert.match(styles, /\.preview \{ position: relative;/);
   assert.match(styles, /\.canvas-zoom-controls \{ position: absolute;[^}]*right: 38px; bottom: 38px;/);
