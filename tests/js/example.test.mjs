@@ -216,6 +216,11 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(html, /id="builder-targets"[^>]*role="listbox"/);
   assert.match(html, /id="builder-from-direction"/);
   assert.match(html, /id="builder-to-direction"/);
+  assert.match(html, /id="builder-connected-node" readonly/);
+  assert.match(html, /id="builder-flow-direction"/);
+  assert.match(html, /id="builder-new-node-graph"/);
+  assert.match(app, /data-node-graph/);
+  assert.match(app, /moveNodeToGraph\(nextSource, movingNode\.lineNumber, parsedTarget\.lineNumber\)/);
   assert.match(html, /id="toggle-layers"/);
   assert.match(html, /id="layers-list"[^>]*role="list"/);
   assert.match(html, /id="graph-browser-select"/);

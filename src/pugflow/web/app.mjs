@@ -635,22 +635,6 @@ colorPickerValue.addEventListener("input", () => {
     colorPickerValue.setAttribute("aria-invalid", "true");
     return;
   }
-  if (event.target.matches("[data-node-graph]") && node) {
-    const targetGraph = currentGraph.groups.find((group) => group.id === event.target.value);
-    const currentNodeGraph = graphForNode(node.id);
-    if (!targetGraph || targetGraph.id === currentNodeGraph?.id) return;
-    let nextSource = source.value;
-    let movingNode = node;
-    if (!movingNode.explicitId) {
-      nextSource = setNodeField(nextSource, movingNode.lineNumber, "id", movingNode.id);
-      movingNode = parseDiagram(nextSource, cssSource).nodes.find((candidate) => candidate.id === node.id);
-    }
-    const parsed = parseDiagram(nextSource, cssSource);
-    const parsedTarget = parsed.groups.find((group) => group.id === targetGraph.id);
-    nextSource = moveNodeToGraph(nextSource, movingNode.lineNumber, parsedTarget.lineNumber);
-    setSource(reconcileFlowScopes(nextSource));
-    return;
-  }
   popupHue = hsva.h;
   popupSaturation = hsva.s;
   popupBrightness = hsva.v;
@@ -2669,6 +2653,22 @@ inspectorContent.addEventListener("change", (event) => {
     let nextSource = source.value;
     [...nodes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((selected) => { nextSource = setNodeType(nextSource, selected.lineNumber, event.target.value); });
     setSource(nextSource);
+    return;
+  }
+  if (event.target.matches("[data-node-graph]") && node) {
+    const targetGraph = currentGraph.groups.find((group) => group.id === event.target.value);
+    const currentNodeGraph = graphForNode(node.id);
+    if (!targetGraph || targetGraph.id === currentNodeGraph?.id) return;
+    let nextSource = source.value;
+    let movingNode = node;
+    if (!movingNode.explicitId) {
+      nextSource = setNodeField(nextSource, movingNode.lineNumber, "id", movingNode.id);
+      movingNode = parseDiagram(nextSource, cssSource).nodes.find((candidate) => candidate.id === node.id);
+    }
+    const parsed = parseDiagram(nextSource, cssSource);
+    const parsedTarget = parsed.groups.find((group) => group.id === targetGraph.id);
+    nextSource = moveNodeToGraph(nextSource, movingNode.lineNumber, parsedTarget.lineNumber);
+    setSource(reconcileFlowScopes(nextSource));
     return;
   }
   const annotationField = event.target.dataset.annotationField;
