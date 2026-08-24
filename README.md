@@ -38,7 +38,7 @@ pugflow diagram.pug --css styles.css --output diagram.png --scale 2
 
 `GET /healthz` returns server status and version as JSON.
 
-The editor has `diagram.pug` and `styles.css` tabs with clear New, Open, Save, and Save As actions in the File menu. Reusable styles use CSS-shaped rules:
+The compact application toolbar groups source and export actions under **File**, canvas creation under **New**, and theme and Vim controls under **Settings**. Reusable styles use CSS-shaped rules:
 
 ```css
 @node card {
@@ -53,11 +53,11 @@ The editor has `diagram.pug` and `styles.css` tabs with clear New, Open, Save, a
 }
 ```
 
-The editor opens as a blank `#canvas`; use `pugflow --demo` for the full feature tour. It provides live rendering, line numbers, highlighting, completions, a **File** menu for new/open/save actions using system files, a collapsible source panel, high-DPI PNG clipboard copying, and a Save dialog for PNG or SVG export. A project requires one Pug file. CSS is optional unless the Pug uses custom classes such as `.card`; select both files in the Open dialog or create CSS from the File menu. Each source tab shows its loaded filename. Source is not stored in the browser.
+The editor opens as a blank `#canvas`; use `pugflow --demo` for the full feature tour. It provides live rendering, line numbers, highlighting, completions, a **File** menu for new/open/save actions using system files, a collapsible source panel, high-DPI PNG clipboard copying, and image export dialogs. A project requires one Pug file. CSS is optional unless the Pug uses custom classes such as `.card`; select both files in the Open dialog or create CSS from the File menu. Each source tab shows its loaded filename. Source is not stored in the browser.
 
 Drag the divider beside the source panel to resize it; the width is remembered.
 Click any visible block in the preview to focus and select its corresponding source line.
-Enable **Vim** beside the editor actions for Normal, Insert, and Visual modes. It starts off on every launch and supports standard movement, editing, yanking, pasting, marks, and undo/redo commands. Escape, Ctrl+[ and Ctrl+C return to Normal mode.
+Enable **Vim mode** from **Settings** for Normal, Insert, and Visual modes. It starts off on every launch and supports standard movement, editing, yanking, pasting, marks, and undo/redo commands. Escape, Ctrl+[ and Ctrl+C return to Normal mode.
 
 ## Basic Pug definition
 

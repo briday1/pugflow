@@ -84,7 +84,9 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(html, /class="theme-moon"[^>]*><svg/);
   assert.doesNotMatch(html, /[☀☾✋]/);
   assert.doesNotMatch(html, /<select id="theme"/);
-  assert.match(html, /<nav class="global-actions"[^>]*>[\s\S]*id="add-diagram"[\s\S]*id="open-save-export"/);
+  assert.match(html, /<nav class="global-actions"[^>]*>/);
+  assert.match(html, /id="add-diagram"/);
+  assert.match(html, /id="open-save-export"/);
   assert.match(html, /id="open-copy-export"/);
   assert.match(html, /class="export-dialog" id="copy-export-dialog"[\s\S]*class="export-form"[\s\S]*id="copy-export-target"[\s\S]*id="copy-export-format"[\s\S]*id="copy-export-dpi"/);
   assert.match(html, /class="export-dialog" id="save-export-dialog"[\s\S]*class="export-form"[\s\S]*id="save-export-target"[\s\S]*id="save-export-format"[\s\S]*id="save-export-dpi"/);

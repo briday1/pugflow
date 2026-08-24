@@ -382,6 +382,7 @@ const status = document.querySelector("#status");
 const sourceFile = document.querySelector("#source-file");
 const nodeImageFile = document.querySelector("#node-image-file");
 const themeToggle = document.querySelector("#theme");
+const themeValue = document.querySelector("#theme-value");
 const main = document.querySelector("main");
 const sourcePanel = document.querySelector("#source-panel");
 const panelResizer = document.querySelector("#panel-resizer");
@@ -1315,6 +1316,7 @@ function applyTheme(preference) {
   themeToggle.setAttribute("aria-pressed", String(resolved === "dark"));
   themeToggle.setAttribute("aria-label", `Switch to ${resolved === "dark" ? "light" : "dark"} theme`);
   themeToggle.title = selected === "system" ? `Following system theme (${resolved}); click to switch` : `${resolved[0].toUpperCase() + resolved.slice(1)} theme; click to switch`;
+  themeValue.textContent = selected === "system" ? `System (${resolved})` : selected;
   if (diagram) {
     diagram.render(pugSource, cssSource);
     applyCanvasZoom();
@@ -2177,7 +2179,7 @@ canvasShell.addEventListener("wheel", (event) => {
 document.querySelector("#add-diagram").addEventListener("click", () => openGraphBuilder("diagram"));
 document.querySelector("#add-node").addEventListener("click", () => openGraphBuilder(currentGraph.nodes.length ? "node" : "diagram"));
 document.querySelector("#add-flow").addEventListener("click", () => openGraphBuilder("flow"));
-const toolbarMenus = [...document.querySelectorAll(".new-menu")];
+const toolbarMenus = [...document.querySelectorAll(".toolbar-menu")];
 toolbarMenus.forEach((menu) => menu.addEventListener("click", (event) => {
   if (event.target.closest("button")) menu.open = false;
   else if (event.target.closest("summary")) toolbarMenus.filter((other) => other !== menu).forEach((other) => { other.open = false; });
