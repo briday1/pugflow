@@ -2003,6 +2003,10 @@ function zoomCanvasAt(clientX, clientY, percent) {
 }
 
 function setSource(value, recordHistory = true) {
+  const activeControl = inspectorContent.contains(document.activeElement) ? document.activeElement : null;
+  const focusIdentity = activeControl?.dataset && Object.keys(activeControl.dataset).length
+    ? { tagName: activeControl.tagName, type: activeControl.type, dataset: { ...activeControl.dataset } }
+    : null;
   if (activeDocument !== "pug") activateDocument("pug");
   if (recordHistory && !colorPickerActive && value !== pugSource) {
     canvasUndo.push(pugSource);
@@ -2014,6 +2018,12 @@ function setSource(value, recordHistory = true) {
   syncHighlightScroll();
   hideCompletions();
   update();
+  if (focusIdentity) {
+    const control = [...inspectorContent.querySelectorAll(focusIdentity.tagName.toLowerCase())].find((candidate) =>
+      candidate.type === focusIdentity.type
+      && Object.entries(focusIdentity.dataset).every(([key, fieldValue]) => candidate.dataset[key] === fieldValue));
+    control?.focus({ preventScroll: true });
+  }
 }
 
 function undoCanvas() {
@@ -2568,7 +2578,7 @@ inspectorContent.addEventListener("change", (event) => {
   if (event.target.matches("[data-shadow-toggle]")) {
     let nextSource = source.value;
     [...nodes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((selected) => {
-      nextSource = event.target.checked ? setNodeField(nextSource, selected.lineNumber, "shadow-color", "#000000") : removeNodeField(nextSource, selected.lineNumber, "shadow-color");
+      nextSource = setNodeField(nextSource, selected.lineNumber, "shadow-color", event.target.checked ? "#000000" : "transparent");
     });
     setSource(nextSource);
     return;
