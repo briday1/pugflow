@@ -277,9 +277,9 @@ test("centers merge targets beyond their full source set", () => {
     { from: "root", to: "top", layoutDirection: "right", kind: "branch" },
     { from: "root", to: "middle", layoutDirection: "right", kind: "branch" },
     { from: "root", to: "bottom", layoutDirection: "right", kind: "branch" },
-    { from: "top", to: "combined", layoutDirection: "right", kind: "merge", portDistribution: "distributed" },
-    { from: "middle", to: "combined", layoutDirection: "right", kind: "merge", portDistribution: "distributed" },
-    { from: "bottom", to: "combined", layoutDirection: "right", kind: "merge", portDistribution: "distributed" },
+    { from: "top", to: "combined", layoutDirection: "right", kind: "merge" },
+    { from: "middle", to: "combined", layoutDirection: "right", kind: "merge" },
+    { from: "bottom", to: "combined", layoutDirection: "right", kind: "merge" },
   ];
   const placed = new Map(layoutDiagram(nodes, edges).nodes.map((node) => [node.id, node]));
   assert.ok(placed.get("combined").x > Math.max(placed.get("top").x, placed.get("middle").x, placed.get("bottom").x));
@@ -315,14 +315,19 @@ test("keeps an even merge centered after one branch changes direction", () => {
   assert.equal(centerX(placed.get("combined")), (centerX(placed.get("lower")) + centerX(placed.get("side"))) / 2);
 });
 
-test("assigns ordered ports when merge sources share an approach row", () => {
-  const nodes = ["first", "second", "lower", "combined"].map((id) => ({ id, width: 100, height: 60 }));
+test("assigns ordered ports from the target node face setting", () => {
+  const nodes = ["first", "second", "lower", "combined"].map((id) => ({
+    id,
+    width: 100,
+    height: 60,
+    style: { ports: { left: id === "combined" ? "distributed" : "shared" } },
+  }));
   const edges = [
     { from: "first", to: "second", layoutDirection: "right", kind: "branch" },
     { from: "first", to: "lower", layoutDirection: "down", kind: "branch" },
-    { from: "first", to: "combined", layoutDirection: "right", kind: "merge", portDistribution: "distributed" },
-    { from: "second", to: "combined", layoutDirection: "right", kind: "merge", portDistribution: "distributed" },
-    { from: "lower", to: "combined", layoutDirection: "right", kind: "merge", portDistribution: "distributed" },
+    { from: "first", to: "combined", layoutDirection: "right", kind: "merge" },
+    { from: "second", to: "combined", layoutDirection: "right", kind: "merge" },
+    { from: "lower", to: "combined", layoutDirection: "right", kind: "merge" },
   ];
   const layout = layoutDiagram(nodes, edges);
   const mergeEdges = layout.edges.filter((edge) => edge.kind === "merge");
@@ -368,12 +373,14 @@ test("uses one mirrored x bend for equal-span horizontal merge sources", () => {
 });
 
 test("supports shared merge ports and distributed flow source ports", () => {
-  const nodes = ["root", "upper", "lower", "combined"].map((id) => ({ id, width: 100, height: 60 }));
+  const nodes = ["root", "upper", "lower", "combined"].map((id) => ({
+    id, width: 100, height: 60, style: { ports: { right: id === "root" ? "distributed" : "shared", left: "shared" } },
+  }));
   const edges = [
-    { from: "root", to: "upper", kind: "branch", layoutDirection: "right", portDistribution: "distributed" },
-    { from: "root", to: "lower", kind: "branch", layoutDirection: "right", portDistribution: "distributed" },
-    { from: "upper", to: "combined", kind: "merge", layoutDirection: "right", portDistribution: "shared" },
-    { from: "lower", to: "combined", kind: "merge", layoutDirection: "right", portDistribution: "shared" },
+    { from: "root", to: "upper", kind: "branch", layoutDirection: "right" },
+    { from: "root", to: "lower", kind: "branch", layoutDirection: "right" },
+    { from: "upper", to: "combined", kind: "merge", layoutDirection: "right" },
+    { from: "lower", to: "combined", kind: "merge", layoutDirection: "right" },
   ];
   const layoutEdges = layoutDiagram(nodes, edges).edges;
   assert.deepEqual(layoutEdges.filter((edge) => edge.kind === "branch").map((edge) => Math.round(edge.sourcePortFraction * 6)), [-1, 1]);
@@ -491,14 +498,12 @@ test("prefers the small outgoing merge kink over a deliberate incoming bend", ()
     "      .from retry",
     "      .to receipt",
     "      .direction down",
-    "      .ports shared",
     "      .source-face bottom",
     "      .target-face top",
     "    .flow",
     "      .from approve",
     "      .to receipt",
     "      .direction down",
-    "      .ports shared",
     "      .source-face bottom",
     "      .target-face top",
   ].join("\n"));

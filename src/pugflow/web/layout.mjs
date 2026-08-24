@@ -15,12 +15,6 @@ function edgeLayoutDirection(edge) {
   return edge.layoutDirection ?? "right";
 }
 
-function edgePortDirection(edge) {
-  return edge.kind === "merge"
-    ? edge.targetLayoutDirection ?? edge.layoutDirection ?? "right"
-    : edge.sourceDirection ?? edge.layoutDirection ?? "right";
-}
-
 function cellKey(x, y) {
   return `${x},${y}`;
 }
@@ -99,21 +93,30 @@ function alignTerminalMergeSources(positions, edges) {
   return positions;
 }
 
-function assignConnectionPorts(edges, cells) {
+function assignConnectionPorts(nodes, edges, cells) {
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  const sourceFaces = { up: "top", right: "right", down: "bottom", left: "left" };
+  const targetFaces = { down: "top", left: "right", up: "bottom", right: "left" };
   const groups = new Map();
   edges.forEach((edge, sourceOrder) => {
-    const endpoint = edge.kind === "merge" ? edge.to : edge.from;
-    const key = `${edge.kind}|${endpoint}|${edgePortDirection(edge)}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push({ edge, sourceOrder });
+    const sourceDirection = edge.sourceDirection ?? edge.layoutDirection ?? "right";
+    const targetDirection = edge.targetLayoutDirection ?? edge.layoutDirection ?? "right";
+    [
+      { role: "source", endpoint: edge.from, other: edge.to, direction: sourceDirection, face: edge.sourceFace ?? sourceFaces[sourceDirection] },
+      { role: "target", endpoint: edge.to, other: edge.from, direction: targetDirection, face: edge.targetFace ?? targetFaces[targetDirection] },
+    ].forEach((entry) => {
+      const key = `${entry.role}|${entry.endpoint}|${entry.face}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({ edge, sourceOrder, ...entry });
+    });
   });
   const assignments = new Map();
   groups.forEach((group) => {
-    const direction = edgePortDirection(group[0].edge);
+    const { direction, endpoint, face, role } = group[0];
     const vertical = direction === "up" || direction === "down";
     group.sort((a, b) => {
-      const aCell = cells.get(a.edge.kind === "merge" ? a.edge.from : a.edge.to);
-      const bCell = cells.get(b.edge.kind === "merge" ? b.edge.from : b.edge.to);
+      const aCell = cells.get(a.other);
+      const bCell = cells.get(b.other);
       const perpendicular = vertical ? aCell.x - bCell.x : aCell.y - bCell.y;
       if (perpendicular) return perpendicular;
       const along = vertical ? aCell.y - bCell.y : aCell.x - bCell.x;
@@ -121,11 +124,14 @@ function assignConnectionPorts(edges, cells) {
       return a.sourceOrder - b.sourceOrder;
     });
     group.forEach(({ edge }, index) => {
-      const distributed = edge.portDistribution === "distributed";
+      const distributed = nodesById.get(endpoint)?.style?.ports?.[face] === "distributed";
       const fraction = distributed ? (index + 1) / (group.length + 1) - 0.5 : 0;
-      assignments.set(edge, edge.kind === "merge"
-        ? { mergePortIndex: index, mergePortCount: group.length, targetPortFraction: fraction }
-        : { branchPortIndex: index, branchPortCount: group.length, sourcePortFraction: fraction });
+      assignments.set(edge, {
+        ...(assignments.get(edge) ?? {}),
+        ...(role === "source"
+          ? { branchPortIndex: index, branchPortCount: group.length, sourcePortFraction: fraction }
+          : { mergePortIndex: index, mergePortCount: group.length, targetPortFraction: fraction }),
+      });
     });
   });
   return edges.map((edge) => ({ ...edge, ...(assignments.get(edge) ?? {}) }));
@@ -256,7 +262,7 @@ function compactSiblingBranches(nodes, edges, options) {
 export function layoutDiagram(nodes, edges, overrides = {}) {
   const options = { ...DEFAULT_LAYOUT, ...overrides };
   const cells = alignTerminalMergeSources(assignCells(nodes, edges), edges);
-  const routedEdges = assignConnectionPorts(edges, cells);
+  const routedEdges = assignConnectionPorts(nodes, edges, cells);
   const xValues = [...new Set([...cells.values()].map((position) => position.x))].sort((a, b) => a - b);
   const yValues = [...new Set([...cells.values()].map((position) => position.y))].sort((a, b) => a - b);
   const columnWidths = new Map(xValues.map((x) => [x, Math.max(...nodes

@@ -26,6 +26,7 @@ const SOURCE = [
   "    .service",
   "      .id root",
   "      .label Root",
+  "      .right-ports distributed",
   "      .annotation",
   "        .above Note",
   "          .note",
@@ -45,7 +46,6 @@ const SOURCE = [
   "      .label request",
   "      .from-direction down",
   "      .to-direction down",
-  "      .ports distributed",
   "    .flow",
   "      .from root",
   "      .to right",
@@ -83,7 +83,7 @@ test("applies @node, @flow, @annotation, and .defaults > .flow styles", () => {
   assert.equal(warning.style, "dashed");
   assert.equal(warning.width, 2);
   assert.equal(warning.label, "request");
-  assert.equal(warning.portDistribution, "distributed");
+  assert.equal(root.style.ports.right, "distributed");
 });
 
 test("allows nodes to disable inherited shadows", () => {
@@ -91,6 +91,13 @@ test("allows nodes to disable inherited shadows", () => {
   assert.deepEqual(result.errors, []);
   assert.equal(result.nodes[0].style.shadowColor, "#000000");
   assert.equal(result.nodes[1].style.shadowColor, null);
+});
+
+test("validates per-face node ports and rejects flow-level ports", () => {
+  const invalidNode = parseDiagram("#canvas\n  graph\n    .node\n      .top-ports staggered\n      .label Invalid");
+  assert.match(invalidNode.errors.join("\n"), /top-ports must be shared or distributed/);
+  const flowPorts = parseDiagram("#canvas\n  graph\n    .node\n      .id a\n      .label A\n    .node\n      .id b\n      .label B\n    .flow\n      .from a\n      .to b\n      .ports distributed");
+  assert.match(flowPorts.errors.join("\n"), /\.ports.*not valid inside \.flow/);
 });
 
 test("exposes effective flow annotation colors and editable text borders", () => {

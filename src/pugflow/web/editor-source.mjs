@@ -417,7 +417,7 @@ function appendToContainer(lines, containerLineNumber, declarations) {
   lines.splice(end, 0, ...declarations(indentation));
 }
 
-function flowDeclaration(indentation, { from = "", to = "", direction = "right", fromDirection = direction, toDirection = fromDirection, ports = "shared", lineType = "" } = {}) {
+function flowDeclaration(indentation, { from = "", to = "", direction = "right", fromDirection = direction, toDirection = fromDirection, lineType = "" } = {}) {
   const fieldIndent = indentation + "  ";
   return [
     `${indentation}.flow`,
@@ -425,7 +425,6 @@ function flowDeclaration(indentation, { from = "", to = "", direction = "right",
     `${fieldIndent}.to ${to}`,
     `${fieldIndent}.from-direction ${fromDirection}`,
     `${fieldIndent}.to-direction ${toDirection}`,
-    `${fieldIndent}.ports ${ports}`,
     ...(lineType ? [`${fieldIndent}.${lineType.replace(/^\./, "")}`] : []),
   ];
 }

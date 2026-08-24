@@ -55,6 +55,7 @@ const ANNOTATION_STYLE_FIELDS = new Set([
 const BLOCK_PROPERTIES = new Set([
   "id", "shape", "fill", "color", "outline", "outline-style", "outline-width",
   "width", "height", "align", "layer", "hidden", "offset", "label-offset",
+  "top-ports", "right-ports", "bottom-ports", "left-ports",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
   "image", "image-width", "image-height", "image-fit", "image-opacity", "image-offset", "image-padding",
   "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width",
@@ -62,6 +63,7 @@ const BLOCK_PROPERTIES = new Set([
 const BLOCK_STYLE_PROPERTIES = new Set([
   "shape", "fill", "color", "outline", "outline-style", "outline-width",
   "width", "height", "align",
+  "top-ports", "right-ports", "bottom-ports", "left-ports",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
   "image", "image-width", "image-height", "image-fit", "image-opacity", "image-padding",
   "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width",
@@ -245,6 +247,11 @@ function blockStyle(attrs, lineNumber, errors, defaults = {}) {
   const shadowColor = attrs["shadow-color"] ?? defaults.shadowColor ?? null;
   if (!SHAPES.has(shape)) errors.push(`Line ${lineNumber}: unknown block shape "${shape}".`);
   if (!LINE_STYLES.has(outlineStyle)) errors.push(`Line ${lineNumber}: unknown outline style "${outlineStyle}".`);
+  const ports = Object.fromEntries(["top", "right", "bottom", "left"].map((face) => {
+    const value = attrs[`${face}-ports`] ?? defaults.ports?.[face] ?? "shared";
+    if (!PORT_DISTRIBUTIONS.has(value)) errors.push(`Line ${lineNumber}: ${face}-ports must be shared or distributed.`);
+    return [face, PORT_DISTRIBUTIONS.has(value) ? value : "shared"];
+  }));
   return {
     shape: SHAPES.has(shape) ? shape : "round",
     fill: attrs.fill ?? defaults.fill ?? "transparent",
@@ -255,6 +262,7 @@ function blockStyle(attrs, lineNumber, errors, defaults = {}) {
     width: numberAttribute(attrs.width, defaults.width ?? "auto", 48, "width", lineNumber, errors),
     height: numberAttribute(attrs.height, defaults.height ?? "auto", 28, "height", lineNumber, errors),
     align: ["left", "center", "right"].includes(attrs.align) ? attrs.align : defaults.align ?? "center",
+    ports,
     shadowColor: /^(?:none|transparent)$/i.test(shadowColor ?? "") ? null : shadowColor,
     shadowOffsetX: numberAttribute(attrs["shadow-offset-x"], defaults.shadowOffsetX ?? 4, -100, "shadow-offset-x", lineNumber, errors),
     shadowOffsetY: numberAttribute(attrs["shadow-offset-y"], defaults.shadowOffsetY ?? 5, -100, "shadow-offset-y", lineNumber, errors),
@@ -338,8 +346,6 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
   if (targetFace && !faces.has(targetFace)) errors.push(`Line ${lineNumber}: line.target-face must be top, right, bottom, or left.`);
   const sourceDirections = { top: "up", right: "right", bottom: "down", left: "left" };
   const targetDirections = { top: "down", right: "left", bottom: "up", left: "right" };
-  const portDistribution = attrs.ports ?? defaults.portDistribution ?? "shared";
-  if (!PORT_DISTRIBUTIONS.has(portDistribution)) errors.push(`Line ${lineNumber}: ports must be shared or distributed.`);
   const labelOffset = effective["line.label-offset"] !== undefined
     ? offsetTuple(effective["line.label-offset"], "line.label-offset", lineNumber, errors)
     : { x: defaults.labelOffsetX ?? 0, y: defaults.labelOffsetY ?? 0 };
@@ -377,7 +383,6 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
     targetLayoutDirection: targetDirections[targetFace] ?? defaults.targetLayoutDirection ?? null,
     sourceFace: faces.has(sourceFace) ? sourceFace : null,
     targetFace: faces.has(targetFace) ? targetFace : null,
-    portDistribution: PORT_DISTRIBUTIONS.has(portDistribution) ? portDistribution : "shared",
     hidden: effective["line.hidden"] !== undefined && ![false, "false", "no", "0"].includes(effective["line.hidden"]),
     fontFamily: effective["line.font-family"] ?? defaults.fontFamily ?? null,
     fontSize: numberAttribute(effective["line.font-size"], defaults.fontSize ?? 12, 1, "line.font-size", lineNumber, errors),
@@ -694,14 +699,14 @@ function compileMarkup(tree) {
       errors.push(`Line ${branch.lineNumber}: .branch has been removed; use multiple .flow groups or directly nested nodes.`);
       return;
     }
-    const defaults = edgeStyle(connectionAttributesFor(branch, errors, ["direction", "ports"], true, lineStyles, knownStyles), { ...edgeDefaults, portDistribution: "shared" }, branch.lineNumber, errors, lineStyles);
+    const defaults = edgeStyle(connectionAttributesFor(branch, errors, ["direction"], true, lineStyles, knownStyles), edgeDefaults, branch.lineNumber, errors, lineStyles);
     const entries = branch.children.filter((child) => child.type === "entry");
     if (!entries.length) errors.push(`Line ${branch.lineNumber}: a branch needs at least one .entry.`);
     entries.forEach((entry) => buildEntry(entry, parent, defaults));
   }
 
   function buildFlow(flow, graphId = null) {
-    const attributes = connectionAttributesFor(flow, errors, ["from", "to", "from-direction", "to-direction", "direction", "ports"], true, lineStyles, knownStyles);
+    const attributes = connectionAttributesFor(flow, errors, ["from", "to", "from-direction", "to-direction", "direction"], true, lineStyles, knownStyles);
     const defaults = edgeStyle(attributes, edgeDefaults, flow.lineNumber, errors, lineStyles);
     const entries = flow.children.filter((child) => child.type === "entry");
     if (entries.length) errors.push(`Line ${flow.lineNumber}: flows cannot contain nodes; declare nodes directly in a graph and reference them with .from and .to.`);
@@ -785,11 +790,11 @@ function compileMarkup(tree) {
     if (!target) return;
     target.kind = "merge";
     const explicitSources = merge.children.filter((child) => child.type === "source");
-    const mergeAttributes = connectionAttributesFor(merge, errors, ["from", "direction", "ports"], true, lineStyles, knownStyles);
+    const mergeAttributes = connectionAttributesFor(merge, errors, ["from", "direction"], true, lineStyles, knownStyles);
     const shorthand = String(mergeAttributes.from ?? "").split(/[\s,]+/).filter(Boolean).map((ref) => ({ type: "source", children: [{ type: "ref", text: ref, attrs: {}, children: [], lineNumber: mergeAttributes.__lines.from }], attrs: {}, lineNumber: merge.lineNumber }));
     const sources = explicitSources.length ? explicitSources : shorthand;
     if (sources.length < 2) errors.push(`Line ${merge.lineNumber}: a merge needs at least two .source lines or from IDs.`);
-    const defaults = edgeStyle(mergeAttributes, { ...edgeDefaults, color: edgeDefaults.color ?? "merge", portDistribution: "shared" }, merge.lineNumber, errors, lineStyles);
+    const defaults = edgeStyle(mergeAttributes, { ...edgeDefaults, color: edgeDefaults.color ?? "merge" }, merge.lineNumber, errors, lineStyles);
     sources.forEach((source) => {
       const sourceAttributes = connectionAttributesFor(source, errors, ["ref", "direction"], true, lineStyles, knownStyles);
       const ref = sourceAttributes.ref;
@@ -800,7 +805,7 @@ function compileMarkup(tree) {
   }
 
   function buildConnect(connect) {
-    const attributes = connectionAttributesFor(connect, errors, ["from", "to", "from-direction", "to-direction", "ports"], true, lineStyles, knownStyles);
+    const attributes = connectionAttributesFor(connect, errors, ["from", "to", "from-direction", "to-direction"], true, lineStyles, knownStyles);
     const from = attributes.from;
     const to = attributes.to;
     if (!from || !nodesById.has(from)) errors.push(`Line ${connect.lineNumber}: connection source "${from || "(missing)"}" has not been defined yet.`);
@@ -810,7 +815,7 @@ function compileMarkup(tree) {
       const toDirection = attributes["to-direction"] ?? fromDirection;
       if (!FLOW_DIRECTIONS.has(fromDirection)) errors.push(`Line ${connect.lineNumber}: from-direction must be right, left, up, or down.`);
       if (!FLOW_DIRECTIONS.has(toDirection)) errors.push(`Line ${connect.lineNumber}: to-direction must be right, left, up, or down.`);
-      const style = edgeStyle(attributes, { ...edgeDefaults, portDistribution: "shared" }, connect.lineNumber, errors, lineStyles);
+      const style = edgeStyle(attributes, edgeDefaults, connect.lineNumber, errors, lineStyles);
       edges.push({ from, to, kind: "connection", declarationKind: "connect", ...style,
         layoutDirection: FLOW_DIRECTIONS.has(fromDirection) ? fromDirection : "right",
         sourceDirection: style.sourceFace ? style.sourceDirection : (FLOW_DIRECTIONS.has(fromDirection) ? fromDirection : "right"),
