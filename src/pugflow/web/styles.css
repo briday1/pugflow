@@ -448,6 +448,11 @@ dialog::backdrop { background: rgb(15 23 42 / .48); backdrop-filter: blur(2px); 
 .builder-grid input, .builder-grid select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 34px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); font: 11px Consolas, monospace; }
 .builder-grid textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: 7px 8px; resize: vertical; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); font: 11px/1.4 Consolas, monospace; }
 .builder-grid .builder-wide { grid-column: 1 / -1; }
+.builder-section { display: grid; grid-column: 1 / -1; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-soft); }
+.builder-section[hidden] { display: none; }
+.builder-section h3 { margin: 0; color: var(--heading); font-size: 11px; }
+.builder-section-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.builder-section-grid > * { min-width: 0; }
 .builder-grid fieldset { grid-column: 1 / -1; margin: 0; padding: 9px; border: 1px solid var(--border); border-radius: 7px; }
 .builder-grid legend { padding: 0 5px; color: var(--muted); font-size: 10px; }
 .flow-endpoints { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
@@ -468,14 +473,16 @@ dialog::backdrop { background: rgb(15 23 42 / .48); backdrop-filter: blur(2px); 
 #graph-builder[data-mode="flow"] .new-target-only,
 #graph-builder:not([data-mode="connected-node"]) .connected-node-only,
 #graph-builder[data-mode="connected-node"] .diagram-only,
+#graph-builder[data-mode="connected-node"] .flow-builder-only,
 #graph-builder[data-mode="connected-node"] .existing-target-only,
 #graph-builder[data-mode="connected-node"] .connected-source-choice,
+#graph-builder[data-mode="diagram"] .node-graph-only,
 #graph-builder[data-mode="node"] .diagram-only,
 #graph-builder[data-mode="node"] .flow-only,
 #graph-builder[data-mode="node"] .relationship-only,
 #graph-builder[data-mode="diagram"] .flow-only,
 #graph-builder[data-mode="diagram"] .relationship-only { display: none; }
-@media (max-width: 620px) { .builder-grid, .flow-endpoints { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .builder-grid, .builder-section-grid, .flow-endpoints { grid-template-columns: 1fr; } }
 .canvas-shell {
   position: relative;
   flex: 1;

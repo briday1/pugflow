@@ -104,31 +104,42 @@
         <div class="dialog-title"><div><small>CANVAS BUILDER</small><h2 id="graph-builder-title">Add flow node</h2></div></div>
         <p id="graph-builder-help">Create a node and its relationship together.</p>
         <div class="builder-grid">
-          <div class="flow-endpoints relationship-only">
+          <div class="flow-endpoints flow-builder-only">
             <section class="flow-endpoint">
               <label class="connected-source-choice"><span id="builder-from-graph-label">From graph</span><select id="builder-from-graph"></select></label>
               <fieldset class="flow-only connected-source-choice"><legend>From Node</legend><div id="builder-sources" class="node-choice-list" role="listbox" aria-label="From node"></div></fieldset>
-              <label class="connected-node-only">Connected node<input id="builder-connected-node" readonly></label>
-              <label class="flow-only">From direction<select id="builder-from-direction"><option>right</option><option>left</option><option>down</option><option>up</option></select></label>
             </section>
             <section class="flow-endpoint flow-only existing-target-only">
               <label>To graph<select id="builder-to-graph"></select></label>
               <fieldset><legend>To Node</legend><div id="builder-targets" class="node-choice-list" role="listbox" aria-label="To node"></div></fieldset>
-              <label>To direction<select id="builder-to-direction"><option>right</option><option>left</option><option>down</option><option>up</option></select></label>
             </section>
           </div>
-          <label class="connected-node-only">Flow direction<select id="builder-flow-direction"><option value="to">To new node</option><option value="from">From new node</option></select></label>
-          <label class="connected-node-only">New node graph<select id="builder-new-node-graph"></select></label>
-          <label class="new-target-only">Node type<select id="builder-node-type"></select></label>
-          <label class="relationship-only">Flow type<select id="builder-line-type"><option value="">Default flow</option></select></label>
+          <section class="builder-section new-target-only">
+            <h3>New node settings</h3>
+            <div class="builder-section-grid">
+              <label class="node-graph-only">Graph<select id="builder-new-node-graph"></select></label>
+              <label>Node type<select id="builder-node-type"></select></label>
+              <label>ID<input id="builder-id" required pattern="[A-Za-z][A-Za-z0-9_-]*"></label>
+              <label>Label<input id="builder-label" placeholder="Optional visible text"></label>
+            </div>
+          </section>
+          <section class="builder-section relationship-only">
+            <h3>Flow and connection settings</h3>
+            <div class="builder-section-grid">
+              <label class="connected-node-only builder-wide">Connected node<input id="builder-connected-node" readonly></label>
+              <label class="connected-node-only">Flow direction<select id="builder-flow-direction"><option value="to">To new node</option><option value="from">From new node</option></select></label>
+              <label>Layout direction<select id="builder-layout-direction"><option>right</option><option>left</option><option>down</option><option>up</option></select></label>
+              <label><span id="builder-source-face-label">Source face</span><select id="builder-source-face"><option value="">Auto</option><option>top</option><option>right</option><option>bottom</option><option>left</option></select></label>
+              <label><span id="builder-target-face-label">Target face</span><select id="builder-target-face"><option value="">Auto</option><option>top</option><option>right</option><option>bottom</option><option>left</option></select></label>
+              <label>Flow type<select id="builder-line-type"><option value="">Default flow</option></select></label>
+            </div>
+          </section>
           <label class="diagram-only">Graph ID<input id="builder-diagram-id" pattern="[A-Za-z][A-Za-z0-9_-]*"></label>
           <label class="diagram-only">Graph label<input id="builder-diagram-label" placeholder="Optional group title"></label>
           <label class="diagram-only">Placement<select id="builder-diagram-placement"><option>below</option><option>right</option><option>left</option><option>above</option></select></label>
           <label class="diagram-only">Relative to<select id="builder-diagram-relative-to"></select></label>
           <label class="diagram-only">Graph fill<input id="builder-diagram-fill" placeholder="transparent or CSS color"></label>
           <label class="diagram-only">Graph outline<input id="builder-diagram-outline" placeholder="transparent or CSS color"></label>
-          <label class="new-target-only">ID<input id="builder-id" required pattern="[A-Za-z][A-Za-z0-9_-]*"></label>
-          <label class="new-target-only">Label<input id="builder-label" placeholder="Optional visible text"></label>
         </div>
         <p class="dialog-error" id="builder-error" role="alert"></p>
         <div class="dialog-actions"><button value="cancel">Cancel</button><button class="primary" id="builder-submit" value="default">Create node</button></div>

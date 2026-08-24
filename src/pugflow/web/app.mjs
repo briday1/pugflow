@@ -406,8 +406,9 @@ const builderSources = document.querySelector("#builder-sources");
 const builderTargets = document.querySelector("#builder-targets");
 const builderFromGraph = document.querySelector("#builder-from-graph");
 const builderToGraph = document.querySelector("#builder-to-graph");
-const builderFromDirection = document.querySelector("#builder-from-direction");
-const builderToDirection = document.querySelector("#builder-to-direction");
+const builderLayoutDirection = document.querySelector("#builder-layout-direction");
+const builderSourceFace = document.querySelector("#builder-source-face");
+const builderTargetFace = document.querySelector("#builder-target-face");
 const builderConnectedNode = document.querySelector("#builder-connected-node");
 const builderFlowDirection = document.querySelector("#builder-flow-direction");
 const builderNewNodeGraph = document.querySelector("#builder-new-node-graph");
@@ -994,6 +995,11 @@ function openGraphBuilder(mode = "flow", preferredIds = null) {
   const connectedNode = currentGraph.nodes.find((node) => node.id === preferredSource);
   builderConnectedNode.value = connectedNode ? `${connectedNode.label || connectedNode.id} (${connectedNode.id})` : "";
   builderFlowDirection.value = "to";
+  builderLayoutDirection.value = "right";
+  builderSourceFace.value = "";
+  builderTargetFace.value = "";
+  document.querySelector("#builder-source-face-label").textContent = mode === "flow" ? "From face" : "Source face";
+  document.querySelector("#builder-target-face-label").textContent = mode === "flow" ? "To face" : "Target face";
   graphBuilder.querySelectorAll(".new-target-only").forEach((element) => { element.hidden = mode === "flow"; });
   builderId.required = mode !== "flow";
   const nodeTypeOptions = `<option value="node">node</option>${reusableNames("node").map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}`;
@@ -2328,8 +2334,9 @@ graphBuilderForm.addEventListener("submit", (event) => {
     return;
   }
   const options = {
-    fromDirection: builderFromDirection.value,
-    toDirection: builderToDirection.value,
+    direction: builderLayoutDirection.value,
+    sourceFace: builderSourceFace.value,
+    targetFace: builderTargetFace.value,
     nodeType: builderNodeType.value,
     lineType: builderLineType.value,
     id,
@@ -2372,9 +2379,9 @@ graphBuilderForm.addEventListener("submit", (event) => {
     const canvasLine = pugSource.split("\n").findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim())) + 1;
     const scopeLine = pinnedGraph.id === nodeGraph.id ? nodeGraph.lineNumber : canvasLine;
     nextSource = appendGraphNode(pugSource, nodeGraph.lineNumber, options);
-    nextSource = appendFlowReference(nextSource, scopeLine, { ...options, from, to, toDirection: options.fromDirection });
+    nextSource = appendFlowReference(nextSource, scopeLine, { ...options, from, to });
   } else if (mode === "node") {
-    const graph = currentGraph.groups.find((candidate) => candidate.id === builderFromGraph.value);
+    const graph = currentGraph.groups.find((candidate) => candidate.id === builderNewNodeGraph.value);
     if (!graph) {
       builderError.textContent = "Choose a graph.";
       return;
