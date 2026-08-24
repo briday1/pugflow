@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import { appendReusableStyle, reusableStyleDeclarations } from "../../src/pugflow/web/reusable-style.mjs";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 
-test("captures supported node, line, and annotation appearance fields", () => {
+test("captures supported node, flow, and annotation appearance fields", () => {
   assert.deepEqual(reusableStyleDeclarations("node", {
     shape: "pill", fill: "#fff", outlineWidth: 3, fontSize: 18, image: null,
   }), [
     ["shape", "pill"], ["fill", "#fff"], ["outline-width", "3"], ["font-size", "18"],
   ]);
-  assert.deepEqual(reusableStyleDeclarations("line", {
+  assert.deepEqual(reusableStyleDeclarations("flow", {
     color: "#123456", width: 4, roundness: 0, style: "dashed", direction: "both",
   }), [
     ["color", "#123456"], ["width", "4"], ["roundness", "0"],
@@ -23,16 +23,16 @@ test("captures supported node, line, and annotation appearance fields", () => {
 });
 
 test("appends a valid reusable CSS rule", () => {
-  const css = appendReusableStyle("@node old {\n  shape: round;\n}\n", "line", "strong_link", [
+  const css = appendReusableStyle("@node old {\n  shape: round;\n}\n", "flow", "strong_link", [
     ["color", "#2563eb"], ["width", "4"], ["roundness", "0"],
     ["stroke-style", "dotted"], ["arrow-style", "both"],
   ]);
-  assert.match(css, /@line strong_link \{/);
+  assert.match(css, /@flow strong_link \{/);
   assert.deepEqual(parseDiagram("#canvas", css).errors, []);
 });
 
 test("rejects invalid and duplicate reusable style names", () => {
   assert.throws(() => appendReusableStyle("", "node", "2bad", []), /Type name/);
   assert.throws(() => appendReusableStyle("@node card {\n}\n", "node", "card", []), /already exists/);
-  assert.throws(() => appendReusableStyle("@node card {\n}\n", "line", "card", []), /already exists/);
+  assert.throws(() => appendReusableStyle("@node card {\n}\n", "flow", "card", []), /already exists/);
 });

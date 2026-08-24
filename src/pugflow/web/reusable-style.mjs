@@ -10,7 +10,7 @@ const FIELD_MAPS = {
     ["font-family", "fontFamily"], ["font-size", "fontSize"], ["font-weight", "fontWeight"],
     ["font-style", "fontStyle"], ["text-decoration", "textDecoration"],
   ],
-  line: [
+  flow: [
     ["color", "color"], ["width", "width"], ["roundness", "roundness"],
     ["stroke-style", "style"], ["arrow-style", "direction"], ["label-position", "labelPosition"],
     ["font-family", "fontFamily"], ["font-size", "fontSize"], ["font-weight", "fontWeight"],
@@ -40,7 +40,7 @@ export function reusableStyleDeclarations(kind, model = {}) {
 export function appendReusableStyle(source, kind, name, declarations) {
   if (!FIELD_MAPS[kind]) throw new Error(`Unknown reusable style kind: ${kind}`);
   if (!/^[a-zA-Z][\w-]*$/.test(name)) throw new Error("Type name must start with a letter and contain only letters, numbers, underscores, or hyphens.");
-  if (new RegExp(`^@(node|line|annotation)\\s+${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{`, "m").test(source)) {
+  if (new RegExp(`^@(node|flow|annotation)\\s+${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{`, "m").test(source)) {
     throw new Error(`A reusable type named ${name} already exists.`);
   }
   const body = declarations.map(([property, value]) => `  ${property}: ${value};`).join("\n");

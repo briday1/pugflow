@@ -89,36 +89,29 @@ export function setStructuralOffsetField(value, declarationLineNumber, x, y) {
   const childWhitespace = (lines[declarationIndex]?.match(/^\s*/)?.[0] ?? "") + "  ";
   let end = declarationIndex + 1;
   while (end < lines.length && indentationWidth(lines[end]) > parentIndent) end += 1;
-  const compactField = childWhitespace + ".line.label-offset " + offsetTuple(x, y);
-  const compactExisting = lines.findIndex((line, index) => index > declarationIndex && index < end
+  const field = childWhitespace + ".label-offset " + offsetTuple(x, y);
+  const directExisting = lines.findIndex((line, index) => index > declarationIndex && index < end
+    && indentationWidth(line) === parentIndent + 2 && line.trim().match(/^\.label-offset(?:\s|$)/));
+  if (directExisting >= 0) {
+    lines[directExisting] = field;
+    return lines.join("\n");
+  }
+  const compactLegacy = lines.findIndex((line, index) => index > declarationIndex && index < end
     && indentationWidth(line) === parentIndent + 2 && line.trim().match(/^\.line\.label-offset(?:\s|$)/));
-  if (compactExisting >= 0) {
-    lines[compactExisting] = compactField;
+  if (compactLegacy >= 0) {
+    lines[compactLegacy] = field;
     return lines.join("\n");
   }
-  let lineIndex = lines.findIndex((line, index) => index > declarationIndex && index < end
+  const lineGroup = lines.findIndex((line, index) => index > declarationIndex && index < end
     && indentationWidth(line) === parentIndent + 2 && line.trim() === ".line");
-  if (lineIndex < 0) {
-    lineIndex = lines.findIndex((line, index) => {
-      if (index <= declarationIndex || index >= end || indentationWidth(line) !== parentIndent + 2 || !/^\.[\w-]+$/.test(line.trim())) return false;
-      let groupEnd = index + 1;
-      while (groupEnd < end && indentationWidth(lines[groupEnd]) > parentIndent + 2) groupEnd += 1;
-      return lines.some((candidate, candidateIndex) => candidateIndex > index && candidateIndex < groupEnd
-        && indentationWidth(candidate) === parentIndent + 4 && /^\.label(?:\s|$)/.test(candidate.trim()));
-    });
+  if (lineGroup >= 0) {
+    let lineEnd = lineGroup + 1;
+    while (lineEnd < end && indentationWidth(lines[lineEnd]) > parentIndent + 2) lineEnd += 1;
+    const nestedLegacy = lines.findIndex((line, index) => index > lineGroup && index < lineEnd
+      && indentationWidth(line) === parentIndent + 4 && line.trim().match(/^\.label-offset(?:\s|$)/));
+    if (nestedLegacy >= 0) lines.splice(nestedLegacy, 1);
   }
-  if (lineIndex < 0) {
-    lines.splice(declarationIndex + 1, 0, childWhitespace + ".line", childWhitespace + "  .label-offset " + offsetTuple(x, y));
-    return lines.join("\n");
-  }
-  let lineEnd = lineIndex + 1;
-  while (lineEnd < lines.length && indentationWidth(lines[lineEnd]) > parentIndent + 2) lineEnd += 1;
-  const fieldWhitespace = childWhitespace + "  ";
-  const existing = lines.findIndex((line, index) => index > lineIndex && index < lineEnd
-    && indentationWidth(line) === parentIndent + 4 && line.trim().match(/^\.label-offset(?:\s|$)/));
-  const field = fieldWhitespace + ".label-offset " + offsetTuple(x, y);
-  if (existing >= 0) lines[existing] = field;
-  else lines.splice(lineIndex + 1, 0, field);
+  lines.splice(declarationIndex + 1, 0, field);
   return lines.join("\n");
 }
 
@@ -153,6 +146,10 @@ function setReusableLine(value, start, end, fieldIndent, type, knownTypes) {
     if (index >= end + (existing < 0 ? 1 : 0)) continue;
     const indent = indentationWidth(lines[index]);
     const text = lines[index].trim();
+    if (indent === baseIndent && appearance.has(text.match(/^\.([\w-]+)/)?.[1])) {
+      lines.splice(index, 1);
+      continue;
+    }
     if (indent === baseIndent && /^\.line\.(color|width|stroke-style|arrow-style|label-position)(?:\s|$)/.test(text)) {
       lines.splice(index, 1);
       continue;
@@ -351,12 +348,6 @@ export function setNodeImageGeometry(value, labelLineNumber, width, height, offs
   return lines.join("\n");
 }
 
-export function setNodeLineType(value, labelLineNumber, type, knownTypes) {
-  const lines = value.split("\n");
-  const range = nodeRange(lines, labelLineNumber);
-  return setReusableLine(value, range.start, range.end, range.fieldIndent, type, knownTypes);
-}
-
 export function removeNodeField(value, labelLineNumber, field) {
   const lines = value.split("\n");
   const range = nodeRange(lines, labelLineNumber);
@@ -415,36 +406,37 @@ export function ensureGraphComponents(value) {
   return lines.join("\n");
 }
 
-export function appendFlowNode(value, parentLabelLineNumber, { direction = "right", fromDirection = direction, toDirection = fromDirection, ports = "shared", nodeType = "node", lineType = "", id = "", label = "" } = {}) {
-  const lines = value.split("\n");
-  const range = nodeRange(lines, parentLabelLineNumber);
-  const indentation = range.fieldIndent;
-  const childIndent = indentation + "  ";
-  const insertion = [
+function appendToContainer(lines, containerLineNumber, declarations) {
+  const start = containerLineNumber - 1;
+  const indentation = (lines[start]?.match(/^\s*/)?.[0] ?? "") + "  ";
+  const containerIndent = indentationWidth(lines[start] ?? "");
+  let end = start + 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > containerIndent)) end += 1;
+  lines.splice(end, 0, ...declarations(indentation));
+}
+
+function flowDeclaration(indentation, { from = "", to = "", direction = "right", fromDirection = direction, toDirection = fromDirection, ports = "shared", lineType = "" } = {}) {
+  const fieldIndent = indentation + "  ";
+  return [
     `${indentation}.flow`,
-    `${childIndent}.from-direction ${fromDirection}`,
-    `${childIndent}.to-direction ${toDirection}`,
-    `${childIndent}.ports ${ports}`,
-    ...(lineType ? [`${childIndent}.${lineType.replace(/^\./, "")}`] : []),
-    ...nodeDeclaration(nodeType, childIndent, id, label),
+    `${fieldIndent}.from ${from}`,
+    `${fieldIndent}.to ${to}`,
+    `${fieldIndent}.from-direction ${fromDirection}`,
+    `${fieldIndent}.to-direction ${toDirection}`,
+    `${fieldIndent}.ports ${ports}`,
+    ...(lineType ? [`${fieldIndent}.${lineType.replace(/^\./, "")}`] : []),
   ];
-  lines.splice(range.end, 0, ...insertion);
+}
+
+export function appendGraphNode(value, graphLineNumber, { nodeType = "node", id = "", label = "" } = {}) {
+  const lines = value.split("\n");
+  appendToContainer(lines, graphLineNumber, (indentation) => nodeDeclaration(nodeType, indentation, id, label));
   return lines.join("\n");
 }
 
-export function appendFlowReference(value, ownerLabelLineNumber, { from = "", to = "", direction = "right", fromDirection = direction, toDirection = fromDirection, ports = "shared", lineType = "" } = {}) {
+export function appendFlowReference(value, scopeLineNumber, options = {}) {
   const lines = value.split("\n");
-  const range = nodeRange(lines, ownerLabelLineNumber);
-  const indentation = range.fieldIndent;
-  const childIndent = indentation + "  ";
-  lines.splice(range.end, 0,
-    `${indentation}.flow`,
-    `${childIndent}.from ${from}`,
-    `${childIndent}.to ${to}`,
-    `${childIndent}.from-direction ${fromDirection}`,
-    `${childIndent}.to-direction ${toDirection}`,
-    `${childIndent}.ports ${ports}`,
-    ...(lineType ? [`${childIndent}.${lineType.replace(/^\./, "")}`] : []));
+  appendToContainer(lines, scopeLineNumber, (indentation) => flowDeclaration(indentation, options));
   return lines.join("\n");
 }
 
@@ -479,67 +471,6 @@ export function appendDiagramNode(value, { nodeType = "node", id = "", label = "
   return lines.join("\n");
 }
 
-export function groupNodesAsGraph(value, nodeIds, { graphId = "", graphLabel = "" } = {}) {
-  const uniqueIds = [...new Set(nodeIds)].filter(Boolean);
-  if (!uniqueIds.length) return value;
-  const lines = value.split("\n");
-  const selected = new Set(uniqueIds);
-  for (let memberIndex = lines.length - 1; memberIndex >= 0; memberIndex -= 1) {
-    const match = lines[memberIndex].match(/^(\s*\.members\s+)(.*)$/);
-    if (!match) continue;
-    const members = match[2].split(/[\s,]+/).filter(Boolean);
-    const remaining = members.filter((id) => !selected.has(id));
-    if (remaining.length === members.length) continue;
-    if (remaining.length) {
-      lines[memberIndex] = match[1] + remaining.join(" ");
-      continue;
-    }
-    const memberIndent = indentationWidth(lines[memberIndex]);
-    let graphIndex = memberIndex - 1;
-    while (graphIndex >= 0 && !(lines[graphIndex].trim() === "graph" && indentationWidth(lines[graphIndex]) < memberIndent)) graphIndex -= 1;
-    if (graphIndex < 0) {
-      lines.splice(memberIndex, 1);
-      continue;
-    }
-    const graphIndent = indentationWidth(lines[graphIndex]);
-    let graphEnd = graphIndex + 1;
-    while (graphEnd < lines.length && (!lines[graphEnd].trim() || indentationWidth(lines[graphEnd]) > graphIndent)) graphEnd += 1;
-    lines.splice(graphIndex, graphEnd - graphIndex);
-    memberIndex = graphIndex;
-  }
-  const parentIndex = lines.findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim()));
-  if (parentIndex < 0) return value;
-  const parentIndent = indentationWidth(lines[parentIndex]);
-  let insertion = parentIndex + 1;
-  while (insertion < lines.length && (!lines[insertion].trim() || indentationWidth(lines[insertion]) > parentIndent)) insertion += 1;
-  const indentation = (lines[parentIndex].match(/^\s*/)?.[0] ?? "") + "  ";
-  const fieldIndent = indentation + "  ";
-  lines.splice(insertion, 0,
-    `${indentation}graph`,
-    ...(graphId ? [`${fieldIndent}.id ${graphId}`] : []),
-    ...(graphLabel ? [`${fieldIndent}.label ${graphLabel}`] : []),
-    `${fieldIndent}.members ${uniqueIds.join(" ")}`);
-  return lines.join("\n");
-}
-
-export function appendMergeNode(value, rootLabelLineNumber, { sources = [], direction = "right", ports = "shared", nodeType = "node", lineType = "", id = "", label = "" } = {}) {
-  const lines = value.split("\n");
-  const range = nodeRange(lines, rootLabelLineNumber);
-  const indentation = range.fieldIndent;
-  const childIndent = indentation + "  ";
-  const sourceIndent = childIndent + "  ";
-  const insertion = [
-    `${indentation}.merge`,
-    `${childIndent}.direction ${direction}`,
-    `${childIndent}.ports ${ports}`,
-    ...sources.flatMap((source) => [`${childIndent}.source`, `${sourceIndent}.ref ${source}`]),
-    ...(lineType ? [`${childIndent}.${lineType.replace(/^\./, "")}`] : []),
-    ...nodeDeclaration(nodeType, childIndent, id, label),
-  ];
-  lines.splice(range.end, 0, ...insertion);
-  return lines.join("\n");
-}
-
 export function removeDeclaration(value, declarationLineNumber) {
   const lines = value.split("\n");
   const start = declarationLineNumber - 1;
@@ -568,35 +499,6 @@ export function removeNodeDeclaration(value, labelLineNumber) {
   const lines = value.split("\n");
   const range = nodeRange(lines, labelLineNumber);
   lines.splice(range.start, range.end - range.start);
-  const lineTypes = new Set(lines.map((line) => line.match(/^@line\s+([a-zA-Z][\w-]*)/)?.[1]).filter(Boolean));
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (let flowIndex = lines.length - 1; flowIndex >= 0; flowIndex -= 1) {
-      if (lines[flowIndex].trim() !== ".flow") continue;
-      const flowIndent = indentationWidth(lines[flowIndex]);
-      let flowEnd = flowIndex + 1;
-      while (flowEnd < lines.length && (!lines[flowEnd].trim() || indentationWidth(lines[flowEnd]) > flowIndent)) flowEnd += 1;
-      const childIndent = flowIndent + 2;
-      let hasNode = false;
-      for (let child = flowIndex + 1; child < flowEnd; child += 1) {
-        if (indentationWidth(lines[child]) !== childIndent) continue;
-        const type = lines[child].trim().match(/^\.([a-zA-Z][\w-]*)$/)?.[1];
-        if (!type || ["direction", "ports", "line"].includes(type) || lineTypes.has(type)) continue;
-        let childEnd = child + 1;
-        while (childEnd < flowEnd && indentationWidth(lines[childEnd]) > childIndent) childEnd += 1;
-        if (lines.some((line, index) => index > child && index < childEnd && indentationWidth(line) === childIndent + 2 && /^\.label(?:\s|$)/.test(line.trim()))) {
-          hasNode = true;
-          break;
-        }
-      }
-      if (!hasNode) {
-        lines.splice(flowIndex, flowEnd - flowIndex);
-        changed = true;
-        break;
-      }
-    }
-  }
   return lines.join("\n");
 }
 
@@ -628,7 +530,9 @@ export function removeConnectionLabel(value, declarationLineNumber) {
   const baseIndent = indentationWidth(lines[start] ?? "");
   for (let index = end - 1; index > start; index -= 1) {
     const text = lines[index].trim();
-    if (/^\.line\.label(?:\s|$)/.test(text) || (indentationWidth(lines[index]) === baseIndent + 4 && /^\.label(?:\s|$)/.test(text))) lines.splice(index, 1);
+    const indentation = indentationWidth(lines[index]);
+    if ((indentation === baseIndent + 2 && /^\.(?:line\.)?label(?:\s|$)/.test(text))
+      || (indentation === baseIndent + 4 && /^\.label(?:\s|$)/.test(text))) lines.splice(index, 1);
   }
   return lines.join("\n");
 }

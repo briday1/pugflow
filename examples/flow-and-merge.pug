@@ -1,55 +1,32 @@
-#diagram
-  .node
-    .id request
-    .label Request
-    .annotation
-      .above Request lifecycle
-    .shape pill
-    .fill #245886
+#canvas
+  graph
+    .id request-lifecycle
+    .node
+      .id request
+      .label Request
+    .node
+      .id cache
+      .label Check cache
+    .node
+      .id database
+      .label Query database
+    .node
+      .id response
+      .label Response
     .flow
-      .line
-        .label route
-      .node
-        .id cache
-        .label Check cache
-        .width 180
-        .flow
-          .node
-            .id cached
-            .label Cached response
-            .flow
-              .line
-                .label hit
-              .node
-                .id response
-                .label Response
-                .annotation
-                  .above Responses converge
-                .shape hexagon
-                .outline #ffd166
-                .flow
-                  .line
-                    .color #ffd166
-                  .node
-                    .label Add headers
-                  .node
-                    .label Send to client
+      .from request
+      .to cache
+      .label route
     .flow
-      .line
-        .label route
-        .stroke-style dashed
-      .node
-        .id database
-        .label
-          | Query database
-          | on cache miss
-        .width 180
-        .flow
-          .node
-            .id fresh
-            .label Fresh response
+      .from request
+      .to database
+      .label route
+      .stroke-style dashed
     .flow
-      .from fresh
+      .from cache
       .to response
-      .line
-        .label query
+      .label hit
+    .flow
+      .from database
+      .to response
+      .label query

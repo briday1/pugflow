@@ -47,7 +47,7 @@ The editor has `diagram.pug` and `styles.css` tabs with clear New, Open, Save, a
   outline: #94a3b8;
 }
 
-@line warning {
+@flow warning {
   color: #dc2626;
   stroke-style: dashed;
 }
@@ -68,68 +68,83 @@ Enable **Vim** beside the editor actions for Normal, Insert, and Visual modes. I
     .node
       .id root
       .label Root
-      .node
-        .line
-          .arrow-style forward
-        .id left
-        .label Left path
-      .node
-        .id right
-        .label Right path
+    .node
+      .id left
+      .label Left path
+    .node
+      .id right
+      .label Right path
+    .flow
+      .from root
+      .to left
+      .arrow-style forward
+    .flow
+      .from root
+      .to right
 ```
 
 The common structure is intentionally small:
 
 - `#canvas` contains one or more sibling `graph` components. Graphs never nest.
-- Each structural `graph` has one root node and defines a flow. A graph created from any selection of two or more nodes stores a `.members` list instead.
-- ID-based `.flow` declarations may connect nodes in different graphs in either source order.
-- Nodes nested directly inside another node become its children.
-- A child node's `.line` group styles its incoming connector.
-- Multiple directly nested nodes form a concise one-step fanout.
-- Put sibling nodes inside one `.flow` when they should form a sequence; use multiple `.flow` groups for multiple paths.
+- Nodes are declared directly inside their graph and have explicit IDs when flows reference them.
+- Every connection is an explicit `.flow` with `.from` and `.to`.
+- Put a flow inside a graph when both endpoints belong to that graph. Put cross-graph flows directly under `#canvas`.
+- Flow style fields such as `.color`, `.label`, and `.arrow-style` are direct children of `.flow`; there is no nested `.line` group.
 - Blank lines and `//` comment lines are ignored.
 
-For a long pipeline, `.flow` avoids progressively deeper indentation:
+For a long pipeline, declare each node and each connection at graph level:
 
 ```pug
-.node
-  .label Start
+graph
+  .node
+    .id start
+    .label Start
+  .node
+    .id validate
+    .label Validate
+  .node
+    .id publish
+    .label Publish
   .flow
-    .node
-      .label Validate
-    .node
-      .label Transform
-    .node
-      .label Publish
+    .from start
+    .to validate
+  .flow
+    .from validate
+    .to publish
 ```
 
-This creates `Start -> Validate -> Transform -> Publish`. A line group or reusable line class inside each flow node styles the connector entering that node.
+This creates `Start -> Validate -> Publish`. A reusable flow class or local fields on each `.flow` style the connector.
 
 Flows accept `.direction right`, `.direction left`, `.direction up`, or `.direction down`. Multiple flows may start at the same node—even in the same direction. Multiple outgoing flows are rendered as branches and multiple incoming flows are rendered as a merge. The layout assigns competing paths separate lanes so their nodes do not overlap. Arrowheads are controlled independently with `.arrow-style`.
 
 ```pug
-.node
-  .label Dispatcher
+graph
+  .node
+    .id dispatcher
+    .label Dispatcher
+  .node
+    .id main
+    .label Main work
+  .node
+    .id audit
+    .label Audit work
   .flow
+    .from dispatcher
+    .to main
     .direction right
-    .node
-      .label Main work
   .flow
+    .from dispatcher
+    .to audit
     .direction down
-    .node
-      .label Audit work
 ```
 
 Flows also accept `.ports shared` or `.ports distributed`. Shared ports attach every connection at the center of the relevant node face. Distributed ports space the connections uniformly across that face. Both default to shared ports.
 
 ```pug
 .flow
-  .direction right
-  .ports distributed
-
-.flow
   .from source-id
   .to target-id
+  .direction right
   .ports shared
 ```
 
@@ -143,7 +158,7 @@ Define a styled node type above `#canvas`, then use its name anywhere you would 
   .fill #245886
   .color #ffffff
 
-@line warning_line
+@flow warning_flow
   .color #ef4444
   .stroke-style dashed
 
@@ -162,14 +177,16 @@ Define a styled node type above `#canvas`, then use its name anywhere you would 
         .above
           .warning_note
           | Styled annotation
-      .node
-        .warning_line
-        .label Child
+    .node
+      .id child
+      .label Child
+    .flow
+      .from root
+      .to child
+      .warning_flow
 ```
 
-Reusable node definitions create classes such as `.my_node`; reusable line and annotation definitions create decorators such as `.warning_line` and `.warning_note`. Local fields override the reusable style. Names must be unique across node, line, and annotation definitions.
-
-Nested syntax is the canonical form because related fields stay together. Compact selectors such as `node.label Child` remain accepted as shorthand.
+Reusable node definitions create classes such as `.my_node`; reusable flow and annotation definitions create decorators such as `.warning_flow` and `.warning_note`. Local fields override the reusable style. Names must be unique across node, flow, and annotation definitions.
 
 The complete original definition is preserved in [examples/original.pug](examples/original.pug).
 
@@ -181,29 +198,25 @@ Give nodes IDs, then use the same `.flow` keyword for convergence, feedback, cro
 #canvas
   graph
     .node
-      .label Root
-      .node
-        .id api
-        .label API
-      .node
-        .id cache
-        .label Cache
-      .node
-        .id result
-        .label Result
-        .annotation
-          .above Paths converge here
-        .shape hexagon
-      .flow
-        .from api
-        .to result
-        .line
-          .label live
-      .flow
-        .from cache
-        .to result
-        .line
-          .label hit
+      .id api
+      .label API
+    .node
+      .id cache
+      .label Cache
+    .node
+      .id result
+      .label Result
+      .annotation
+        .above Paths converge here
+      .shape hexagon
+    .flow
+      .from api
+      .to result
+      .label live
+    .flow
+      .from cache
+      .to result
+      .label hit
 ```
 
 The parser resolves `.from` and `.to` after reading all nodes, so either endpoint may appear before or after the flow declaration. When several flows share a target, Pugflow automatically applies convergence layout and distributed merge routing.
@@ -217,11 +230,10 @@ For a feedback path, specify the endpoint directions independently:
   .to styled-text
   .to-direction up
   .ports shared
-  .line
-    .label feedback
+  .label feedback
 ```
 
-The source and target must have explicit `.id` fields and must appear before the connection declaration. `.from-direction` controls how the line leaves the source; `.to-direction` independently controls how it enters the target.
+The source and target must have explicit `.id` fields, but may appear before or after the flow declaration. `.from-direction` controls how the flow leaves the source; `.to-direction` independently controls how it enters the target.
 
 ## Figure defaults
 
@@ -238,7 +250,7 @@ Pugflow has a small built-in rendering theme: white background with black blocks
       .color #202020
       .outline-width 2
       .align center
-    .line
+    .flow
       .color #303030
     .annotation
       .color #606060
@@ -247,7 +259,7 @@ Pugflow has a small built-in rendering theme: white background with black blocks
       .label Root
 ```
 
-`.background` and `.font` belong directly to `#canvas`. Reusable node, line, and annotation defaults are grouped under `.defaults`. Style any flow through its `.line` group; fields closer to an object override inherited defaults.
+`.background` and `.font` belong directly to `#canvas`. Reusable node, flow, and annotation defaults are grouped under `.defaults`. Direct fields on a `.flow` override inherited defaults.
 
 ## Block options
 
@@ -256,6 +268,7 @@ Node identity, text, layout, and appearance use separate readable fields. For ea
 ```pug
 .node
   .id service
+  .layer 1
   .label
     | Service name
     | A clear multiline description
@@ -275,6 +288,7 @@ Supported options:
 | Field | Values |
 | --- | --- |
 | `.id` | A letter followed by letters, numbers, `_`, or `-` |
+| `.layer` | Optional integer override; otherwise declaration order sets stacking within the graph |
 | `.label` | Inline text, or indented `|` lines for explicit multiline text |
 | `.shape` | `square`, `round`, `rounded`, `pill`, `diamond`, `hexagon` |
 | `.fill`, `.color`, `.outline` | Any SVG/CSS color |
@@ -319,23 +333,23 @@ The block still participates in measurement and layout, so every other block kee
 
 Click a block, block label, annotation, connection, or connection label in the preview to select its exact declaration in the editor. Drag boxes and text when the automatic result needs a visual nudge; the editor writes the resulting offsets back into the source. A translucent ghost marks the original position while dragging. Hold Cmd on macOS or Ctrl on other platforms to constrain movement to the dominant horizontal or vertical axis; Shift remains supported as an alternative.
 
-Selecting a node or connector also opens the canvas inspector. Ctrl-click (Cmd-click on macOS) toggles additional items into the selection. The inspector shows only controls applicable to every selected item. Select any two or more nodes and use **Group as Graph** to create a new canvas-level graph with a `.members` list. Every inspector operation edits the Pug source directly.
+Selecting a node or flow also opens the canvas inspector. Ctrl-click (Cmd-click on macOS) toggles additional items into the selection. The inspector shows only controls applicable to every selected item. Every inspector operation edits the Pug source directly.
 
-Graphs are packed without overlap by default. Graph titles support `.label-position inside|outside`, `.align left|center|right`, `.color`, and the standard font fields. Drag a graph to write its `.offset`; explicit offsets may overlap graph frames. Set `.layer 1` (or any integer) in source, use the inspector's **Graph Layer** selector, or drag graphs in the right-side **Layers** panel. Higher layers render in front and equal layers retain source order. A connector renders at the higher layer of its two endpoint graphs, so it remains visible over both endpoints but may be obscured by an unrelated graph on a higher layer.
+Graphs are packed without overlap by default. Graph titles support `.label-position inside|outside`, `.align left|center|right`, `.color`, and the standard font fields. Use `.x-spacing` and `.y-spacing` to tune a graph's layout. Drag a graph to write its `.offset`; explicit offsets may overlap graph frames. Set `.layer 1` (or any integer) in source, use the inspector's **Graph Layer** selector, or reorder graphs in the collapsible **Graphs** section of the right-side **Graphs** panel. Higher layers render in front and equal layers retain source order. A flow renders at the higher layer of its two endpoint graphs, so it remains visible over both endpoints but may be obscured by an unrelated graph on a higher layer. Choose a graph in that panel to browse its nodes and flows; selecting an item opens its normal property inspector. The node list is ordered front to back. Initially, node declaration order determines that stacking without adding `.layer` fields. Dragging nodes or using **Node Layer** to send selected nodes to the front or back persists explicit `.layer` values in the source.
 
-The **Node** builder filters its **From Node** list by graph before creating a connected node. The **Flow** builder places graph-filtered **From Node** and **To Node** lists side by side, with independent endpoint directions and shared line options.
+The **Node** builder adds an independent node to the chosen graph. The **Flow** builder places graph-filtered **From** and **To** endpoints side by side, with independent directions and shared flow options.
 
-Use **+ New** above the canvas to add a Graph, Node, or Flow without hand-writing its initial structure. A flow may start from one or several chosen nodes and may create a new target or point to an existing target. Branching, merging, and feedback are inferred from those flows. **Add Flow** in a selected node's inspector opens the same builder with that node preselected. These actions insert ordinary Pug; the source remains the single editable representation.
+Use **+ New** above the canvas to add a Graph, Node, or Flow without hand-writing its initial structure. Branching, merging, and feedback are inferred from explicit flows. **Add Flow** in a selected node's inspector opens the same builder with that node preselected. These actions insert ordinary Pug; the source remains the single editable representation.
 
 - Dragging a box writes `.offset (x, y)` inside its node.
 - Dragging its label writes `.label-offset (x, y)` inside its node.
 - Dragging an image inside a node writes `.image-offset (x, y)` without moving the node.
 - Dragging a block annotation writes an indented `.offset (x, y)` field.
-- Dragging a connection label writes `.label-offset (x, y)` inside its node's or source's `.line` group.
+- Dragging a flow label writes `.label-offset (x, y)` directly inside its `.flow` declaration.
 
 Offsets affect only the rendered position. The node's automatic layout slot remains fixed.
 
-Use **Clean up** above the canvas after manual positioning to align connected flow nodes and collapse unnecessary connector bends. It writes corrected `.offset` tuples back into the source without changing connector faces or moving untouched sibling branches.
+Use **Clean up** above the canvas after manual positioning to align connected flow nodes and collapse unnecessary bends. It writes corrected `.offset` tuples back into the source without changing flow faces or moving untouched sibling branches.
 
 Nodes support SVG drop shadows through `.shadow-color`, `.shadow-offset-x`, `.shadow-offset-y`, `.shadow-blur`, and `.shadow-opacity`. A shadow is enabled when `shadow-color` is present; these fields work in `@node` definitions, diagram defaults, local nodes, and the canvas inspector.
 
@@ -350,23 +364,20 @@ Nodes can contain a clipped image using `.image`, with `.image-width`, `.image-h
   .label Profile
 ```
 
-## Connections, arrows, and line annotations
+## Flows, arrows, and annotations
 
-Set connector properties in a flow's `.line` group. Override an incoming nested connector with a `.line` group inside its destination node. Use a reusable `@line` class when several flows need identical styling.
+Set appearance and annotation properties directly on a `.flow`. Use a reusable `@flow` class when several flows need identical styling.
 
 ```pug
 .flow
-  .line
-    .arrow-style forward
-    .color #ffffff
-  .node
-    .line
-      .arrow-style both
-      .stroke-style dashed
-      .width 3
-      .annotation-above synchronizes
-      .annotation-below retry path
-    .label Peer
+  .from service-a
+  .to service-b
+  .arrow-style both
+  .stroke-style dashed
+  .color #ffffff
+  .width 3
+  .annotation-above synchronizes
+  .annotation-below retry path
 ```
 
 | Field | Values |
@@ -375,8 +386,8 @@ Set connector properties in a flow's `.line` group. Override an incoming nested 
 | `.color` | Any SVG/CSS color |
 | `.stroke-style` | `solid`, `dashed`, `dotted` |
 | `.width` | Positive number |
-| `.annotation-above` | Annotation above the connector |
-| `.annotation-below` | Annotation below the connector |
+| `.annotation-above` | Annotation above the flow |
+| `.annotation-below` | Annotation below the flow |
 | `.annotation-above-hidden`, `.annotation-below-hidden` | Hide either annotation independently |
 | `.label-offset` | Manual `(x, y)` offset |
 

@@ -736,12 +736,21 @@ function packGraphs(nodes, groups, colors, gap = 80) {
 function renderSvg(container, graph, options) {
   const colors = figureColors(container, graph.figure);
   const measured = measureNodes(graph.nodes, colors);
-  const layout = layoutDiagram(measured, graph.edges, layoutOptionsForLabels(graph.edges, colors, options.layout));
-  const flowOffsets = inheritedFlowOffsets(layout.nodes, graph.edges);
-  let visualNodes = layout.nodes.map((node) => {
-    const inherited = flowOffsets.get(node.id) ?? { x: 0, y: 0 };
-    return { ...node, x: node.x + node.offsetX + inherited.x, y: node.y + node.offsetY + inherited.y };
+  const groupedIds = new Set((graph.groups ?? []).flatMap((group) => group.nodeIds));
+  const layouts = (graph.groups ?? []).map((group) => {
+    const ids = new Set(group.nodeIds);
+    const nodes = measured.filter((node) => ids.has(node.id));
+    const edges = graph.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to));
+    return layoutDiagram(nodes, edges, layoutOptionsForLabels(edges, colors, {
+      ...options.layout,
+      horizontalGutter: group.xSpacing ?? options.layout?.horizontalGutter,
+      verticalGutter: group.ySpacing ?? options.layout?.verticalGutter,
+    }));
   });
+  const ungroupedNodes = measured.filter((node) => !groupedIds.has(node.id));
+  if (ungroupedNodes.length) layouts.push(layoutDiagram(ungroupedNodes, graph.edges.filter((edge) => !groupedIds.has(edge.from) && !groupedIds.has(edge.to)), layoutOptionsForLabels(graph.edges, colors, options.layout)));
+  const layout = { nodes: layouts.flatMap((item) => item.nodes), edges: graph.edges };
+  let visualNodes = layout.nodes.map((node) => ({ ...node, x: node.x + node.offsetX, y: node.y + node.offsetY }));
   visualNodes = packGraphs(visualNodes, graph.groups ?? [], colors);
   const ownerByNode = new Map();
   (graph.groups ?? []).forEach((group) => group.nodeIds.forEach((id) => ownerByNode.set(id, group)));
@@ -820,7 +829,7 @@ function renderSvg(container, graph, options) {
   });
   const ungrouped = svgElement("g", { class: "graph-node-layer ungrouped-layer", "data-layer": -1 });
   layerContainers.get(-1).append(ungrouped);
-  visualNodes.forEach((node) => {
+  [...visualNodes].sort((a, b) => (a.layer ?? 0) - (b.layer ?? 0) || (a.sourceIndex ?? 0) - (b.sourceIndex ?? 0)).forEach((node) => {
     const owner = ownerByNode.get(node.id);
     if (!node.hidden) addNode(owner ? nodeLayers.get(owner.id) ?? ungrouped : ungrouped, node, colors, defs);
   });

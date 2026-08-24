@@ -32,9 +32,13 @@ const LINE_DEFINITION_FIELDS = new Map([
   ["font-weight", "line.font-weight"], ["font-style", "line.font-style"],
   ["text-decoration", "line.text-decoration"],
 ]);
+const FLOW_STYLE_FIELDS = new Set([...LINE_DEFINITION_FIELDS.keys(), "label"]);
+const ANNOTATION_STYLE_FIELDS = new Set([
+  "color", "font-family", "font-size", "font-weight", "font-style", "text-decoration",
+]);
 const BLOCK_PROPERTIES = new Set([
   "id", "shape", "fill", "color", "outline", "outline-style", "outline-width",
-  "width", "height", "align", "hidden", "offset", "label-offset",
+  "width", "height", "align", "layer", "hidden", "offset", "label-offset",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
   "image", "image-width", "image-height", "image-fit", "image-opacity", "image-offset", "image-padding",
   "font-family", "font-size", "font-weight", "font-style", "text-decoration",
@@ -71,7 +75,7 @@ function parseMarkupLine(body, lineNumber, errors) {
   if (body.startsWith("|")) {
     return { type: "text", classes: [], attrs: {}, text: body.slice(1).replace(/^ /, ""), children: [], lineNumber };
   }
-  const styleDefinition = body.match(/^@(node|line|annotation)\s+([a-zA-Z][\w-]*)$/);
+  const styleDefinition = body.match(/^@(node|flow|line|annotation)\s+([a-zA-Z][\w-]*)$/);
   if (styleDefinition) return { type: styleDefinition[1] + "-definition", name: styleDefinition[2], classes: [], attrs: {}, text: "", children: [], lineNumber };
   const diagram = body.match(/^#(?:canvas|diagram)(?:\((.*)\))?$/);
   if (diagram) return { type: "diagram", classes: [], attrs: parseAttributes(diagram[1], lineNumber, errors), text: "", children: [], lineNumber };
@@ -110,12 +114,13 @@ function normalizeGroups(item, errors, nodeTypeNames, lineTypeNames) {
       expanded.push(...child.children);
       continue;
     }
-    if (item.type === "defaults" && ["node", "line", "annotation"].includes(child.type)) {
+    if (item.type === "defaults" && ["node", "flow", "line", "annotation"].includes(child.type)) {
       if (child.text || Object.keys(child.attrs).length) errors.push(`Line ${child.lineNumber}: .${child.type} is a defaults group; put its fields on indented lines.`);
-      for (const field of child.children) expanded.push({ ...field, type: `${child.type}.${field.type}`, classes: [child.type, field.type] });
+      const prefix = child.type === "flow" ? "line" : child.type;
+      for (const field of child.children) expanded.push({ ...field, type: `${prefix}.${field.type}`, classes: [prefix, field.type] });
       continue;
     }
-    if (child.type === "line") {
+    if (child.type === "line" && item.type !== "flow") {
       if (child.text || Object.keys(child.attrs).length) errors.push(`Line ${child.lineNumber}: .line is a group; put its fields on indented lines.`);
       for (const field of child.children) {
         expanded.push({ ...field, type: `line.${field.type}`, classes: ["line", field.type] });
@@ -274,20 +279,24 @@ function figureStyle(attrs, lineColor = null, textColor = null) {
 function diagramSettingsFor(diagram, errors) {
   const settings = {};
   const block = {};
+  const annotation = {};
   if (Object.keys(diagram.attrs).length) {
     errors.push(`Line ${diagram.lineNumber}: #canvas does not accept inline attributes; use indented default fields.`);
   }
   for (const child of diagram.children) {
     const blockProperty = child.type.startsWith("node.") ? child.type.slice(5) : null;
-    const isFigureField = ["background", "font", "annotation.color"].includes(child.type);
+    const annotationProperty = child.type.startsWith("annotation.") ? child.type.slice(11) : null;
+    const isFigureField = ["background", "font"].includes(child.type) || (annotationProperty && ANNOTATION_STYLE_FIELDS.has(annotationProperty));
     if (!isFigureField && !(blockProperty && BLOCK_STYLE_PROPERTIES.has(blockProperty))) continue;
     if (Object.keys(child.attrs).length || child.children.length) errors.push(`Line ${child.lineNumber}: .${child.type} must contain one plain-text value.`);
     const value = child.text.trim();
     if (!value) errors.push(`Line ${child.lineNumber}: .${child.type} needs a value.`);
     if (blockProperty) block[blockProperty] = value;
+    else if (annotationProperty) annotation[annotationProperty] = value;
     else settings[child.type] = value;
   }
-  return { settings, block };
+  if (annotation.color) settings["annotation.color"] = annotation.color;
+  return { settings, block, annotation };
 }
 
 function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) {
@@ -355,9 +364,10 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
 }
 
 function connectionAttributesFor(container, errors, extras = [], rejectInline = true, lineStyles = new Map(), knownStyles = new Set(lineStyles.keys())) {
-  const allowed = new Set([...LINE_FIELDS, ...extras]);
+  const directFlowFields = container.type === "flow" ? FLOW_STYLE_FIELDS : new Set();
+  const allowed = new Set([...LINE_FIELDS, ...directFlowFields, ...extras]);
   const nested = {
-    diagram: new Set(["graph", "branch", "merge", "flow", "connect", "background", "font", "annotation.color"]),
+    diagram: new Set(["graph", "branch", "merge", "flow", "connect", "background", "font", ...[...ANNOTATION_STYLE_FIELDS].map((field) => `annotation.${field}`)]),
     graph: new Set(["graph", "branch", "merge", "flow", "connect"]),
     branch: new Set(["entry"]),
     entry: new Set(["graph", "branch", "merge", "flow", "connect"]),
@@ -392,17 +402,18 @@ function connectionAttributesFor(container, errors, extras = [], rejectInline = 
     lines["line.use"] = presetChildren[0].lineNumber;
   }
   for (const child of container.children.filter((item) => allowed.has(item.type))) {
+    const type = directFlowFields.has(child.type) ? `line.${child.type}` : child.type;
     if (Object.keys(child.attrs).length) errors.push(`Line ${child.lineNumber}: .${child.type} takes plain text, not attributes.`);
-    if (attributes[child.type] !== undefined) errors.push(`Line ${child.lineNumber}: duplicate .${child.type} field.`);
-    attributes[child.type] = ["line.label", "line.annotation-above", "line.annotation-below"].includes(child.type) ? textFor(child, errors) : child.text.trim();
-    lines[child.type] = child.lineNumber;
-    if (!["line.label", "line.annotation-above", "line.annotation-below"].includes(child.type) && child.children.length) errors.push(`Line ${child.lineNumber}: .${child.type} must stay on one line.`);
+    if (attributes[type] !== undefined) errors.push(`Line ${child.lineNumber}: duplicate .${child.type} field.`);
+    attributes[type] = ["line.label", "line.annotation-above", "line.annotation-below"].includes(type) ? textFor(child, errors) : child.text.trim();
+    lines[type] = child.lineNumber;
+    if (!["line.label", "line.annotation-above", "line.annotation-below"].includes(type) && child.children.length) errors.push(`Line ${child.lineNumber}: .${child.type} must stay on one line.`);
   }
   Object.defineProperty(attributes, "__lines", { value: lines });
   return attributes;
 }
 
-function annotationsFor(container, errors, annotationStyles) {
+function annotationsFor(container, errors, annotationStyles, defaults = {}) {
   return container.children
     .filter((child) => child.type === "field" && child.classes.includes("annotation"))
     .map((child) => {
@@ -425,16 +436,16 @@ function annotationsFor(container, errors, annotationStyles) {
       return {
         text: textFor(child, errors, ["color", "offset", "hidden", ...Object.keys(textFields), ...annotationStyles.keys()]),
         position: child.classes.includes("below") ? "below" : "above",
-        color: colorField?.text.trim() ?? preset.color ?? null,
+        color: colorField?.text.trim() ?? preset.color ?? defaults.color ?? null,
         lineNumber: child.lineNumber,
         offsetX: offset.x,
         offsetY: offset.y,
         hidden: Boolean(hiddenFields.length && !["false", "no", "0"].includes(hiddenFields[0].text.trim())),
-        fontFamily: textFields["font-family"]?.text.trim() ?? preset.fontFamily ?? null,
-        fontSize: numberAttribute(textFields["font-size"]?.text.trim(), preset.fontSize ?? 12, 1, "font-size", child.lineNumber, errors),
-        fontWeight: textFields["font-weight"]?.text.trim() ?? preset.fontWeight ?? "normal",
-        fontStyle: textFields["font-style"]?.text.trim() ?? preset.fontStyle ?? "normal",
-        textDecoration: textFields["text-decoration"]?.text.trim() ?? preset.textDecoration ?? "none",
+        fontFamily: textFields["font-family"]?.text.trim() ?? preset.fontFamily ?? defaults.fontFamily ?? null,
+        fontSize: numberAttribute(textFields["font-size"]?.text.trim(), preset.fontSize ?? defaults.fontSize ?? 12, 1, "font-size", child.lineNumber, errors),
+        fontWeight: textFields["font-weight"]?.text.trim() ?? preset.fontWeight ?? defaults.fontWeight ?? "normal",
+        fontStyle: textFields["font-style"]?.text.trim() ?? preset.fontStyle ?? defaults.fontStyle ?? "normal",
+        textDecoration: textFields["text-decoration"]?.text.trim() ?? preset.textDecoration ?? defaults.textDecoration ?? "none",
       };
     });
 }
@@ -487,13 +498,13 @@ function customNodeStyles(tree, blockDefaults, errors) {
 
 function customLineStyles(tree, errors) {
   const definitions = new Map();
-  for (const definition of tree.roots.filter((root) => root.type === "line-definition")) {
+  for (const definition of tree.roots.filter((root) => ["flow-definition", "line-definition"].includes(root.type))) {
     const attributes = {};
     const lines = {};
     for (const child of definition.children) {
       const field = LINE_DEFINITION_FIELDS.get(child.type);
       if (!field) {
-        errors.push(`Line ${child.lineNumber}: unknown @line style field .${child.type}.`);
+        errors.push(`Line ${child.lineNumber}: unknown @flow style field .${child.type}.`);
         continue;
       }
       if (Object.keys(child.attrs).length || child.children.length) errors.push(`Line ${child.lineNumber}: .${child.type} must contain one plain-text value.`);
@@ -553,10 +564,10 @@ function compileMarkup(tree) {
   const edges = [];
   const groups = [];
   const pendingFlows = [];
-  const memberGroups = [];
   const nodesById = new Map();
   const diagramRoot = tree.roots.find((root) => root.type === "diagram") ?? null;
-  const diagramSettings = diagramRoot ? diagramSettingsFor(diagramRoot, errors) : { settings: {}, block: {} };
+  const diagramSettings = diagramRoot ? diagramSettingsFor(diagramRoot, errors) : { settings: {}, block: {}, annotation: {} };
+  const annotationDefaults = Object.fromEntries(Object.entries(diagramSettings.annotation ?? {}).map(([name, value]) => [name.replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase()), value]));
   const blockDefaults = diagramRoot ? blockStyle(diagramSettings.block, diagramRoot.lineNumber, errors) : blockStyle({}, 1, errors);
   const nodeStyles = customNodeStyles(tree, blockDefaults, errors);
   const lineStyles = customLineStyles(tree, errors);
@@ -590,6 +601,10 @@ function compileMarkup(tree) {
     const labelOffset = offsetTuple(attributes["label-offset"], "node.label-offset", labelElement.lineNumber, errors);
     const imageOffset = offsetTuple(attributes["image-offset"], "node.image-offset", labelElement.lineNumber, errors);
     const requestedId = attributes.id;
+    const layerText = attributes.layer;
+    const explicitLayer = layerText !== undefined;
+    const layer = explicitLayer ? Number(layerText) : 0;
+    if (explicitLayer && !Number.isInteger(layer)) errors.push(`Line ${labelElement.lineNumber}: node.layer must be an integer.`);
     if (requestedId && !ID_PATTERN.test(requestedId)) errors.push(`Line ${labelElement.lineNumber}: "${requestedId}" is not a valid ID.`);
     const id = requestedId ?? automaticId(label, nodesById);
     if (nodesById.has(id)) {
@@ -600,7 +615,7 @@ function compileMarkup(tree) {
       id,
       explicitId: requestedId ?? "",
       label,
-      annotations: annotationsFor(container, errors, annotationStyles),
+      annotations: annotationsFor(container, errors, annotationStyles, annotationDefaults),
       style: blockStyle(attributes, labelElement.lineNumber, errors, customDefaults),
       hidden: hiddenElement({ attrs: attributes }),
       offsetX: offset.x,
@@ -609,6 +624,9 @@ function compileMarkup(tree) {
       labelOffsetY: labelOffset.y,
       imageOffsetX: imageOffset.x,
       imageOffsetY: imageOffset.y,
+      layer: Number.isInteger(layer) ? layer : 0,
+      explicitLayer,
+      sourceIndex: nodes.length,
       lineNumber: labelElement.lineNumber,
       kind: "block",
     };
@@ -637,32 +655,25 @@ function compileMarkup(tree) {
     entries.forEach((entry) => buildEntry(entry, parent, defaults));
   }
 
-  function buildFlow(flow, parent) {
+  function buildFlow(flow, graphId = null) {
     const attributes = connectionAttributesFor(flow, errors, ["from", "to", "from-direction", "to-direction", "direction", "ports"], true, lineStyles, knownStyles);
     const defaults = edgeStyle(attributes, edgeDefaults, flow.lineNumber, errors, lineStyles);
     const entries = flow.children.filter((child) => child.type === "entry");
-    if (attributes.from !== undefined || attributes.to !== undefined) {
-      if (entries.length) errors.push(`Line ${flow.lineNumber}: a referenced flow cannot also define a node; use either .from/.to or nested nodes.`);
-      pendingFlows.push({ flow, attributes, defaults });
-      return;
-    }
-    if (!entries.length) {
-      errors.push(`Line ${flow.lineNumber}: a flow needs at least one node.`);
-      return;
-    }
-    let previous = parent;
-    entries.forEach((entry) => { previous = buildEntry(entry, previous, defaults) ?? previous; });
+    if (entries.length) errors.push(`Line ${flow.lineNumber}: flows cannot contain nodes; declare nodes directly in a graph and reference them with .from and .to.`);
+    pendingFlows.push({ flow, attributes, defaults, graphId });
   }
 
   function buildSubdiagram(component) {
     const entries = component.children.filter((child) => child.type === "entry");
-    const members = component.children.find((child) => child.type === "members")?.text.trim().split(/[\s,]+/).filter(Boolean) ?? [];
-    if (entries.length !== 1 && !members.length) errors.push(`Line ${component.lineNumber}: graph needs exactly one root node or a .members list.`);
-    if (entries.length && members.length) errors.push(`Line ${component.lineNumber}: graph cannot contain both a root node and a .members list.`);
+    const members = component.children.find((child) => child.type === "members");
+    if (members) errors.push(`Line ${members.lineNumber}: .members has been removed; move each node declaration directly into its graph.`);
+    if (!entries.length) errors.push(`Line ${component.lineNumber}: graph needs at least one node.`);
     const before = nodes.length;
     const edgeBefore = edges.length;
-    const rootNode = entries[0] ? buildEntry(entries[0], null) : null;
-    if (rootNode) processChildren(component, rootNode);
+    const directNodes = entries.map((entry) => buildEntry(entry, null)).filter(Boolean);
+    directNodes.forEach((node, index) => {
+      if (!node.explicitLayer) node.layer = index;
+    });
     const field = (name) => component.children.find((child) => child.type === name)?.text.trim();
     const graphOffset = offsetTuple(field("offset"), "graph.offset", component.lineNumber, errors);
     const layerText = field("layer");
@@ -694,17 +705,26 @@ function compileMarkup(tree) {
       outlineStyle: field("outline-style") || "solid",
       outlineWidth: Number(field("outline-width") || 1.5),
       padding: Number(field("padding") || 24),
-      rootId: rootNode?.id ?? null,
+      xSpacing: numberAttribute(field("x-spacing"), 60, 0, "graph.x-spacing", component.lineNumber, errors),
+      ySpacing: numberAttribute(field("y-spacing"), 40, 0, "graph.y-spacing", component.lineNumber, errors),
+      rootId: directNodes[0]?.id ?? null,
       hidden,
       offsetX: graphOffset.x,
       offsetY: graphOffset.y,
       layer: Number.isInteger(layer) ? layer : 0,
-      nodeIds: members.length ? members : nodes.slice(before).map((node) => node.id),
+      nodeIds: nodes.slice(before).map((node) => node.id),
       sourceIndex: groups.length,
       lineNumber: component.lineNumber,
     };
     groups.push(group);
-    if (members.length) memberGroups.push(group);
+    component.children.filter((child) => child.type === "flow").forEach((flow) => buildFlow(flow, group.id));
+    component.children.filter((child) => ["branch", "merge", "connect"].includes(child.type)).forEach((child) => {
+      errors.push(`Line ${child.lineNumber}: .${child.type} has been removed; declare a .flow with .from and .to instead.`);
+    });
+    entries.forEach((entry) => {
+      const nested = entry.children.find((child) => ["branch", "flow", "merge", "connect", "entry"].includes(child.type));
+      if (nested) errors.push(`Line ${nested.lineNumber}: nodes cannot contain nodes or flows; declare both directly in graph.`);
+    });
   }
 
   function buildMerge(merge) {
@@ -750,63 +770,47 @@ function compileMarkup(tree) {
 
   function processChildren(container, parent) {
     container.children.forEach((child) => {
-      if (child.type === "branch") buildBranch(child, parent);
-      else if (child.type === "flow") buildFlow(child, parent);
+      if (child.type === "flow") buildFlow(child, null);
       else if (child.type === "graph") {
         if (container.type !== "diagram") errors.push(`Line ${child.lineNumber}: graphs cannot be nested; place every graph directly under #canvas.`);
         else buildSubdiagram(child);
       }
-      else if (child.type === "merge") buildMerge(child);
-      else if (child.type === "connect") buildConnect(child);
+      else if (["branch", "merge", "connect"].includes(child.type)) errors.push(`Line ${child.lineNumber}: .${child.type} has been removed; declare a .flow with .from and .to instead.`);
     });
   }
 
   const diagramRoots = tree.roots.filter((root) => root.type === "diagram");
-  const definitionTypes = new Set(["node-definition", "line-definition", "annotation-definition"]);
+  const definitionTypes = new Set(["node-definition", "flow-definition", "line-definition", "annotation-definition"]);
   const unexpectedRoots = tree.roots.filter((root) => !definitionTypes.has(root.type) && root.type !== "diagram");
   const definitionAfterDiagram = diagramRoot && tree.roots.some((root, index) => definitionTypes.has(root.type) && index > tree.roots.indexOf(diagramRoot));
   if (diagramRoots.length !== 1 || unexpectedRoots.length || definitionAfterDiagram) {
-    errors.push("The document must contain optional @node, @line, and @annotation definitions followed by exactly one #canvas.");
+    errors.push("The document must contain optional @node, @flow, and @annotation definitions followed by exactly one #canvas.");
     return { nodes, edges, groups, errors, format: "pug", figure };
   }
   const rootLabel = diagramRoot.children.find((child) => child.type === "field" && child.classes.includes("label"));
-  const root = rootLabel ? createNode(diagramRoot, rootLabel) : null;
-  if (root) processChildren(diagramRoot, root);
-  else processChildren(diagramRoot, null);
-  for (const group of memberGroups) {
-    const missing = group.nodeIds.filter((id) => !nodesById.has(id));
-    if (missing.length) errors.push(`Line ${group.lineNumber}: graph member "${missing[0]}" is not defined.`);
-  }
+  if (rootLabel) errors.push(`Line ${rootLabel.lineNumber}: nodes must be declared directly inside a graph.`);
+  processChildren(diagramRoot, null);
   const graphIds = new Set();
   for (const group of groups) {
     if (graphIds.has(group.id)) errors.push(`Line ${group.lineNumber}: the graph ID "${group.id}" is already in use.`);
     graphIds.add(group.id);
   }
-  const memberOwners = new Map();
-  for (const group of memberGroups) {
-    for (const id of group.nodeIds) {
-      const owner = memberOwners.get(id);
-      if (owner) errors.push(`Line ${group.lineNumber}: node "${id}" is already a member of graph "${owner.id}".`);
-      else memberOwners.set(id, group);
-    }
-  }
-  for (const group of memberGroups) {
-    const claimed = new Set(group.nodeIds);
-    groups.filter((candidate) => candidate !== group && !memberGroups.includes(candidate)).forEach((candidate) => {
-      candidate.nodeIds = candidate.nodeIds.filter((id) => !claimed.has(id));
-    });
-  }
-  for (const { flow, attributes, defaults } of pendingFlows) {
+  const graphByNode = new Map(groups.flatMap((group) => group.nodeIds.map((id) => [id, group.id])));
+  for (const { flow, attributes, defaults, graphId } of pendingFlows) {
     const from = attributes.from;
     const to = attributes.to;
     if (!from || !nodesById.has(from)) errors.push(`Line ${flow.lineNumber}: flow source "${from || "(missing)"}" is not defined.`);
     if (!to || !nodesById.has(to)) errors.push(`Line ${flow.lineNumber}: flow target "${to || "(missing)"}" is not defined.`);
     if (!from || !to || !nodesById.has(from) || !nodesById.has(to)) continue;
+    const fromGraph = graphByNode.get(from);
+    const toGraph = graphByNode.get(to);
+    if (graphId && (fromGraph !== graphId || toGraph !== graphId)) errors.push(`Line ${flow.lineNumber}: a graph flow must connect two nodes in graph "${graphId}"; place cross-graph flows directly under #canvas.`);
+    if (!graphId && fromGraph && toGraph && fromGraph === toGraph) errors.push(`Line ${flow.lineNumber}: a canvas flow must connect nodes in different graphs; place this flow inside graph "${fromGraph}".`);
     const fromDirection = attributes["from-direction"] ?? attributes.direction ?? "right";
     const toDirection = attributes["to-direction"] ?? fromDirection;
     if (!FLOW_DIRECTIONS.has(fromDirection)) errors.push(`Line ${flow.lineNumber}: from-direction must be right, left, up, or down.`);
     if (!FLOW_DIRECTIONS.has(toDirection)) errors.push(`Line ${flow.lineNumber}: to-direction must be right, left, up, or down.`);
-    edges.push({ from, to, kind: "flow", declarationKind: "flow", explicitFlow: true, ...defaults,
+    edges.push({ from, to, kind: "flow", declarationKind: "flow", explicitFlow: true, graphId, ...defaults,
       layoutDirection: FLOW_DIRECTIONS.has(fromDirection) ? fromDirection : "right",
       sourceDirection: defaults.sourceFace ? defaults.sourceDirection : (FLOW_DIRECTIONS.has(fromDirection) ? fromDirection : "right"),
       targetLayoutDirection: defaults.targetFace ? defaults.targetLayoutDirection : (FLOW_DIRECTIONS.has(toDirection) ? toDirection : fromDirection) });
@@ -839,7 +843,7 @@ export function parseDiagram(source, styleSource = "") {
   const tree = parseMarkupTree(prefix + source);
   tree.roots.filter((root) => root.type === "diagram").forEach((root) => { root._isRoot = true; });
   const nodeTypeNames = new Set(tree.roots.filter((root) => root.type === "node-definition").map((root) => root.name));
-  const lineTypeNames = new Set(tree.roots.filter((root) => root.type === "line-definition").map((root) => root.name));
+  const lineTypeNames = new Set(tree.roots.filter((root) => ["flow-definition", "line-definition"].includes(root.type)).map((root) => root.name));
   tree.roots.forEach((root) => normalizeGroups(root, tree.errors, nodeTypeNames, lineTypeNames));
   const result = compileMarkup(tree);
   if (prefixLines) {

@@ -1,9 +1,13 @@
-#diagram
-  .cli_card
-    .id input
-    .label Pug source
+#canvas
+  graph
+    .id cli
+    .cli_card
+      .id input
+      .label Pug source
+    .cli_card
+      .id output
+      .label PNG output
     .flow
-      .direction right
-      .cli_line
-      .cli_card
-        .label PNG output
+      .from input
+      .to output
+      .cli_flow
