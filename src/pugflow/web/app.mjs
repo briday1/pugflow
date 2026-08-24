@@ -367,7 +367,12 @@ const canvas = document.querySelector("#diagram");
 const canvasShell = document.querySelector(".canvas-shell");
 const canvasZoom = document.querySelector("#canvas-zoom");
 const canvasToast = document.querySelector("#canvas-toast");
+const TEXT_EDITING_SELECTOR = "input:not([type='button']):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='submit']), textarea, [contenteditable]:not([contenteditable='false'])";
 let canvasToastTimer = null;
+
+function isTextEditingTarget(target) {
+  return Boolean(target?.closest?.(TEXT_EDITING_SELECTOR));
+}
 
 function showCanvasToast(message) {
   canvasToast.textContent = message;
@@ -1430,10 +1435,12 @@ function highlightSource() {
   const pattern = /(\/\/.*$)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\$[^$\n]*\$)|(@(?:node|flow|line|annotation)\b|#canvas|^\s*\||[a-zA-Z][\w-]*(?:\.[\w-]+)+|(?:\.[\w-]+)+|^\s*(?:node|graph)\b)|([\w-]+)(?=\s*=)|(#[\da-fA-F]{8}\b|#[\da-fA-F]{6}\b|#[\da-fA-F]{3}\b)|(\b\d+(?:\.\d+)?\b)/gm;
   const start = source.selectionStart;
   const end = source.selectionEnd;
-  if (source.childNodes.length !== 1 || source.firstChild?.nodeType !== Node.TEXT_NODE) {
+  const restoreSelection = document.activeElement === source;
+  const contentNodes = [...source.childNodes].filter((node) => node !== colorDecorators);
+  if (contentNodes.length !== 1 || contentNodes[0].nodeType !== Node.TEXT_NODE) {
     const value = source.value;
     source.value = value;
-    source.setSelectionRange(start, end);
+    if (restoreSelection) source.setSelectionRange(start, end);
   }
   const textNode = source.firstChild;
   if (!textNode) return;
@@ -1904,13 +1911,14 @@ async function loadSourceFiles(files, handles = []) {
 
 function selectSourceLine({ lineNumber }) {
   if (activeDocument !== "pug") activateDocument("pug");
+  const focusTarget = document.activeElement;
   const lines = source.value.split("\n");
   const start = lines.slice(0, lineNumber - 1).reduce((length, line) => length + line.length + 1, 0);
   const end = start + (lines[lineNumber - 1]?.length ?? 0);
-  source.focus({ preventScroll: true });
   const lineHeight = Number.parseFloat(getComputedStyle(source).lineHeight) || 20;
   const reveal = () => {
     source.setSelectionRange(start, end);
+    if (focusTarget !== source && focusTarget?.isConnected) focusTarget.focus({ preventScroll: true });
     source.scrollTop = Math.max(0, (lineNumber - 3) * lineHeight);
     updateEditorChrome();
   };
@@ -2129,6 +2137,9 @@ modePanButton.addEventListener("click", () => setCanvasMode("pan"));
 
 let panPointer = null;
 canvasShell.addEventListener("pointerdown", (event) => {
+  if (event.button === 0 && !event.target.closest("button, input, select, textarea, [contenteditable]:not([contenteditable='false'])")) {
+    canvasShell.focus({ preventScroll: true });
+  }
   const effectivePan = canvasMode === "pan" || spaceHeld;
   if (!effectivePan || event.button !== 0) return;
   panPointer = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, scrollLeft: canvasShell.scrollLeft, scrollTop: canvasShell.scrollTop };
@@ -2153,12 +2164,12 @@ canvasShell.addEventListener("lostpointercapture", finishCanvasPan);
 
 let spaceHeld = false;
 document.addEventListener("keydown", (event) => {
-  if (event.code === "Space" && !event.target.matches("input, textarea, [contenteditable='true'], select, button") && !spaceHeld) {
+  if (event.code === "Space" && !event.target.closest("input, textarea, [contenteditable]:not([contenteditable='false']), select, button") && !spaceHeld) {
     spaceHeld = true;
     if (canvasMode === "select") canvasShell.classList.add("pan-mode");
   }
-  if (event.code === "KeyV" && !event.ctrlKey && !event.metaKey && !event.target.matches("input, textarea, [contenteditable='true'], select")) setCanvasMode("select");
-  if (event.code === "KeyH" && !event.ctrlKey && !event.metaKey && !event.target.matches("input, textarea, [contenteditable='true'], select")) setCanvasMode("pan");
+  if (event.code === "KeyV" && !event.ctrlKey && !event.metaKey && !event.target.closest("input, textarea, [contenteditable]:not([contenteditable='false']), select")) setCanvasMode("select");
+  if (event.code === "KeyH" && !event.ctrlKey && !event.metaKey && !event.target.closest("input, textarea, [contenteditable]:not([contenteditable='false']), select")) setCanvasMode("pan");
 });
 document.addEventListener("keyup", (event) => {
   if (event.code === "Space") {
@@ -2189,8 +2200,7 @@ document.querySelector("#undo-canvas").addEventListener("click", undoCanvas);
 document.querySelector("#redo-canvas").addEventListener("click", redoCanvas);
 document.addEventListener("keydown", (event) => {
   if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-  const focused = document.activeElement;
-  if (focused?.matches("input:not([type='button']):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='submit']), textarea, [contenteditable='true']")) return;
+  if (isTextEditingTarget(document.activeElement)) return;
   if (event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redoCanvas() : undoCanvas(); }
   else if (event.key.toLowerCase() === "y") { event.preventDefault(); redoCanvas(); }
 }, { capture: true });
