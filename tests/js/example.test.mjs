@@ -297,6 +297,8 @@ test("application startup does not wait for the math renderer", () => {
 test("Pages deployments cache-bust browser assets", () => {
   const workflow = readFileSync(new URL("../../.github/workflows/test-and-publish.yml", import.meta.url), "utf8");
   assert.match(workflow, /name: Cache-bust browser assets/);
-  assert.match(workflow, /ASSET_VERSION: \$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /release-sha: \$\{\{ steps\.release-commit\.outputs\.sha \}\}/);
+  assert.match(workflow, /ref: \$\{\{ needs\.pypi\.outputs\.release-sha \}\}/);
+  assert.match(workflow, /ASSET_VERSION: \$\{\{ needs\.pypi\.outputs\.release-sha \}\}/);
   assert.match(workflow, /(?:css\|mjs)/);
 });
