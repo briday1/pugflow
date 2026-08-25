@@ -793,9 +793,9 @@ function presetBaseline(kind, presetName) {
   return (presetName && presets[presetName]) || currentGraph?.defaults?.[kind] || {};
 }
 
-function openReusableStyleBuilder(kind, model, baseline = undefined) {
+function openReusableStyleBuilder(kind, model, baseline = undefined, lineNumber = null) {
   const declarations = reusableStyleDeclarations(kind, model, baseline);
-  pendingReusableStyle = { kind, declarations };
+  pendingReusableStyle = { kind, declarations, lineNumber };
   styleBuilderKind.textContent = kind;
   styleBuilderName.value = suggestedReusableName(kind);
   styleBuilderPreview.textContent = declarations.length
@@ -810,19 +810,19 @@ function openSelectedReusableStyle(kind) {
   if (kind === "node") {
     const selected = selectedNodes()[0];
     const node = selected ? currentGraph.nodes.find((candidate) => candidate.id === selected.id) : null;
-    if (node) openReusableStyleBuilder(kind, node.style, presetBaseline("node", node.nodeType));
+    if (node) openReusableStyleBuilder(kind, node.style, presetBaseline("node", node.nodeType), node.lineNumber);
     return;
   }
   if (kind === "flow") {
     const selection = selections.find((item) => item.kind === "line");
     const edge = diagram?.layout?.edges.find((item) => item.from === selection?.from && item.to === selection?.to && (!selection?.lineNumber || item.lineNumber === selection.lineNumber));
-    if (edge) openReusableStyleBuilder(kind, edge, presetBaseline("flow", edge.lineType));
+    if (edge) openReusableStyleBuilder(kind, edge, presetBaseline("flow", edge.lineType), edge.lineNumber);
     return;
   }
   if (kind === "graph") {
     const selection = selections.find((item) => item.kind === "graph");
     const group = currentGraph.groups.find((candidate) => candidate.id === selection?.id);
-    if (group) openReusableStyleBuilder(kind, group, presetBaseline("graph", group.graphType));
+    if (group) openReusableStyleBuilder(kind, group, presetBaseline("graph", group.graphType), group.lineNumber);
     return;
   }
   if (kind === "annotation") {
@@ -3012,8 +3012,14 @@ styleBuilderForm.addEventListener("submit", (event) => {
   try {
     cssSource = appendReusableStyle(cssSource, pendingReusableStyle.kind, name, pendingReusableStyle.declarations);
     hasCssDocument = true;
+    const { kind, lineNumber } = pendingReusableStyle;
     pendingReusableStyle = null;
     styleBuilder.close();
+    if (lineNumber) {
+      if (kind === "node") setSource(setNodeType(source.value, lineNumber, name, reusableNames("node")));
+      else if (kind === "flow") setSource(setStructuralLineType(source.value, lineNumber, name, reusableNames("flow")));
+      else if (kind === "graph") setSource(setGraphType(source.value, lineNumber, name, reusableNames("graph")));
+    }
     updateSourceFileNames();
     activateDocument("css");
     showCanvasToast(`Added @${styleBuilderKind.textContent} ${name} to CSS`);
