@@ -410,14 +410,14 @@ function nodePresetName(line, knownTypes) {
 
 /**
  * Apply (or clear) a reusable `@node` class. Declarations are normalized to the
- * `.node` keyword with the class nested inside, mirroring `.flow`.
+ * `node` keyword with the class nested inside, mirroring `flow`.
  */
 export function setNodeType(value, labelLineNumber, type, knownTypes = []) {
   const lines = value.split("\n");
   const range = nodeRange(lines, labelLineNumber);
   const indentation = lines[range.start].match(/^\s*/)?.[0] ?? "";
   const names = new Set(knownTypes.map((name) => String(name).replace(/^\./, "")));
-  lines[range.start] = indentation + ".node";
+  lines[range.start] = indentation + "node";
   let end = range.end;
   const styleFields = new Set([
     "shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align",
@@ -466,7 +466,7 @@ export function setGraphType(value, graphLineNumber, type, knownTypes = []) {
 function nodeDeclaration(type, indentation, id, label) {
   const nodeType = String(type ?? "node").replace(/^\./, "");
   return [
-    `${indentation}.node`,
+    `${indentation}node`,
     ...(nodeType && nodeType !== "node" ? [`${indentation}  .${nodeType}`] : []),
     ...(id ? [`${indentation}  .id ${id}`] : []),
     `${indentation}  .label${label ? ` ${label}` : ""}`,
@@ -510,7 +510,7 @@ function appendToContainer(lines, containerLineNumber, declarations) {
 function flowDeclaration(indentation, { from = "", to = "", direction = "right", fromDirection = direction, toDirection = fromDirection, lineType = "" } = {}) {
   const fieldIndent = indentation + "  ";
   return [
-    `${indentation}.flow`,
+    `${indentation}flow`,
     `${fieldIndent}.from ${from}`,
     `${fieldIndent}.to ${to}`,
     `${fieldIndent}.from-direction ${fromDirection}`,
@@ -721,7 +721,7 @@ export function removeNodeReferences(value, id) {
     const endpoint = lines.findIndex((line) => new RegExp(`^\\s*\\.(?:from|to)\\s+${escapedId}\\s*$`).test(line));
     if (endpoint < 0) break;
     let relationship = endpoint - 1;
-    while (relationship >= 0 && !([".connect", ".flow"].includes(lines[relationship].trim()) && indentationWidth(lines[relationship]) < indentationWidth(lines[endpoint]))) relationship -= 1;
+    while (relationship >= 0 && !([".connect", ".flow", "flow"].includes(lines[relationship].trim()) && indentationWidth(lines[relationship]) < indentationWidth(lines[endpoint]))) relationship -= 1;
     if (relationship < 0) break;
     result = removeDeclaration(result, relationship + 1);
   }

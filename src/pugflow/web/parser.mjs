@@ -109,7 +109,7 @@ function parseMarkupLine(body, lineNumber, errors) {
   if (styleDefinition) return { type: styleDefinition[1] + "-definition", name: styleDefinition[2], classes: [], attrs: {}, text: "", children: [], lineNumber };
   const diagram = body.match(/^#(?:canvas|diagram)(?:\((.*)\))?$/);
   if (diagram) return { type: "diagram", classes: [], attrs: parseAttributes(diagram[1], lineNumber, errors), text: "", children: [], lineNumber };
-  if (body === "graph") return { type: "graph", classes: [], attrs: {}, text: "", children: [], lineNumber };
+  if (["graph", "node", "flow"].includes(body)) return { type: body, classes: [], attrs: {}, text: "", children: [], lineNumber };
   if (/^[a-zA-Z][\w-]*$/.test(body)) return { type: "node-group", tag: body, classes: [], attrs: {}, text: "", children: [], lineNumber };
 
   const element = body.match(/^([a-zA-Z][\w-]*)?((?:\.[\w-]+)+)(?:\((.*)\))?(?:\s+(.*))?$/);

@@ -147,10 +147,10 @@ const EXAMPLE_DEFINITIONS = `// Production delivery architecture — layered gra
 const EXAMPLE_CANVAS = `
   .background #f8fafc
   .defaults
-    .node
+    node
       .font-family Inter, sans-serif
       .font-size 14
-    .flow
+    flow
       .color #475569
       .width 1.5
       .roundness 8
@@ -175,7 +175,7 @@ const EXAMPLE_CANVAS = `
     .padding 30
     .x-spacing 72
     .y-spacing 48
-    .node
+    node
       .edge-external
       .id client
       .label Client application
@@ -184,37 +184,37 @@ const EXAMPLE_CANVAS = `
           .context
           | Public entry point
 
-    .node
+    node
       .edge-service
       .id gateway
       .label API gateway
       .layer 2
 
-    .node
+    node
       .edge-service
       .id identity
       .label Identity provider
       .layer 1
 
-    .node
+    node
       .edge-decision
       .id policy
       .label Access policy
       .layer 0
 
-    .flow
+    flow
       .from client
       .to gateway
       .label HTTPS
       .edge-flow
 
-    .flow
+    flow
       .from gateway
       .to identity
       .label validate token
       .edge-flow
 
-    .flow
+    flow
       .from identity
       .to policy
       .label claims
@@ -233,56 +233,56 @@ const EXAMPLE_CANVAS = `
     .padding 30
     .x-spacing 76
     .y-spacing 48
-    .node
+    node
       .application-service
       .id api
       .label Application API
 
-    .node
+    node
       .application-service
       .id orders
       .label Order service
 
-    .node
+    node
       .application-service
       .id inventory
       .label Inventory service
 
-    .node
+    node
       .application-datastore
       .id primary-db
       .label Primary database
 
-    .node
+    node
       .application-datastore
       .id event-stream
       .label Event stream
 
-    .flow
+    flow
       .from api
       .to orders
       .direction right
       .application-flow
 
-    .flow
+    flow
       .from orders
       .to inventory
       .direction right
       .application-flow
 
-    .flow
+    flow
       .from orders
       .to primary-db
       .direction down
       .application-flow
 
-    .flow
+    flow
       .from orders
       .to event-stream
       .direction down
       .asynchronous
 
-    .flow
+    flow
       .from inventory
       .to primary-db
       .direction down
@@ -302,43 +302,43 @@ const EXAMPLE_CANVAS = `
     .font-weight 600
     .padding 30
     .x-spacing 72
-    .node
+    node
       .operations-service
       .id collector
       .label Telemetry collector
 
-    .node
+    node
       .operations-datastore
       .id metrics
       .label Metrics store
 
-    .node
+    node
       .operations-service
       .id alerting
       .label Alert manager
 
-    .node
+    node
       .operations-external
       .id oncall
       .label On-call engineer
 
-    .flow
+    flow
       .from collector
       .to metrics
       .telemetry
 
-    .flow
+    flow
       .from metrics
       .to alerting
       .telemetry
 
-    .flow
+    flow
       .from alerting
       .to oncall
       .label page
       .incident
 
-  .flow
+  flow
     .from policy
     .to api
     .label authorized request
@@ -347,7 +347,7 @@ const EXAMPLE_CANVAS = `
     .target-face top
     .edge-to-application
 
-  .flow
+  flow
     .from event-stream
     .to collector
     .label delivery metrics
@@ -1967,7 +1967,7 @@ function highlightSource() {
   for (const name of ["sbd-comment", "sbd-string", "sbd-math", "sbd-structure", "sbd-attribute", "sbd-color", "sbd-number"]) {
     CSS.highlights.delete(name);
   }
-  const pattern = /(\/\/.*$)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\$[^$\n]*\$)|(@(?:node|flow|line|annotation)\b|#canvas|^\s*\||[a-zA-Z][\w-]*(?:\.[\w-]+)+|(?:\.[\w-]+)+|^\s*(?:node|graph)\b)|([\w-]+)(?=\s*=)|(#[\da-fA-F]{8}\b|#[\da-fA-F]{6}\b|#[\da-fA-F]{3}\b)|(\b\d+(?:\.\d+)?\b)/gm;
+  const pattern = /(\/\/.*$)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\$[^$\n]*\$)|(@(?:node|flow|line|annotation)\b|#canvas|^\s*\||[a-zA-Z][\w-]*(?:\.[\w-]+)+|(?:\.[\w-]+)+|^\s*(?:node|flow|graph)\b)|([\w-]+)(?=\s*=)|(#[\da-fA-F]{8}\b|#[\da-fA-F]{6}\b|#[\da-fA-F]{3}\b)|(\b\d+(?:\.\d+)?\b)/gm;
   const start = source.selectionStart;
   const end = source.selectionEnd;
   if (source.childNodes.length !== 1 || source.firstChild?.nodeType !== Node.TEXT_NODE) {
@@ -2013,7 +2013,7 @@ const structureCompletions = [
   { label: "@annotation", insert: "@annotation custom_note", detail: "Define a reusable annotation style" },
   { label: "graph", insert: "graph\n  .id graph-id", detail: "Start a canvas graph" },
   { label: ".defaults", insert: ".defaults", detail: "Group diagram-wide node, line, and annotation defaults" },
-  { label: ".flow", insert: ".flow\n  .from source-id\n  .to target-id", detail: "Flow between nodes; branching and merging are inferred" },
+  { label: "flow", insert: "flow\n  .from source-id\n  .to target-id", detail: "Flow between nodes; branching and merging are inferred" },
   { label: ".from", insert: ".from ", detail: "Flow source node ID" },
   { label: ".to", insert: ".to ", detail: "Flow target node ID" },
   { label: ".from-direction", insert: ".from-direction right", detail: "Direction leaving a flow source" },
@@ -2028,7 +2028,7 @@ const structureCompletions = [
   ...["top", "right", "bottom", "left"].map((face) => ({ label: `.${face}-ports`, insert: `.${face}-ports distributed`, detail: `Use distributed or shared ports on the ${face} face` })),
   { label: ".background", insert: ".background #ffffff", detail: "Diagram background" },
   { label: ".font", insert: ".font Verdana, sans-serif", detail: "Diagram font" },
-  { label: ".node", insert: ".node\n  .label ", detail: "Declare a node (nest a reusable @node class to style it) or group node defaults" },
+  { label: "node", insert: "node\n  .label ", detail: "Declare a node (nest a reusable @node class to style it) or group node defaults" },
   { label: ".color", insert: ".color #111111", detail: "Text, line, or annotation color" },
   { label: ".fill", insert: ".fill #ffffff", detail: "Node fill color" },
   { label: ".shape", insert: ".shape rounded", detail: "Node shape" },
@@ -2063,7 +2063,6 @@ const structureCompletions = [
   { label: ".annotation-above-hidden", insert: ".annotation-above-hidden", detail: "Hide the upper connector annotation" },
   { label: ".annotation-below-hidden", insert: ".annotation-below-hidden", detail: "Hide the lower connector annotation" },
   { label: ".offset", insert: ".offset (0, 0)", detail: "Manual node or annotation offset" },
-  { label: ".node", insert: ".node\n  .label ", detail: "Start a node block" },
   { label: ".annotation", insert: ".annotation\n  .above ", detail: "Group annotations inside a node" },
   { label: ".above", insert: ".above ", detail: "Annotation above a node" },
   { label: ".below", insert: ".below ", detail: "Annotation below a node" },
@@ -2078,6 +2077,8 @@ const structureCompletions = [
   { label: ".font-weight", insert: ".font-weight bold", detail: "normal, numeric, or bold" },
   { label: ".font-style", insert: ".font-style italic", detail: "normal, italic, or oblique" },
   { label: ".text-decoration", insert: ".text-decoration underline", detail: "none, underline, overline, or line-through" },
+  { label: ".text-outline", insert: ".text-outline transparent", detail: "Text outline color" },
+  { label: ".text-outline-width", insert: ".text-outline-width 0", detail: "Text outline width" },
   { label: ".hidden", insert: ".hidden", detail: "Hide a node while preserving layout" },
 ];
 
@@ -2092,16 +2093,16 @@ function availableStructureCompletions() {
 }
 
 const completionLabels = {
-  root: new Set(["@node", "@flow", "@graph", "@annotation", "graph", ".defaults", ".background", ".font", ".flow"]),
-  canvas: new Set(["graph", ".defaults", ".background", ".font", ".flow"]),
-  graph: new Set([".node", ".flow", ".id", ".label", ".layer", ".placement", ".relative-to", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".label-offset", ".align", ".vertical-align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  root: new Set(["@node", "@flow", "@graph", "@annotation", "graph", ".defaults", ".background", ".font", "flow"]),
+  canvas: new Set(["graph", ".defaults", ".background", ".font", "flow"]),
+  graph: new Set(["node", "flow", ".id", ".label", ".layer", ".placement", ".relative-to", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".label-offset", ".align", ".vertical-align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   node: new Set([".id", ".label", ".layer", ".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".vertical-align", ".offset", ".label-offset", ".annotation", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".image", ".image-width", ".image-height", ".image-fit", ".image-opacity", ".image-offset", ".image-padding", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   flow: new Set([".from", ".to", ".from-direction", ".to-direction", ".direction", ".color", ".outline", ".outline-width", ".width", ".arrow-style", ".arrow-shape", ".arrow-height", ".arrow-head-width", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation", ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   flowStyle: new Set([".color", ".outline", ".outline-width", ".width", ".arrow-style", ".arrow-shape", ".arrow-height", ".arrow-head-width", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   annotation: new Set([".above", ".below"]),
   annotationStyle: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   annotationEntry: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
-  defaults: new Set([".node", ".flow", ".annotation"]),
+  defaults: new Set(["node", "flow", ".annotation"]),
 };
 
 const cssRootCompletions = [
@@ -2169,31 +2170,31 @@ function completionScope(caret) {
   if (/^@annotation\b/.test(parent)) return "annotationStyle";
   if (parent === "#canvas" || parent.startsWith("#canvas(")) return "canvas";
   if (parent === "graph") return "graph";
-  if (parentHead === ".flow") return ancestors.some((item) => item === ".defaults") ? "flowStyle" : "flow";
+  if (parentHead === "flow" || parentHead === ".flow") return ancestors.some((item) => item === ".defaults") ? "flowStyle" : "flow";
   if (parentHead === ".annotation") return ancestors.some((item) => item === ".defaults") ? "annotationStyle" : "annotation";
   if ([".above", ".below"].includes(parentHead)) return "annotationEntry";
   if (parentHead === ".defaults") return "defaults";
-  if (parentHead === ".node" && ancestors.some((item) => item === ".defaults")) return "node";
+  if (["node", ".node"].includes(parentHead) && ancestors.some((item) => item === ".defaults")) return "node";
   if (customKinds.get(parentHead) === "flow") return "flowStyle";
   if (customKinds.get(parentHead) === "annotation") return "annotationEntry";
-  if (parentHead === ".node" || customKinds.get(parentHead) === "node") return "node";
+  if (["node", ".node"].includes(parentHead) || customKinds.get(parentHead) === "node") return "node";
   return "root";
 }
 
 function completionsForScope(scope) {
   const allowed = completionLabels[scope] ?? completionLabels.root;
   const matches = availableStructureCompletions().filter((item) => {
-    if (item.reusableKind) return (scope === "graph" && item.reusableKind === "node") || (scope === "flow" && item.reusableKind === "flow") || (scope === "annotationEntry" && item.reusableKind === "annotation");
+    if (item.reusableKind) return (scope === item.reusableKind) || (scope === "annotationEntry" && item.reusableKind === "annotation");
     return allowed.has(item.label);
   });
   const unique = new Map(matches.map((item) => [item.label, item]));
-  if (scope === "graph") unique.set(".node", { label: ".node", insert: ".node\n  .label ", detail: "Declare an independent node" });
+  if (scope === "graph") unique.set("node", { label: "node", insert: "node\n  .label ", detail: "Declare an independent node" });
   if (scope === "defaults") {
-    unique.set(".node", { label: ".node", insert: ".node\n  .fill #ffffff", detail: "Default node properties" });
-    unique.set(".flow", { label: ".flow", insert: ".flow\n  .color #111111", detail: "Default flow properties" });
+    unique.set("node", { label: "node", insert: "node\n  .fill #ffffff", detail: "Default node properties" });
+    unique.set("flow", { label: "flow", insert: "flow\n  .color #111111", detail: "Default flow properties" });
     unique.set(".annotation", { label: ".annotation", insert: ".annotation\n  .color #111111", detail: "Default annotation properties" });
   }
-  return [...unique.values()];
+  return [...unique.values()].sort((left, right) => left.label.localeCompare(right.label));
 }
 let shownCompletions = [];
 let activeCompletion = 0;
@@ -2209,7 +2210,7 @@ function completionContext() {
     const match = before.match(/([\w-]*)$/);
     return { items: [], prefix: match?.[1] ?? "", start: caret - (match?.[1]?.length ?? 0), end: caret };
   }
-  const match = before.match(/([a-zA-Z][\w-]*(?:\.[\w-]*)+|(?:\.[\w-]*)+|#[\w-]*|@[\w-]*)$/);
+  const match = before.match(/([a-zA-Z][\w-]*|(?:\.[\w-]*)+|#[\w-]*|@[\w-]*)$/);
   return { items: completionsForScope(completionScope(caret)), prefix: match?.[1] ?? "", start: match ? caret - match[1].length : caret, end: caret };
 }
 
@@ -2234,19 +2235,52 @@ function renderCompletions() {
   });
 }
 
+function positionCompletionMenu() {
+  const selection = window.getSelection();
+  const range = selection?.rangeCount && source.contains(selection.focusNode) ? selection.getRangeAt(0).cloneRange() : null;
+  range?.collapse(false);
+  const caretRect = range?.getClientRects()[0];
+  const shellRect = editorShell.getBoundingClientRect();
+  const lineStart = source.value.lastIndexOf("\n", source.selectionStart - 1) + 1;
+  const line = source.value.slice(0, source.selectionStart).split("\n").length - 1;
+  const column = [...source.value.slice(lineStart, source.selectionStart)]
+    .reduce((count, character) => character === "\t" ? count + (2 - count % 2) : count + 1, 0);
+  const caretLeft = caretRect?.left ?? shellRect.left + 52 + column * 7.23 - source.scrollLeft;
+  const caretTop = caretRect?.top ?? shellRect.top + 14 + line * 20 - source.scrollTop;
+  const caretBottom = caretRect?.bottom ?? caretTop + 20;
+  const width = completionMenu.offsetWidth;
+  const height = completionMenu.offsetHeight;
+  const left = Math.max(6, Math.min(caretLeft - shellRect.left, shellRect.width - width - 6));
+  const below = caretBottom - shellRect.top + 4;
+  const top = below + height <= shellRect.height - 6
+    ? below
+    : Math.max(6, caretTop - shellRect.top - height - 4);
+  completionMenu.style.translate = `${left}px ${top}px`;
+}
+
 function showCompletions() {
   const context = completionContext();
-  const prefix = context.prefix.toLowerCase();
-  shownCompletions = context.items.filter((item) => item.label.toLowerCase().startsWith(prefix));
+  const prefix = context.prefix.toLowerCase().replace(/^\./, "");
+  shownCompletions = context.items
+    .filter((item) => item.label.toLowerCase().replace(/^\./, "").includes(prefix))
+    .sort((left, right) => {
+      const leftLabel = left.label.toLowerCase().replace(/^\./, "");
+      const rightLabel = right.label.toLowerCase().replace(/^\./, "");
+      const leftRank = leftLabel.startsWith(prefix) ? 0 : 1;
+      const rightRank = rightLabel.startsWith(prefix) ? 0 : 1;
+      return leftRank - rightRank || leftLabel.localeCompare(rightLabel);
+    });
   if (!shownCompletions.length) return hideCompletions();
   activeCompletion = 0;
   completionRange = context;
   completionMenu.hidden = false;
   renderCompletions();
+  positionCompletionMenu();
 }
 
 function hideCompletions() {
   completionMenu.hidden = true;
+  completionMenu.style.translate = "";
   shownCompletions = [];
   completionRange = null;
 }
@@ -2254,7 +2288,9 @@ function hideCompletions() {
 function acceptCompletion() {
   const item = shownCompletions[activeCompletion];
   if (!item || !completionRange) return;
-  source.setRangeText(item.insert, completionRange.start, completionRange.end, "end");
+  const lineStart = source.value.lastIndexOf("\n", completionRange.start - 1) + 1;
+  const indentation = source.value.slice(lineStart, completionRange.start).match(/^\s*/)?.[0] ?? "";
+  source.setRangeText(item.insert.replaceAll("\n", `\n${indentation}`), completionRange.start, completionRange.end, "end");
   const caret = source.selectionStart - (item.cursorBack ?? 0);
   source.setSelectionRange(caret, caret);
   hideCompletions();
@@ -2687,11 +2723,12 @@ source.addEventListener("keydown", (event) => {
       completionMenu.children[activeCompletion]?.scrollIntoView({ block: "nearest" });
       return;
     }
-    if (event.key === "Enter" || event.key === "Tab") {
+    if (event.key === "Tab") {
       event.preventDefault();
       acceptCompletion();
       return;
     }
+    if (event.key === "Enter") hideCompletions();
     if (event.key === "Escape") {
       event.preventDefault();
       hideCompletions();
@@ -2699,6 +2736,11 @@ source.addEventListener("keydown", (event) => {
     }
   }
   if (event.key !== "Tab") return;
+  if (!event.shiftKey && source.selectionStart === source.selectionEnd) {
+    event.preventDefault();
+    showCompletions();
+    if (!completionMenu.hidden) return;
+  }
   event.preventDefault();
   const indented = indentSourceSelection(source.value, source.selectionStart, source.selectionEnd, event.shiftKey);
   source.value = indented.value;

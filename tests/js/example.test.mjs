@@ -20,6 +20,20 @@ test("source editor preserves standard selection, deletion, and copy shortcuts",
   assert.match(app, /activeDocument === "pug"[\s\S]*\["z", "y"\][\s\S]*undoCanvas\(\)/);
 });
 
+test("source completions behave like an IDE near the caret", () => {
+  const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
+  const styles = readFileSync(new URL("../../src/pugflow/web/styles.css", import.meta.url), "utf8");
+  assert.match(app, /graph: new Set\(\["node", "flow"/);
+  assert.match(app, /scope === item\.reusableKind/);
+  assert.match(app, /replace\(\/\^\\\.\/, ""\)\.includes\(prefix\)/);
+  assert.match(app, /leftRank - rightRank \|\| leftLabel\.localeCompare\(rightLabel\)/);
+  assert.match(app, /item\.insert\.replaceAll\("\\n", `\\n\$\{indentation\}`\)/);
+  assert.doesNotMatch(app, /event\.key === "Enter" \|\| event\.key === "Tab"/);
+  assert.match(app, /if \(event\.key === "Enter"\) hideCompletions\(\)/);
+  assert.match(app, /function positionCompletionMenu\(\)[\s\S]*caretRect[\s\S]*completionMenu\.style\.translate/);
+  assert.match(styles, /\.completion-menu \{[\s\S]*top: 0;[\s\S]*left: 0;/);
+});
+
 test("the built-in showcase presents a restrained layered production architecture", () => {
   const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
   const definitions = app.match(/const EXAMPLE_DEFINITIONS = `([\s\S]*?)`;/)?.[1];
@@ -293,7 +307,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /CSS\.supports\("color"/);
   assert.match(app, /currentTrigger\?\.style\.setProperty\("--swatch", color\)/);
   assert.match(styles, /\.color-decorator \{\s*position: absolute;/);
-  assert.match(html, /id="source"[^>]*contenteditable="plaintext-only"[^>]*><div class="color-decorators" id="color-decorators" contenteditable="false"><\/div><\/div>/);
+  assert.match(html, /id="source"[^>]*contenteditable="plaintext-only"[^>]*><\/div>\s*<div class="color-decorators" id="color-decorators" aria-hidden="true"><\/div>/);
   assert.doesNotMatch(app, /Number\(swatch\.dataset\.line\) \* 20 - source\.scrollTop/);
   assert.doesNotMatch(app, /Number\(swatch\.dataset\.length\)\) \* 7\.23 - source\.scrollLeft/);
   assert.doesNotMatch(styles, /^\.color-popup-trigger \{[^}]*position: relative/m);

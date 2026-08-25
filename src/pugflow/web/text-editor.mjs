@@ -122,10 +122,8 @@ export function attachTextEditor(element) {
     event.preventDefault();
     const start = element.selectionStart;
     const end = element.selectionEnd;
-    queueMicrotask(() => {
-      element.setRangeText("\n", start, end, "end");
-      element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "\n" }));
-    });
+    element.setRangeText("\n", start, end, "end");
+    element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "\n" }));
   });
 
   element.addEventListener("keydown", (event) => {

@@ -2,6 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 
+test("accepts bare structural declarations and legacy dotted declarations", () => {
+  const canonical = parseDiagram("graph\n  node\n    .id first\n    .label First\n  node\n    .id second\n    .label Second\n  flow\n    .from first\n    .to second");
+  const legacy = parseDiagram("graph\n  .node\n    .id first\n    .label First\n  .node\n    .id second\n    .label Second\n  .flow\n    .from first\n    .to second");
+  assert.deepEqual(canonical.errors, []);
+  assert.deepEqual(legacy.errors, []);
+  assert.deepEqual(canonical.nodes.map((node) => node.id), ["first", "second"]);
+  assert.deepEqual(canonical.edges.map((edge) => [edge.from, edge.to]), [["first", "second"]]);
+});
+
 const SOURCE = [
   "@node service",
   "  .shape pill",
