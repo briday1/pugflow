@@ -317,6 +317,7 @@ function addNode(svg, node, colors, defs) {
   node.above.filter((annotation) => !annotation.hidden).forEach((annotation, index) => addBlockAnnotation(group, node, annotation, index, colors));
   const shape = shapeElement(node, colors, defs);
   if (node.kind === "image") {
+    shape.removeAttribute("filter");
     const clipId = `image-clip-${node.id.replace(/[^\w-]/g, "-")}`;
     const clip = svgElement("clipPath", { id: clipId });
     const clipShape = shape.cloneNode(false);
@@ -326,7 +327,8 @@ function addNode(svg, node, colors, defs) {
     const preserveAspectRatio = node.style.fit === "fill" ? "none" : `xMidYMid ${node.style.fit === "cover" ? "slice" : "meet"}`;
     const imageX = node.x + node.style.padding;
     const imageY = top + node.style.padding;
-    group.append(svgElement("image", {
+    const imageShadow = svgElement("g", { filter: ensureShadow(defs, node) });
+    imageShadow.append(svgElement("image", {
       href: node.style.source,
       x: imageX,
       y: imageY,
@@ -346,6 +348,7 @@ function addNode(svg, node, colors, defs) {
       tabindex: 0,
       "aria-label": `Move image ${node.id}`,
     }));
+    group.append(imageShadow);
     group.append(resizeHandles({
       className: "image-resize-handles", x: imageX, y: imageY,
       width: node.style.width, height: node.style.height, lineNumber: node.lineNumber,

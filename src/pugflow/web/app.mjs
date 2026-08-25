@@ -1121,7 +1121,7 @@ function imagePreviewMarkup(image) {
     ${addButtons}
     ${annotationChip("node-annotations", "above", above)}
     <div class="image-preview-box preview-part" data-sidecar="image-box" role="button" tabindex="0" title="Edit image source, size, fit, and frame">
-      <img src="${escapeHtml(image.style.source)}" alt="" style="object-fit:${image.style.fit};opacity:${image.style.opacity}">
+      <img src="${escapeHtml(image.style.source)}" alt="" style="object-fit:${image.style.fit};opacity:${image.style.opacity};${escapeHtml(previewShadowCss(image.style))}">
       <svg viewBox="0 0 138 92" aria-hidden="true">${previewShapeMarkup(image.style, 138, 92)}</svg>
     </div>
     ${annotationChip("node-annotations", "below", below)}</div>`;
@@ -1223,7 +1223,7 @@ function legacyFlowAnnotationEditor(edge, position) {
 
 function flowAnnotationEditor(annotation, index) {
   const edge = selectedEdges()[0];
-  if (annotation.legacy) return legacyFlowAnnotationEditor(edge, annotation.lineNumber === edge?.annotationBelowLineNumber ? "below" : "above");
+  if (annotation.legacy) return legacyFlowAnnotationEditor(edge, annotation.position);
   const target = `data-flow-annotation-line="${annotation.lineNumber}"`;
   return `<details open class="annotation-editor"><summary><span>Annotation ${index + 1}</span><label class="inspector-switch inspector-switch-summary"><span>Hidden</span><input data-flow-annotation-hidden ${target} type="checkbox"${annotation.hidden ? " checked" : ""}></label></summary><label>Text<textarea data-flow-annotation-text ${target} rows="2">${escapeHtml(annotation.text)}</textarea></label>${fontOptions("flow-annotation", annotation).replaceAll("data-flow-annotation-field", `${target} data-flow-annotation-field`)}<div class="inspector-inline-field"><label>Offset<input value="(${annotation.offsetX ?? 0}, ${annotation.offsetY ?? 0})" readonly></label><button type="button" data-remove-flow-annotation-offset="${annotation.lineNumber}"${annotation.offsetX || annotation.offsetY ? "" : " disabled"}>Remove</button></div><button type="button" class="danger annotation-delete" data-delete-flow-annotation="${annotation.lineNumber}">Delete annotation</button></details>`;
 }

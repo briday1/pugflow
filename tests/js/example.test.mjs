@@ -193,6 +193,10 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(styles, /\.node-preview-stage > \.preview-face-add\[data-face-add="left"\], \.node-preview-stage > \.preview-face-add\[data-face-add="right"\] \{ width: 14px; height: 22px;/);
   assert.match(app, /class="image-preview-box preview-part" data-sidecar="image-box"/);
   assert.match(app, /function imageBoxSidecar\(image\)/);
+  assert.match(app, /opacity:\$\{image\.style\.opacity\};\$\{escapeHtml\(previewShadowCss\(image\.style\)\)\}/);
+  assert.match(renderer, /shape\.removeAttribute\("filter"\)/);
+  assert.match(renderer, /const imageShadow = svgElement\("g", \{ filter: ensureShadow\(defs, node\) \}\)/);
+  assert.match(renderer, /imageShadow\.append\(svgElement\("image"/);
   assert.match(app, /imagePreviewMarkup\(image\)[\s\S]*nodeConnectionsSection\(image\)/);
   assert.match(renderer, /kind: "node-resize"/);
   assert.match(renderer, /kind: "graph-resize"/);
@@ -321,6 +325,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.doesNotMatch(html, /node-annotation-only/);
   assert.match(app, /data-flow-annotation-field/);
   assert.match(app, /setAnnotationText\(source\.value, flowAnnotationLine/);
+  assert.match(app, /if \(annotation\.legacy\) return legacyFlowAnnotationEditor\(edge, annotation\.position\)/);
   assert.match(app, /CSS\.supports\("color"/);
   assert.match(app, /currentTrigger\?\.style\.setProperty\("--swatch", color\)/);
   assert.doesNotMatch(styles, /\.color-decorator \{/);
