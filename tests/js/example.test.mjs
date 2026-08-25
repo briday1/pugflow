@@ -293,7 +293,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /CSS\.supports\("color"/);
   assert.match(app, /currentTrigger\?\.style\.setProperty\("--swatch", color\)/);
   assert.match(styles, /\.color-decorator \{\s*position: absolute;/);
-  assert.match(html, /id="source"[^>]*contenteditable="plaintext-only"[^>]*><div class="color-decorators" id="color-decorators" contenteditable="false"><\/div><\/div>/);
+  assert.match(html, /id="source"[^>]*contenteditable="plaintext-only"[^>]*><\/div>\s*<div class="color-decorators" id="color-decorators" aria-hidden="true"><\/div>/);
   assert.doesNotMatch(app, /Number\(swatch\.dataset\.line\) \* 20 - source\.scrollTop/);
   assert.doesNotMatch(app, /Number\(swatch\.dataset\.length\)\) \* 7\.23 - source\.scrollLeft/);
   assert.doesNotMatch(styles, /^\.color-popup-trigger \{[^}]*position: relative/m);

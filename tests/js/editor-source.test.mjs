@@ -30,27 +30,27 @@ import {
 } from "../../src/pugflow/web/editor-source.mjs";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 
-const FLAT_GRAPH = "#canvas\n  graph\n    .id main\n    .node\n      .id root\n      .label Root\n    .node\n      .id child\n      .label Child\n    .flow\n      .from root\n      .to child\n      .label request";
+const FLAT_GRAPH = "#canvas\n  graph\n    .id main\n    node\n      .id root\n      .label Root\n    node\n      .id child\n      .label Child\n    flow\n      .from root\n      .to child\n      .label request";
 
 test("adds a graph to blank source without emitting a canvas declaration", () => {
   const updated = appendDiagramNode("", {
     diagramId: "main", id: "root", label: "Root",
   });
-  assert.equal(updated, "graph\n  .id main\n  .node\n    .id root\n    .label Root");
+  assert.equal(updated, "graph\n  .id main\n  node\n    .id root\n    .label Root");
   assert.doesNotMatch(updated, /#canvas|#diagram/);
   assert.deepEqual(parseDiagram(updated).errors, []);
 });
 
 test("adds and moves cross-graph flows at the implied canvas root", () => {
-  const source = "graph\n  .id one\n  .node\n    .id first\n    .label First\ngraph\n  .id two\n  .node\n    .id second\n    .label Second";
+  const source = "graph\n  .id one\n  node\n    .id first\n    .label First\ngraph\n  .id two\n  node\n    .id second\n    .label Second";
   const appended = appendFlowReference(source, 0, { from: "first", to: "second" });
-  assert.match(appended, /\n\n\.flow\n  \.from first\n  \.to second/);
+  assert.match(appended, /\n\nflow\n  \.from first\n  \.to second/);
   assert.deepEqual(parseDiagram(appended).errors, []);
 
-  const nested = `${source}\n  .flow\n    .from first\n    .to second`;
+  const nested = `${source}\n  flow\n    .from first\n    .to second`;
   const flow = parseDiagram(nested).edges[0];
   const moved = moveDeclarationToContainer(nested, flow.lineNumber, 0);
-  assert.match(moved, /\n\n\.flow\n  \.from first\n  \.to second$/);
+  assert.match(moved, /\n\nflow\n  \.from first\n  \.to second$/);
   assert.deepEqual(parseDiagram(moved).errors, []);
 });
 
@@ -59,10 +59,10 @@ test("edits inspector-backed node properties", () => {
   edited = setNodeOffsetField(edited, parseDiagram(edited).nodes[0].lineNumber, "offset", 12.26, -4.04);
   edited = removeNodeField(edited, parseDiagram(edited).nodes[0].lineNumber, "fill");
   edited = setNodeType(edited, parseDiagram(edited).nodes[0].lineNumber, "custom_node", ["custom_node"]);
-  assert.ok(edited.includes("\n    .node\n      .custom_node\n      .id root\n      .offset (12.3, -4)\n      .label Root"));
+  assert.ok(edited.includes("\n    node\n      .custom_node\n      .id root\n      .offset (12.3, -4)\n      .label Root"));
   assert.doesNotMatch(edited, /\.fill #123456/);
   const cleared = setNodeType(edited, parseDiagram(edited).nodes[0].lineNumber, "node", ["custom_node"]);
-  assert.ok(cleared.includes("\n    .node\n      .id root"));
+  assert.ok(cleared.includes("\n    node\n      .id root"));
   assert.doesNotMatch(cleared, /\.custom_node/);
 });
 
@@ -75,7 +75,7 @@ test("renames node IDs in explicit flow endpoints", () => {
 test("writes direct flow fields and label offsets", () => {
   let updated = setStructuralField(FLAT_GRAPH, 10, "width", "3");
   updated = setStructuralOffsetField(updated, 10, 5, 6);
-  assert.match(updated, /    \.flow\n      \.label-offset \(5, 6\)\n      \.width 3\n      \.from root/);
+  assert.match(updated, /    flow\n      \.label-offset \(5, 6\)\n      \.width 3\n      \.from root/);
   assert.deepEqual(parseDiagram(updated).errors, []);
 });
 
@@ -84,7 +84,7 @@ test("switches reusable flow types while clearing local appearance overrides", (
   const parsed = parseDiagram(source);
   assert.deepEqual(parsed.errors, []);
   const updated = setStructuralLineType(source, parsed.edges[0].lineNumber, "success", ["warning", "success"]);
-  assert.match(updated, /    \.flow\n      \.success\n      \.from root/);
+  assert.match(updated, /    flow\n      \.success\n      \.from root/);
   assert.doesNotMatch(updated, /      \.warning|      \.color blue|      \.outline |      \.outline-width|      \.roundness|      \.arrow-height|      \.arrow-head-width|      \.shadow-color|      \.font-size/);
 });
 
@@ -99,7 +99,7 @@ test("adds independent nodes and explicit flows to a graph", () => {
   const graphLine = 2;
   const withNode = appendGraphNode(FLAT_GRAPH, graphLine, { nodeType: "node", id: "third", label: "Third" });
   const withFlow = appendFlowReference(withNode, graphLine, { from: "child", to: "third", direction: "down", lineType: "warning" });
-  assert.match(withFlow, /    \.node\n      \.id third\n      \.label Third\n    \.flow\n      \.from child\n      \.to third\n      \.from-direction down\n      \.to-direction down\n      \.warning/);
+  assert.match(withFlow, /    node\n      \.id third\n      \.label Third\n    flow\n      \.from child\n      \.to third\n      \.from-direction down\n      \.to-direction down\n      \.warning/);
 });
 
 test("adds a standalone sibling graph", () => {
@@ -108,7 +108,7 @@ test("adds a standalone sibling graph", () => {
   });
 
   test("moves nodes and flow declarations between graph scopes", () => {
-    const source = `${FLAT_GRAPH}\n  graph\n    .id second\n    .node\n      .id other\n      .label Other`;
+    const source = `${FLAT_GRAPH}\n  graph\n    .id second\n    node\n      .id other\n      .label Other`;
     const parsed = parseDiagram(source);
     const child = parsed.nodes.find((node) => node.id === "child");
     const second = parsed.groups.find((group) => group.id === "second");
