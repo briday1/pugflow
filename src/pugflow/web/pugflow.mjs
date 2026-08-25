@@ -844,12 +844,16 @@ function diagramBounds(groups, nodesById, colors) {
     };
     const extraWidth = Math.max(0, (group.width ?? 0) - (natural.right - natural.x));
     const extraHeight = Math.max(0, (group.height ?? 0) - (natural.bottom - natural.y));
+    const frameOffsetX = Math.max(-extraWidth / 2, Math.min(extraWidth / 2, group.frameOffsetX ?? 0));
+    const frameOffsetY = Math.max(-extraHeight / 2, Math.min(extraHeight / 2, group.frameOffsetY ?? 0));
     const bounds = {
       ...natural,
-      x: natural.x - extraWidth / 2,
-      right: natural.right + extraWidth / 2,
-      y: natural.y - extraHeight / 2,
-      bottom: natural.bottom + extraHeight / 2,
+      x: natural.x - extraWidth / 2 + frameOffsetX,
+      right: natural.right + extraWidth / 2 + frameOffsetX,
+      y: natural.y - extraHeight / 2 + frameOffsetY,
+      bottom: natural.bottom + extraHeight / 2 + frameOffsetY,
+      frameOffsetX,
+      frameOffsetY,
     };
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
@@ -938,6 +942,7 @@ function addDiagramFrame(parent, group, colors, defs) {
     className: "graph-resize-handles", x: group.x, y: group.y,
     width: group.right - group.x, height: group.bottom - group.y,
     lineNumber: group.lineNumber, id: group.id, kind: "graph-resize",
+    currentX: group.frameOffsetX, currentY: group.frameOffsetY,
   }));
   parent.append(frame);
 }

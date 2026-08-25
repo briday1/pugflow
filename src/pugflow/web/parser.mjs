@@ -877,6 +877,7 @@ function compileMarkup(tree) {
     });
     const field = (name) => component.children.find((child) => child.type === name)?.text.trim() ?? graphPreset[name];
     const graphOffset = offsetTuple(field("offset"), "graph.offset", component.lineNumber, errors);
+    const frameOffset = offsetTuple(field("frame-offset"), "graph.frame-offset", component.lineNumber, errors);
     const labelOffset = offsetTuple(field("label-offset"), "graph.label-offset", component.lineNumber, errors);
     const layerText = field("layer");
     const layer = layerText === undefined || layerText === "" ? 0 : Number(layerText);
@@ -929,6 +930,8 @@ function compileMarkup(tree) {
       hidden,
       offsetX: graphOffset.x,
       offsetY: graphOffset.y,
+      frameOffsetX: frameOffset.x,
+      frameOffsetY: frameOffset.y,
       layer: Number.isInteger(layer) ? layer : 0,
       nodeIds: nodes.slice(before).map((node) => node.id),
       sourceIndex: groups.length,

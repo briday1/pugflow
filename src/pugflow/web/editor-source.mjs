@@ -376,9 +376,10 @@ export function setNodeGeometry(value, declarationLineNumber, width, height, off
 
 export const setImageGeometry = setNodeGeometry;
 
-export function setGraphGeometry(value, declarationLineNumber, width, height) {
+export function setGraphGeometry(value, declarationLineNumber, width, height, offsetX = 0, offsetY = 0) {
   let next = setStructuralField(value, declarationLineNumber, "width", offsetNumber(width));
-  return setStructuralField(next, declarationLineNumber, "height", offsetNumber(height));
+  next = setStructuralField(next, declarationLineNumber, "height", offsetNumber(height));
+  return setStructuralField(next, declarationLineNumber, "frame-offset", offsetTuple(offsetX, offsetY));
 }
 
 export function removeNodeField(value, labelLineNumber, field) {

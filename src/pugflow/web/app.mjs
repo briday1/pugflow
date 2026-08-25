@@ -2094,7 +2094,7 @@ function availableStructureCompletions() {
 const completionLabels = {
   root: new Set(["@node", "@flow", "@graph", "@annotation", "graph", ".defaults", ".background", ".font", "flow"]),
   canvas: new Set(["graph", ".defaults", ".background", ".font", "flow"]),
-  graph: new Set(["node", "image", "flow", ".id", ".label", ".layer", ".placement", ".relative-to", ".width", ".height", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".label-offset", ".align", ".vertical-align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  graph: new Set(["node", "image", "flow", ".id", ".label", ".layer", ".placement", ".relative-to", ".width", ".height", ".frame-offset", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".label-offset", ".align", ".vertical-align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   node: new Set([".id", ".label", ".layer", ".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".vertical-align", ".offset", ".label-offset", ".annotation", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   image: new Set([".id", ".source", ".width", ".height", ".fit", ".opacity", ".padding", ".shape", ".fill", ".outline", ".outline-style", ".outline-width", ".offset", ".annotation", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".hidden"]),
   nodeStyle: new Set([".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".vertical-align", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width"]),
@@ -2357,7 +2357,9 @@ function persistElementMove(change) {
   if (change.kind === "graph-resize") {
     const width = Math.max(1, change.currentWidth + change.dx * change.resizeX);
     const height = Math.max(1, change.currentHeight + change.dy * change.resizeY);
-    setSource(setGraphGeometry(source.value, change.lineNumber, width, height));
+    const offsetX = change.currentX + (change.resizeX ? change.dx / 2 : 0);
+    const offsetY = change.currentY + (change.resizeY ? change.dy / 2 : 0);
+    setSource(setGraphGeometry(source.value, change.lineNumber, width, height, offsetX, offsetY));
     return;
   }
   if (change.kind === "connection-label") {

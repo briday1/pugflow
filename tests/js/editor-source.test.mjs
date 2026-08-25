@@ -206,9 +206,12 @@ test("updates node and graph geometry", () => {
   assert.deepEqual([parsedNode.style.width, parsedNode.style.height, parsedNode.offsetX, parsedNode.offsetY], [180, 72, 5, -3]);
 
   const graph = parseDiagram(resizedNode).groups[0];
-  const resizedGraph = setGraphGeometry(resizedNode, graph.lineNumber, 420, 260);
+  const resizedGraph = setGraphGeometry(resizedNode, graph.lineNumber, 420, 260, 12, -8);
   const parsedGraph = parseDiagram(resizedGraph).groups[0];
-  assert.deepEqual([parsedGraph.width, parsedGraph.height], [420, 260]);
+  assert.deepEqual(
+    [parsedGraph.width, parsedGraph.height, parsedGraph.frameOffsetX, parsedGraph.frameOffsetY],
+    [420, 260, 12, -8],
+  );
 });
 
 test("indents and outdents selected source lines", () => {
