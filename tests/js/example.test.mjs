@@ -291,8 +291,8 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /function previewChunkyArrowMarkup\(start, end, direction, color, outline, outlineWidth, arrowHeight, arrowHeadWidth\)/);
     assert.doesNotMatch(app, /ID <small>optional<\/small><input data-line-field="id"/);
   assert.match(app, /colorControl\("Outline", "outline"/);
-  assert.match(app, /data-line-endpoint="from"/);
-  assert.match(app, /data-line-endpoint="to"/);
+  assert.match(app, /endpointInput\("from", edge\.from, edge\.to\)/);
+  assert.match(app, /endpointInput\("to", edge\.to, edge\.from\)/);
   assert.match(app, /<input data-line-endpoint="\$\{field\}"[^>]*list="\$\{listId\}"/);
   assert.match(app, /<datalist id="\$\{listId\}">/);
   assert.match(app, /flowEndpointNodes\(edge\)\.some\(\(node\) => node\.id === endpoint\)/);
