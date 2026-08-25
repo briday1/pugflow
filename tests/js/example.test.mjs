@@ -113,7 +113,9 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /Title position<select data-graph-field="label-position"/);
   assert.match(app, /Title alignment<select data-graph-field="align"/);
   assert.match(app, /fontOptions\("graph", group\)/);
-  assert.match(app, /fontOptions\("graph", group\).*<details open><summary>Layout<\/summary>.*data-graph-field="x-spacing".*data-graph-field="y-spacing"/);
+  assert.match(app, /fontOptions\("graph", group\)/);
+  assert.match(app, /data-graph-field="x-spacing".*data-graph-field="y-spacing"/);
+  assert.match(app, /data-sidecar="graph-layout"/);
   assert.match(app, /data-graph-field="placement"/);
   assert.match(app, /data-graph-field="relative-to"/);
   assert.match(html, /id="builder-diagram-placement"/);
@@ -159,7 +161,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.doesNotMatch(app, /New front layer/);
   assert.match(app, /data-connected-field="source-face"/);
   assert.match(app, /data-connected-field="target-face"/);
-  assert.match(app, /<summary>Flows <small>/);
+  assert.match(app, /<summary>Connections <small>/);
   assert.doesNotMatch(app, /data-connected-field="arrow-style"/);
   assert.doesNotMatch(app, /data-connected-field="width"/);
   assert.doesNotMatch(app, /data-connected-field="roundness"/);

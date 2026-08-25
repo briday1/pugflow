@@ -380,8 +380,31 @@ export function setNodeType(value, labelLineNumber, type) {
   return lines.join("\n");
 }
 
-function nodeDeclaration(type, indentation, id, label) {
-  const nodeType = `.${type.replace(/^\./, "")}`;
+/** Apply (or clear) a reusable @graph class on a graph declaration. */
+export function setGraphType(value, graphLineNumber, type, knownTypes = []) {
+  const lines = value.split("\n");
+  const start = graphLineNumber - 1;
+  if (!lines[start]) return value;
+  const indent = indentationWidth(lines[start]);
+  const fieldIndent = (lines[start].match(/^\s*/)?.[0] ?? "") + "  ";
+  let end = start + 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > indent)) end += 1;
+  const names = new Set(knownTypes);
+  const existing = lines.findIndex((line, index) => index > start && index < end
+    && indentationWidth(line) === indentationWidth(fieldIndent)
+    && /^\.[a-zA-Z][\w-]*$/.test(line.trim())
+    && names.has(line.trim().slice(1)));
+  if (!type) {
+    if (existing >= 0) lines.splice(existing, 1);
+    return lines.join("\n");
+  }
+  const replacement = fieldIndent + "." + type.replace(/^\./, "");
+  if (existing >= 0) lines[existing] = replacement;
+  else lines.splice(start + 1, 0, replacement);
+  return lines.join("\n");
+}
+
+function nodeDeclaration(type, indentation, id, label) {  const nodeType = `.${type.replace(/^\./, "")}`;
   return [
     `${indentation}${nodeType}`,
     ...(id ? [`${indentation}  .id ${id}`] : []),

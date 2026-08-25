@@ -378,6 +378,16 @@ function ensureMarker(defs, color, outline = "transparent", outlineWidth = 0, ar
   } else if (arrowShape === "circle") {
     markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 10, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
     markerEl.append(svgElement("circle", { cx: 5, cy: 5, r: 4.5, fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke" }));
+  } else if (arrowShape === "chunky") {
+    markerEl = svgElement("marker", { id, viewBox: "0 0 12 12", refX: 10, refY: 6, markerWidth: 5.5, markerHeight: 5.5, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
+    markerEl.append(svgElement("path", {
+      d: "M 0.5 0.5 L 11.5 6 L 0.5 11.5 L 3 6 z",
+      fill: color,
+      stroke: outline === "transparent" ? "none" : outline,
+      "stroke-width": outline === "transparent" ? 0 : Math.max(outlineWidth, 1),
+      "paint-order": "stroke",
+      "stroke-linejoin": "round",
+    }));
   } else {
     markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
     markerEl.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke", "stroke-linejoin": "round" }));

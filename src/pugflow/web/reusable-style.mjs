@@ -24,18 +24,69 @@ const FIELD_MAPS = {
     ["font-weight", "fontWeight"], ["font-style", "fontStyle"], ["text-decoration", "textDecoration"],
     ["text-outline", "textOutline"], ["text-outline-width", "textOutlineWidth"],
   ],
+  graph: [
+    ["label-position", "labelPosition"], ["align", "align"], ["placement", "placement"],
+    ["fill", "fill"], ["color", "color"], ["outline", "outline"], ["outline-style", "outlineStyle"],
+    ["outline-width", "outlineWidth"], ["padding", "padding"], ["x-spacing", "xSpacing"], ["y-spacing", "ySpacing"],
+    ["font-family", "fontFamily"], ["font-size", "fontSize"], ["font-weight", "fontWeight"],
+    ["font-style", "fontStyle"], ["text-decoration", "textDecoration"],
+    ["text-outline", "textOutline"], ["text-outline-width", "textOutlineWidth"],
+  ],
 };
 
-/** Return CSS declarations that reproduce an element's current rendered appearance. */
-export function reusableStyleDeclarations(kind, model = {}) {
+const BASELINES = {
+  node: {
+    shape: "round", fill: "transparent", outlineStyle: "solid", outlineWidth: 2, width: "auto", height: "auto",
+    align: "center", shadowOffsetX: 4, shadowOffsetY: 5, shadowBlur: 6, shadowOpacity: 0.3,
+    imageWidth: 64, imageHeight: 64, imageFit: "contain", imageOpacity: 1, imagePadding: 0,
+    fontSize: 16, fontWeight: "normal", fontStyle: "normal", textDecoration: "none",
+    textOutline: "transparent", textOutlineWidth: 0,
+  },
+  flow: {
+    outline: "transparent", outlineWidth: 0, width: 2, roundness: 9, style: "solid", direction: "forward",
+    arrowShape: "triangle", labelPosition: "above", fontSize: 12, fontWeight: "normal", fontStyle: "normal",
+    textDecoration: "none", textOutline: "transparent", textOutlineWidth: 0,
+  },
+  annotation: {
+    fontSize: 12, fontWeight: "normal", fontStyle: "normal", textDecoration: "none",
+    textOutline: "transparent", textOutlineWidth: 0,
+  },
+  graph: {
+    labelPosition: "inside", align: "left", placement: "below", fill: "transparent", outline: "transparent",
+    outlineStyle: "solid", outlineWidth: 1.5, padding: 24, xSpacing: 60, ySpacing: 40, fontSize: 13,
+    fontWeight: "600", fontStyle: "normal", textDecoration: "none", textOutline: "transparent", textOutlineWidth: 0,
+  },
+};
+
+function sameValue(value, baseline) {
+  if (baseline === null || baseline === undefined) return false;
+  if (typeof value === "number" || typeof baseline === "number") {
+    const left = Number(value);
+    const right = Number(baseline);
+    if (Number.isFinite(left) && Number.isFinite(right)) return left === right;
+  }
+  return String(value).trim() === String(baseline).trim();
+}
+
+/**
+ * Return CSS declarations for the properties that differ from the relevant baseline.
+ *
+ * Presets therefore store overrides only; the effective style stays correct because loading a
+ * preset merges it on top of the same category defaults used to compute the difference.
+ */
+export function reusableStyleDeclarations(kind, model = {}, baseline = undefined) {
   const fields = FIELD_MAPS[kind];
   if (!fields) throw new Error(`Unknown reusable style kind: ${kind}`);
+  const reference = { ...BASELINES[kind], ...(baseline ?? {}) };
   const declarations = fields.flatMap(([property, key]) => {
     const value = model[key];
-    return value === null || value === undefined || value === "" ? [] : [[property, String(value)]];
+    if (value === null || value === undefined || value === "") return [];
+    return sameValue(value, reference[key]) ? [] : [[property, String(value)]];
   });
-  if (kind === "annotation" && (model.offsetX || model.offsetY)) {
-    declarations.push(["offset", `(${model.offsetX ?? 0}, ${model.offsetY ?? 0})`]);
+  const offsetX = model.offsetX ?? 0;
+  const offsetY = model.offsetY ?? 0;
+  if (kind === "annotation" && (offsetX || offsetY) && !sameValue(`(${offsetX}, ${offsetY})`, reference.offset)) {
+    declarations.push(["offset", `(${offsetX}, ${offsetY})`]);
   }
   return declarations;
 }
@@ -44,7 +95,7 @@ export function reusableStyleDeclarations(kind, model = {}) {
 export function appendReusableStyle(source, kind, name, declarations) {
   if (!FIELD_MAPS[kind]) throw new Error(`Unknown reusable style kind: ${kind}`);
   if (!/^[a-zA-Z][\w-]*$/.test(name)) throw new Error("Type name must start with a letter and contain only letters, numbers, underscores, or hyphens.");
-  if (new RegExp(`^@(node|flow|annotation)\\s+${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{`, "m").test(source)) {
+  if (new RegExp(`^@(node|flow|graph|annotation)\\s+${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{`, "m").test(source)) {
     throw new Error(`A reusable type named ${name} already exists.`);
   }
   const body = declarations.map(([property, value]) => `  ${property}: ${value};`).join("\n");
