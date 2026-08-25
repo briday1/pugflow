@@ -11,6 +11,13 @@ const VECTORS = Object.freeze({
   up: { x: 0, y: -1 },
 });
 
+const OPPOSITE_DIRECTIONS = Object.freeze({
+  right: "left",
+  left: "right",
+  down: "up",
+  up: "down",
+});
+
 function edgeLayoutDirection(edge) {
   return edge.layoutDirection ?? "right";
 }
@@ -153,7 +160,18 @@ function assignCells(nodes, edges) {
     changed = false;
     for (const edge of edges) {
       const from = positions.get(edge.from);
-      if (!from || positions.has(edge.to)) continue;
+      const target = positions.get(edge.to);
+      if (!from && target) {
+        const direction = edgeLayoutDirection(edge);
+        const vector = VECTORS[direction] ?? VECTORS.right;
+        const base = { x: target.x - vector.x, y: target.y - vector.y };
+        const position = freeCandidate(base, OPPOSITE_DIRECTIONS[direction] ?? "left", occupied);
+        positions.set(edge.from, position);
+        occupied.add(cellKey(position.x, position.y));
+        changed = true;
+        continue;
+      }
+      if (!from || target) continue;
       if (edge.kind === "merge") {
         const incoming = edges.filter((candidate) => candidate.kind === "merge" && candidate.to === edge.to);
         const sources = incoming.map((candidate) => positions.get(candidate.from));
@@ -196,7 +214,18 @@ function assignCells(nodes, edges) {
       componentChanged = false;
       for (const edge of edges) {
         const from = positions.get(edge.from);
-        if (!from || positions.has(edge.to)) continue;
+        const target = positions.get(edge.to);
+        if (!from && target) {
+          const direction = edgeLayoutDirection(edge);
+          const vector = VECTORS[direction] ?? VECTORS.right;
+          const base = { x: target.x - vector.x, y: target.y - vector.y };
+          const position = freeCandidate(base, OPPOSITE_DIRECTIONS[direction] ?? "left", occupied);
+          positions.set(edge.from, position);
+          occupied.add(cellKey(position.x, position.y));
+          componentChanged = true;
+          continue;
+        }
+        if (!from || target) continue;
         const incoming = edge.kind === "merge" ? edges.filter((candidate) => candidate.kind === "merge" && candidate.to === edge.to) : [];
         const sources = incoming.map((candidate) => positions.get(candidate.from));
         if (incoming.length && sources.some((position) => !position)) continue;
