@@ -1,4 +1,4 @@
-const KINDS = new Set(["node", "flow", "annotation"]);
+const KINDS = new Set(["node", "flow", "annotation", "graph"]);
 const NAME = /^[a-zA-Z][\w-]*$/;
 
 /** Convert top-level Pug-style reusable definitions to editable CSS rules. */
@@ -6,7 +6,7 @@ export function pugDefinitionsToStyleSheet(source = "") {
   const rules = [];
   let current = null;
   for (const line of String(source).split("\n")) {
-    const header = line.match(/^@(node|flow|line|annotation)\s+([a-zA-Z][\w-]*)\s*$/);
+    const header = line.match(/^@(node|flow|line|annotation|graph)\s+([a-zA-Z][\w-]*)\s*$/);
     if (header) {
       if (current) rules.push(`${current.header} {\n${current.fields.join("\n")}\n}`);
       current = { header: `@${header[1] === "line" ? "flow" : header[1]} ${header[2]}`, fields: [] };
@@ -25,7 +25,7 @@ export function compileStyleSheet(source = "") {
   const definitions = [];
   const errors = [];
   const consumed = [];
-  const rule = /@(node|flow|line|annotation)\s+([^\s{]+)\s*\{([\s\S]*?)\}/g;
+  const rule = /@(node|flow|line|annotation|graph)\s+([^\s{]+)\s*\{([\s\S]*?)\}/g;
   let match;
   while ((match = rule.exec(clean))) {
     consumed.push([match.index, rule.lastIndex]);
@@ -57,6 +57,6 @@ export function compileStyleSheet(source = "") {
   }
   let remainder = clean;
   for (const [start, end] of consumed.reverse()) remainder = remainder.slice(0, start) + remainder.slice(end);
-  if (remainder.trim()) errors.push(`CSS line ${clean.slice(0, clean.indexOf(remainder.trim())).split("\n").length}: expected an @node, @flow, or @annotation rule.`);
+  if (remainder.trim()) errors.push(`CSS line ${clean.slice(0, clean.indexOf(remainder.trim())).split("\n").length}: expected an @node, @flow, @graph, or @annotation rule.`);
   return { source: definitions.join("\n\n"), errors };
 }

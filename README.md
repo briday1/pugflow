@@ -149,7 +149,7 @@ Each node face accepts its own port setting: `.top-ports`, `.right-ports`, `.bot
 
 ## Reusable style classes
 
-Define a styled node type above `#canvas`, then use its name anywhere you would normally use `node`. It inherits the canvas node defaults and overrides only the fields in its definition.
+Define a styled node type above `#canvas`, then apply it by nesting its class inside a `.node` declaration, exactly as flows nest `.warning_flow` inside `.flow`. It inherits the canvas node defaults and overrides only the fields in its definition. The older form, which used the class name itself as the declaration keyword (`.my_node` directly inside `graph`), still parses so existing documents keep working.
 
 ```pug
 @node my_node
@@ -169,7 +169,8 @@ Define a styled node type above `#canvas`, then use its name anywhere you would 
     .node
       .outline #111111
   graph
-    .my_node
+    .node
+      .my_node
       .id root
       .label Reusable styled node
       .annotation
@@ -185,7 +186,7 @@ Define a styled node type above `#canvas`, then use its name anywhere you would 
       .warning_flow
 ```
 
-Reusable node definitions create classes such as `.my_node`; reusable flow and annotation definitions create decorators such as `.warning_flow` and `.warning_note`. Local fields override the reusable style. Names must be unique across node, flow, and annotation definitions.
+Reusable node definitions create classes such as `.my_node`; reusable flow and annotation definitions create decorators such as `.warning_flow` and `.warning_note`. Nest the class inside `.node`, `.flow`, or the annotation entry it styles. Local fields override the reusable style, and fields nested under the class itself (for example `.my_node` followed by an indented `.fill #ff0000`) override it too. Names must be unique across node, flow, and annotation definitions.
 
 The complete original definition is preserved in [examples/original.pug](examples/original.pug).
 

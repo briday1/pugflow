@@ -121,16 +121,25 @@ function textBorder(style, fallback = "transparent") {
   };
 }
 
-function ensureShadow(defs, node) {
-  if (!node.style.shadowColor) return null;
-  const id = `shadow-${node.id.replace(/[^\w-]/g, "-")}`;
-  const filter = svgElement("filter", { id, x: "-50%", y: "-50%", width: "200%", height: "200%" });
-  filter.append(svgElement("feDropShadow", {
-    dx: node.style.shadowOffsetX, dy: node.style.shadowOffsetY, stdDeviation: node.style.shadowBlur,
-    "flood-color": node.style.shadowColor, "flood-opacity": Math.min(1, node.style.shadowOpacity),
-  }));
-  defs.append(filter);
+/** Build (or reuse) a drop-shadow filter for any styled element. */
+function shadowFilter(defs, style, key) {
+  if (!style?.shadowColor) return null;
+  const id = `shadow-${String(key).replace(/[^\w-]/g, "-")}`;
+  defs.__shadowIds ??= new Set();
+  if (!defs.__shadowIds.has(id)) {
+    defs.__shadowIds.add(id);
+    const filter = svgElement("filter", { id, x: "-50%", y: "-50%", width: "200%", height: "200%" });
+    filter.append(svgElement("feDropShadow", {
+      dx: style.shadowOffsetX, dy: style.shadowOffsetY, stdDeviation: style.shadowBlur,
+      "flood-color": style.shadowColor, "flood-opacity": Math.min(1, style.shadowOpacity),
+    }));
+    defs.append(filter);
+  }
   return `url(#${id})`;
+}
+
+function ensureShadow(defs, node) {
+  return shadowFilter(defs, node.style, `node-${node.id}`);
 }
 
 function shapeElement(node, colors, defs) {
@@ -378,6 +387,16 @@ function ensureMarker(defs, color, outline = "transparent", outlineWidth = 0, ar
   } else if (arrowShape === "circle") {
     markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 10, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
     markerEl.append(svgElement("circle", { cx: 5, cy: 5, r: 4.5, fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke" }));
+  } else if (arrowShape === "chunky") {
+    markerEl = svgElement("marker", { id, viewBox: "0 0 12 12", refX: 10, refY: 6, markerWidth: 5.5, markerHeight: 5.5, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
+    markerEl.append(svgElement("path", {
+      d: "M 0.5 0.5 L 11.5 6 L 0.5 11.5 L 3 6 z",
+      fill: color,
+      stroke: outline === "transparent" ? "none" : outline,
+      "stroke-width": outline === "transparent" ? 0 : Math.max(outlineWidth, 1),
+      "paint-order": "stroke",
+      "stroke-linejoin": "round",
+    }));
   } else {
     markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
     markerEl.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke", "stroke-linejoin": "round" }));
@@ -612,10 +631,12 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
     "stroke-width": Math.max(14, edge.width + 10),
     "pointer-events": "stroke",
   });
+  const shadow = shadowFilter(defs, edge, `flow-${edge.from}-${edge.to}-${edge.lineNumber}`);
   const path = svgElement("path", {
     ...selection,
     d: route.d,
     class: `connector ${edge.kind}`,
+    filter: outlineWidth > 0 ? null : shadow,
     stroke: color,
     "stroke-width": edge.width,
     "stroke-dasharray": dashArray(edge.style),
@@ -628,6 +649,7 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
     svg.append(svgElement("path", {
       d: route.d,
       class: `connector connector-outline ${edge.kind}`,
+      filter: shadow,
       stroke: outline,
       "stroke-width": edge.width + outlineWidth * 2,
       "stroke-dasharray": dashArray(edge.style),
@@ -740,7 +762,7 @@ function diagramBounds(groups, nodesById, colors) {
   }).filter(Boolean);
 }
 
-function addDiagramFrame(parent, group, colors) {
+function addDiagramFrame(parent, group, colors, defs) {
   const frame = svgElement("g", { "data-line": group.lineNumber, "data-id": group.id, "data-select-kind": "graph", "data-selection-key": `graph:${group.id}`, "data-drag-kind": "graph", "data-current-x": group.offsetX ?? 0, "data-current-y": group.offsetY ?? 0, role: "group", tabindex: 0, "aria-label": group.label ? `Graph: ${group.label}` : "Graph boundary" });
   const hit = svgElement("rect", {
     class: "subdiagram-hit", x: group.x, y: group.y, width: group.right - group.x, height: group.bottom - group.y,
@@ -761,6 +783,7 @@ function addDiagramFrame(parent, group, colors) {
     class: "subdiagram-frame", x: group.x, y: group.y, width: group.right - group.x, height: group.bottom - group.y,
     rx: 12, fill: group.fill, stroke: group.outline, "stroke-width": group.outlineWidth,
     "stroke-dasharray": dashArray(group.outlineStyle), "pointer-events": "none",
+    filter: shadowFilter(defs, group, `graph-${group.id}`),
   }));
   frame.append(svgElement("rect", {
     class: "subdiagram-selection-outline", x: group.x, y: group.y, width: group.right - group.x, height: group.bottom - group.y,
@@ -903,7 +926,7 @@ function renderSvg(container, graph, options) {
     svg.append(layer);
     return [layerNumber, layer];
   }));
-  visibleGroups.forEach((group) => addDiagramFrame(layerContainers.get(group.layer ?? 0), group, colors));
+  visibleGroups.forEach((group) => addDiagramFrame(layerContainers.get(group.layer ?? 0), group, colors, defs));
   const edgeLayers = new Map(layerNumbers.map((layerNumber) => {
     const layer = svgElement("g", { class: "connector-layer", "data-layer": layerNumber });
     layerContainers.get(layerNumber).append(layer);

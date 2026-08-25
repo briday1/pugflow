@@ -359,31 +359,85 @@ export function removeNodeField(value, labelLineNumber, field) {
   return lines.join("\n");
 }
 
-export function setNodeType(value, labelLineNumber, type) {
+/** Node field and group names that can never be a reusable `@node` class reference. */
+const NODE_RESERVED_NAMES = new Set([
+  "node", "flow", "line", "annotation", "branch", "merge", "graph", "defaults", "above", "below",
+  "id", "label", "layer", "hidden", "offset", "label-offset", "from", "to",
+  "shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align",
+  "top-ports", "right-ports", "bottom-ports", "left-ports",
+  "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
+  "image", "image-width", "image-height", "image-fit", "image-opacity", "image-offset", "image-padding",
+  "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width",
+]);
+
+/** A bare `.name` child line that applies a reusable node class. */
+function nodePresetName(line, knownTypes) {
+  const name = line.trim().match(/^\.([A-Za-z][\w-]*)$/)?.[1];
+  if (!name) return null;
+  if (knownTypes.has(name)) return name;
+  return NODE_RESERVED_NAMES.has(name) ? null : name;
+}
+
+/**
+ * Apply (or clear) a reusable `@node` class. Declarations are normalized to the
+ * `.node` keyword with the class nested inside, mirroring `.flow`.
+ */
+export function setNodeType(value, labelLineNumber, type, knownTypes = []) {
   const lines = value.split("\n");
   const range = nodeRange(lines, labelLineNumber);
   const indentation = lines[range.start].match(/^\s*/)?.[0] ?? "";
-  lines[range.start] = indentation + "." + type.replace(/^\./, "");
+  const names = new Set(knownTypes.map((name) => String(name).replace(/^\./, "")));
+  lines[range.start] = indentation + ".node";
+  let end = range.end;
   const styleFields = new Set([
     "shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align",
     "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
     "image", "image-width", "image-height", "image-fit", "image-opacity",
   ]);
-  for (let index = range.end - 1; index > range.start; index -= 1) {
+  for (let index = end - 1; index > range.start; index -= 1) {
     if (indentationWidth(lines[index]) !== indentationWidth(range.fieldIndent)) continue;
+    const presetName = nodePresetName(lines[index], names);
     const field = lines[index].trim().match(/^\.([\w-]+)(?:\s|$)/)?.[1];
-    if (!styleFields.has(field)) continue;
+    if (!presetName && !styleFields.has(field)) continue;
     let removeTo = index + 1;
     while (removeTo < lines.length && indentationWidth(lines[removeTo]) > indentationWidth(lines[index])) removeTo += 1;
     lines.splice(index, removeTo - index);
+    end -= removeTo - index;
   }
+  const nextType = String(type ?? "").replace(/^\./, "");
+  if (nextType && nextType !== "node") lines.splice(range.start + 1, 0, range.fieldIndent + "." + nextType);
+  return lines.join("\n");
+}
+
+/** Apply (or clear) a reusable @graph class on a graph declaration. */
+export function setGraphType(value, graphLineNumber, type, knownTypes = []) {
+  const lines = value.split("\n");
+  const start = graphLineNumber - 1;
+  if (!lines[start]) return value;
+  const indent = indentationWidth(lines[start]);
+  const fieldIndent = (lines[start].match(/^\s*/)?.[0] ?? "") + "  ";
+  let end = start + 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > indent)) end += 1;
+  const names = new Set(knownTypes);
+  const existing = lines.findIndex((line, index) => index > start && index < end
+    && indentationWidth(line) === indentationWidth(fieldIndent)
+    && /^\.[a-zA-Z][\w-]*$/.test(line.trim())
+    && names.has(line.trim().slice(1)));
+  if (!type) {
+    if (existing >= 0) lines.splice(existing, 1);
+    return lines.join("\n");
+  }
+  const replacement = fieldIndent + "." + type.replace(/^\./, "");
+  if (existing >= 0) lines[existing] = replacement;
+  else lines.splice(start + 1, 0, replacement);
   return lines.join("\n");
 }
 
 function nodeDeclaration(type, indentation, id, label) {
-  const nodeType = `.${type.replace(/^\./, "")}`;
+  const nodeType = String(type ?? "node").replace(/^\./, "");
   return [
-    `${indentation}${nodeType}`,
+    `${indentation}.node`,
+    ...(nodeType && nodeType !== "node" ? [`${indentation}  .${nodeType}`] : []),
     ...(id ? [`${indentation}  .id ${id}`] : []),
     `${indentation}  .label${label ? ` ${label}` : ""}`,
   ];

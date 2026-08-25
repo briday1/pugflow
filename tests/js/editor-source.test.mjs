@@ -35,9 +35,12 @@ test("edits inspector-backed node properties", () => {
   let edited = setNodeField(FLAT_GRAPH, 6, "fill", "#123456");
   edited = setNodeOffsetField(edited, parseDiagram(edited).nodes[0].lineNumber, "offset", 12.26, -4.04);
   edited = removeNodeField(edited, parseDiagram(edited).nodes[0].lineNumber, "fill");
-  edited = setNodeType(edited, parseDiagram(edited).nodes[0].lineNumber, "custom_node");
-  assert.match(edited, /    \.custom_node\n      \.id root\n      \.offset \(12\.3, -4\)\n      \.label Root/);
+  edited = setNodeType(edited, parseDiagram(edited).nodes[0].lineNumber, "custom_node", ["custom_node"]);
+  assert.ok(edited.includes("\n    .node\n      .custom_node\n      .id root\n      .offset (12.3, -4)\n      .label Root"));
   assert.doesNotMatch(edited, /\.fill #123456/);
+  const cleared = setNodeType(edited, parseDiagram(edited).nodes[0].lineNumber, "node", ["custom_node"]);
+  assert.ok(cleared.includes("\n    .node\n      .id root"));
+  assert.doesNotMatch(cleared, /\.custom_node/);
 });
 
 test("renames node IDs in explicit flow endpoints", () => {

@@ -3,7 +3,7 @@ import { compileStyleSheet } from "./style-sheet.mjs";
 const ID_PATTERN = /^[a-zA-Z][\w-]*$/;
 const SHAPES = new Set(["square", "round", "rounded", "pill", "diamond", "hexagon", "cylinder"]);
 const DIRECTIONS = new Set(["forward", "backward", "both", "none"]);
-const ARROW_SHAPES = new Set(["triangle", "open", "diamond", "circle"]);
+const ARROW_SHAPES = new Set(["triangle", "open", "diamond", "circle", "chunky"]);
 const FLOW_DIRECTIONS = new Set(["right", "left", "up", "down"]);
 const PORT_DISTRIBUTIONS = new Set(["shared", "distributed"]);
 const LINE_STYLES = new Set(["solid", "dashed", "dotted"]);
@@ -21,6 +21,7 @@ const LINE_FIELDS = new Set([
   "line.annotation-above-text-outline", "line.annotation-below-text-outline",
   "line.annotation-above-text-outline-width", "line.annotation-below-text-outline-width",
   "line.use", "line.hidden",
+  "line.shadow-color", "line.shadow-offset-x", "line.shadow-offset-y", "line.shadow-blur", "line.shadow-opacity",
   "line.font-family", "line.font-size", "line.font-weight", "line.font-style", "line.text-decoration",
   "line.text-outline", "line.text-outline-width",
 ]);
@@ -43,6 +44,9 @@ const LINE_DEFINITION_FIELDS = new Map([
   ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"]
     .map((property) => [`annotation-${position}-${property}`, `line.annotation-${position}-${property}`])),
   ["hidden", "line.hidden"],
+  ["shadow-color", "line.shadow-color"], ["shadow-offset-x", "line.shadow-offset-x"],
+  ["shadow-offset-y", "line.shadow-offset-y"], ["shadow-blur", "line.shadow-blur"],
+  ["shadow-opacity", "line.shadow-opacity"],
   ["font-family", "line.font-family"], ["font-size", "line.font-size"],
   ["font-weight", "line.font-weight"], ["font-style", "line.font-style"],
   ["text-decoration", "line.text-decoration"], ["text-outline", "line.text-outline"],
@@ -66,6 +70,12 @@ const BLOCK_STYLE_PROPERTIES = new Set([
   "top-ports", "right-ports", "bottom-ports", "left-ports",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
   "image", "image-width", "image-height", "image-fit", "image-opacity", "image-padding",
+  "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width",
+]);
+const GRAPH_STYLE_PROPERTIES = new Set([
+  "label-position", "align", "placement", "fill", "color", "outline", "outline-style", "outline-width",
+  "padding", "x-spacing", "y-spacing",
+  "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
   "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width",
 ]);
 
@@ -93,7 +103,7 @@ function parseMarkupLine(body, lineNumber, errors) {
   if (body.startsWith("|")) {
     return { type: "text", classes: [], attrs: {}, text: body.slice(1).replace(/^ /, ""), children: [], lineNumber };
   }
-  const styleDefinition = body.match(/^@(node|flow|line|annotation)\s+([a-zA-Z][\w-]*)$/);
+  const styleDefinition = body.match(/^@(node|flow|line|annotation|graph)\s+([a-zA-Z][\w-]*)$/);
   if (styleDefinition) return { type: styleDefinition[1] + "-definition", name: styleDefinition[2], classes: [], attrs: {}, text: "", children: [], lineNumber };
   const diagram = body.match(/^#(?:canvas|diagram)(?:\((.*)\))?$/);
   if (diagram) return { type: "diagram", classes: [], attrs: parseAttributes(diagram[1], lineNumber, errors), text: "", children: [], lineNumber };
@@ -150,6 +160,11 @@ function normalizeGroups(item, errors, nodeTypeNames, lineTypeNames) {
       for (const field of child.children) {
         expanded.push({ ...field, type: `line.${field.type}`, classes: ["line", field.type] });
       }
+      continue;
+    }
+    if (item.type === "node" && nodeTypeNames.has(child.type)) {
+      expanded.push({ ...child, children: [] });
+      for (const field of child.children) expanded.push(field);
       continue;
     }
     if (child.type === "node-group" || child.type === "node" || nodeTypeNames.has(child.type)) {
@@ -241,10 +256,21 @@ function offsetTuple(value, name, lineNumber, errors) {
   return { x: Number(match[1]), y: Number(match[2]) };
 }
 
+/** Shared shadow parsing for blocks, flows, and graphs. */
+function shadowStyle(attrs, defaults, lineNumber, errors, prefix = "") {
+  const color = attrs[`${prefix}shadow-color`] ?? defaults.shadowColor ?? null;
+  return {
+    shadowColor: /^(?:none|transparent)$/i.test(color ?? "") ? null : color,
+    shadowOffsetX: numberAttribute(attrs[`${prefix}shadow-offset-x`], defaults.shadowOffsetX ?? 4, -100, `${prefix}shadow-offset-x`, lineNumber, errors),
+    shadowOffsetY: numberAttribute(attrs[`${prefix}shadow-offset-y`], defaults.shadowOffsetY ?? 5, -100, `${prefix}shadow-offset-y`, lineNumber, errors),
+    shadowBlur: numberAttribute(attrs[`${prefix}shadow-blur`], defaults.shadowBlur ?? 6, 0, `${prefix}shadow-blur`, lineNumber, errors),
+    shadowOpacity: numberAttribute(attrs[`${prefix}shadow-opacity`], defaults.shadowOpacity ?? 0.3, 0, `${prefix}shadow-opacity`, lineNumber, errors),
+  };
+}
+
 function blockStyle(attrs, lineNumber, errors, defaults = {}) {
   const shape = attrs.shape ?? defaults.shape ?? "round";
   const outlineStyle = attrs["outline-style"] ?? defaults.outlineStyle ?? "solid";
-  const shadowColor = attrs["shadow-color"] ?? defaults.shadowColor ?? null;
   if (!SHAPES.has(shape)) errors.push(`Line ${lineNumber}: unknown block shape "${shape}".`);
   if (!LINE_STYLES.has(outlineStyle)) errors.push(`Line ${lineNumber}: unknown outline style "${outlineStyle}".`);
   const ports = Object.fromEntries(["top", "right", "bottom", "left"].map((face) => {
@@ -263,11 +289,7 @@ function blockStyle(attrs, lineNumber, errors, defaults = {}) {
     height: numberAttribute(attrs.height, defaults.height ?? "auto", 28, "height", lineNumber, errors),
     align: ["left", "center", "right"].includes(attrs.align) ? attrs.align : defaults.align ?? "center",
     ports,
-    shadowColor: /^(?:none|transparent)$/i.test(shadowColor ?? "") ? null : shadowColor,
-    shadowOffsetX: numberAttribute(attrs["shadow-offset-x"], defaults.shadowOffsetX ?? 4, -100, "shadow-offset-x", lineNumber, errors),
-    shadowOffsetY: numberAttribute(attrs["shadow-offset-y"], defaults.shadowOffsetY ?? 5, -100, "shadow-offset-y", lineNumber, errors),
-    shadowBlur: numberAttribute(attrs["shadow-blur"], defaults.shadowBlur ?? 6, 0, "shadow-blur", lineNumber, errors),
-    shadowOpacity: numberAttribute(attrs["shadow-opacity"], defaults.shadowOpacity ?? 0.3, 0, "shadow-opacity", lineNumber, errors),
+    ...shadowStyle(attrs, defaults, lineNumber, errors),
     image: attrs.image ?? defaults.image ?? null,
     imageWidth: numberAttribute(attrs["image-width"], defaults.imageWidth ?? 64, 1, "image-width", lineNumber, errors),
     imageHeight: numberAttribute(attrs["image-height"], defaults.imageHeight ?? 64, 1, "image-height", lineNumber, errors),
@@ -357,6 +379,7 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
     outline: effective["line.outline"] ?? defaults.outline ?? "transparent",
     outlineWidth: numberAttribute(effective["line.outline-width"], defaults.outlineWidth ?? 0, 0, "line.outline-width", lineNumber, errors),
     style: LINE_STYLES.has(style) ? style : "solid",
+    ...shadowStyle(effective, defaults, lineNumber, errors, "line."),
     width: numberAttribute(effective["line.width"], defaults.width ?? 2, 0.5, "line.width", lineNumber, errors),
     roundness: numberAttribute(effective["line.roundness"], defaults.roundness ?? 9, 0, "line.roundness", lineNumber, errors),
     label: effective["line.label"] ?? defaults.label ?? "",
@@ -567,6 +590,45 @@ function customLineStyles(tree, errors) {
   return definitions;
 }
 
+const GRAPH_DEFAULTS = {
+  labelPosition: "inside", align: "left", placement: "below", fill: "transparent", color: null,
+  outline: "transparent", outlineStyle: "solid", outlineWidth: 1.5, padding: 24, xSpacing: 60, ySpacing: 40,
+  shadowColor: null, shadowOffsetX: 4, shadowOffsetY: 5, shadowBlur: 6, shadowOpacity: 0.3,
+  fontFamily: null, fontSize: 13, fontWeight: "600", fontStyle: "normal", textDecoration: "none",
+  textOutline: "transparent", textOutlineWidth: 0,
+};
+
+function camelCase(name) {
+  return name.replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase());
+}
+
+/** Convert a reusable @graph definition's raw fields into a graph-shaped model. */
+function graphPresetModel(attributes) {
+  return { ...GRAPH_DEFAULTS, ...Object.fromEntries(Object.entries(attributes).map(([name, value]) => [camelCase(name), value])) };
+}
+
+function customGraphStyles(tree, errors) {
+  const definitions = new Map();
+  for (const definition of tree.roots.filter((root) => root.type === "graph-definition")) {
+    if (definitions.has(definition.name)) {
+      errors.push(`Line ${definition.lineNumber}: graph type "${definition.name}" is already defined.`);
+      continue;
+    }
+    const attributes = {};
+    for (const child of definition.children) {
+      if (!GRAPH_STYLE_PROPERTIES.has(child.type)) {
+        errors.push(`Line ${child.lineNumber}: unknown @graph style field .${child.type}.`);
+        continue;
+      }
+      if (Object.keys(child.attrs).length || child.children.length) errors.push(`Line ${child.lineNumber}: .${child.type} must contain one plain-text value.`);
+      attributes[child.type] = child.text.trim();
+    }
+    Object.defineProperty(attributes, "__lineNumber", { value: definition.lineNumber });
+    definitions.set(definition.name, attributes);
+  }
+  return definitions;
+}
+
 function customAnnotationStyles(tree, errors) {
   const definitions = new Map();
   for (const definition of tree.roots.filter((root) => root.type === "annotation-definition")) {
@@ -593,7 +655,7 @@ function validateStyleNames(...definitionMaps) {
   const used = new Set();
   for (const definitions of definitionMaps) {
     for (const [name, definition] of definitions) {
-      if (used.has(name)) errors.push(`Line ${definition.lineNumber ?? 1}: reusable class ".${name}" is already defined by another style type.`);
+      if (used.has(name)) errors.push(`Line ${definition.lineNumber ?? definition.__lineNumber ?? 1}: reusable class ".${name}" is already defined by another style type.`);
       used.add(name);
     }
   }
@@ -622,10 +684,31 @@ function compileMarkup(tree) {
   const nodeStyles = customNodeStyles(tree, blockDefaults, errors);
   const lineStyles = customLineStyles(tree, errors);
   const annotationStyles = customAnnotationStyles(tree, errors);
-  const knownStyles = new Set([...nodeStyles.keys(), ...lineStyles.keys(), ...annotationStyles.keys()]);
+  const graphStyles = customGraphStyles(tree, errors);
+  const knownStyles = new Set([...nodeStyles.keys(), ...lineStyles.keys(), ...annotationStyles.keys(), ...graphStyles.keys()]);
   const edgeDefaults = diagramRoot ? edgeStyle(connectionAttributesFor(diagramRoot, errors, [], false, lineStyles, knownStyles), {}, diagramRoot.lineNumber, errors, lineStyles) : edgeStyle({}, {}, 1, errors, lineStyles);
   const figure = diagramRoot ? figureStyle(diagramSettings.settings, edgeDefaults.color, blockDefaults.color) : {};
-  errors.push(...validateStyleNames(nodeStyles, lineStyles, annotationStyles));
+  errors.push(...validateStyleNames(nodeStyles, lineStyles, annotationStyles, graphStyles));
+
+  /** Effective defaults and resolved reusable styles, used by editors to store only overrides. */
+  function styleBaselines() {
+    const ignored = [];
+    return {
+      defaults: {
+        node: blockDefaults,
+        flow: edgeDefaults,
+        annotation: annotationDefaults,
+        graph: GRAPH_DEFAULTS,
+      },
+      presets: {
+        node: Object.fromEntries(nodeStyles),
+        flow: Object.fromEntries([...lineStyles].map(([name, definition]) =>
+          [name, edgeStyle(definition.attributes, edgeDefaults, definition.lineNumber, ignored, lineStyles)])),
+        annotation: Object.fromEntries(annotationStyles),
+        graph: Object.fromEntries([...graphStyles].map(([name, attributes]) => [name, graphPresetModel(attributes)])),
+      },
+    };
+  }
 
   function createNode(container, labelElement) {
     const label = labelElement ? textFor(labelElement, errors) : "";
@@ -664,6 +747,7 @@ function compileMarkup(tree) {
     const node = {
       id,
       explicitId: requestedId ?? "",
+      nodeType: appliedStyles[0] ?? null,
       label,
       annotations: annotationsFor(container, errors, annotationStyles, annotationDefaults),
       style: blockStyle(attributes, labelElement.lineNumber, errors, customDefaults),
@@ -719,11 +803,15 @@ function compileMarkup(tree) {
     if (members) errors.push(`Line ${members.lineNumber}: .members has been removed; move each node declaration directly into its graph.`);
     const before = nodes.length;
     const edgeBefore = edges.length;
+    const graphPresetChildren = component.children.filter((child) => graphStyles.has(child.type));
+    if (graphPresetChildren.length > 1) errors.push(`Line ${graphPresetChildren[1].lineNumber}: only one reusable graph class may be applied here.`);
+    const graphType = graphPresetChildren[0]?.type ?? null;
+    const graphPreset = graphStyles.get(graphType) ?? {};
     const directNodes = entries.map((entry) => buildEntry(entry, null)).filter(Boolean);
     directNodes.forEach((node, index) => {
       if (!node.explicitLayer) node.layer = index;
     });
-    const field = (name) => component.children.find((child) => child.type === name)?.text.trim();
+    const field = (name) => component.children.find((child) => child.type === name)?.text.trim() ?? graphPreset[name];
     const graphOffset = offsetTuple(field("offset"), "graph.offset", component.lineNumber, errors);
     const layerText = field("layer");
     const layer = layerText === undefined || layerText === "" ? 0 : Number(layerText);
@@ -742,6 +830,7 @@ function compileMarkup(tree) {
     }
     const group = {
       id: field("id") || `diagram-${groups.length + 1}`,
+      graphType,
       label: field("label") || "",
       labelPosition: ["inside", "outside"].includes(labelPosition) ? labelPosition : "inside",
       align: ["left", "center", "right"].includes(align) ? align : "left",
@@ -760,6 +849,8 @@ function compileMarkup(tree) {
       padding: Number(field("padding") || 24),
       xSpacing: numberAttribute(field("x-spacing"), 60, 0, "graph.x-spacing", component.lineNumber, errors),
       ySpacing: numberAttribute(field("y-spacing"), 40, 0, "graph.y-spacing", component.lineNumber, errors),
+      ...shadowStyle(Object.fromEntries(["shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity"]
+        .map((name) => [name, field(name) || undefined])), {}, component.lineNumber, errors),
       placement: ["above", "below", "left", "right"].includes(placement) ? placement : "below",
       relativeTo: field("relative-to") || null,
       rootId: directNodes[0]?.id ?? null,
@@ -835,12 +926,12 @@ function compileMarkup(tree) {
   }
 
   const diagramRoots = tree.roots.filter((root) => root.type === "diagram");
-  const definitionTypes = new Set(["node-definition", "flow-definition", "line-definition", "annotation-definition"]);
+  const definitionTypes = new Set(["node-definition", "flow-definition", "line-definition", "annotation-definition", "graph-definition"]);
   const unexpectedRoots = tree.roots.filter((root) => !definitionTypes.has(root.type) && root.type !== "diagram");
   const definitionAfterDiagram = diagramRoot && tree.roots.some((root, index) => definitionTypes.has(root.type) && index > tree.roots.indexOf(diagramRoot));
   if (diagramRoots.length !== 1 || unexpectedRoots.length || definitionAfterDiagram) {
     errors.push("The document must contain optional @node, @flow, and @annotation definitions followed by exactly one #canvas.");
-    return { nodes, edges, groups, errors, format: "pug", figure };
+    return { nodes, edges, groups, errors, format: "pug", figure, ...styleBaselines() };
   }
   const rootLabel = diagramRoot.children.find((child) => child.type === "field" && child.classes.includes("label"));
   if (rootLabel) errors.push(`Line ${rootLabel.lineNumber}: nodes must be declared directly inside a graph.`);
@@ -905,7 +996,7 @@ function compileMarkup(tree) {
     nodes.filter((node) => hiddenIds.has(node.id)).forEach((node) => { node.hidden = true; });
     edges.filter((edge) => hiddenIds.has(edge.from) || hiddenIds.has(edge.to)).forEach((edge) => { edge.hidden = true; });
   }
-  return { nodes, edges, groups, errors, format: "pug", figure };
+  return { nodes, edges, groups, errors, format: "pug", figure, ...styleBaselines() };
 }
 
 /** Parse a diagram definition with optional external CSS-shaped reusable definitions. */
