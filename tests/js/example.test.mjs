@@ -191,6 +191,12 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(styles, /\.node-preview-box \{[^}]*width: 138px; height: 58px;/);
   assert.match(styles, /\.node-preview-stage > \.preview-face-add\[data-face-add="top"\] \{ top: -7px;/);
   assert.match(styles, /\.node-preview-stage > \.preview-face-add\[data-face-add="left"\], \.node-preview-stage > \.preview-face-add\[data-face-add="right"\] \{ width: 14px; height: 22px;/);
+  assert.match(app, /class="image-preview-box preview-part" data-sidecar="image-box"/);
+  assert.match(app, /function imageBoxSidecar\(image\)/);
+  assert.match(app, /imagePreviewMarkup\(image\)[\s\S]*nodeConnectionsSection\(image\)/);
+  assert.match(renderer, /kind: "node-resize"/);
+  assert.match(renderer, /kind: "graph-resize"/);
+  assert.match(styles, /\.entry\.selected-element > \.resize-handles/);
   assert.doesNotMatch(app, /preview-face-add-outer/);
   assert.doesNotMatch(styles, /\.node-preview-label \{[^}]*text-shadow:/);
   assert.match(styles, /\.node-preview-label \{[^}]*top: 50%; left: 50%;[^}]*width: calc\(100% - 24px\); height: calc\(100% - 14px\);[^}]*translate: -50% -50%;[^}]*background: transparent;/);
