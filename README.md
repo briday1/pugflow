@@ -24,7 +24,8 @@ The server opens <http://127.0.0.1:4173> automatically. Examples of server optio
 ```powershell
 pugflow --no-browser
 pugflow --host 0.0.0.0 --port 8080 --vim
-pugflow --demo
+pugflow --demo                  # demo 1
+pugflow --demo 7                # choose any demo from 1–10
 pugflow --gui diagram.pug --css diagram.css
 pugflow --version
 ```
@@ -53,7 +54,7 @@ The compact application toolbar groups source and export actions under **File**,
 }
 ```
 
-The editor opens with truly blank source; the canvas is always implied. Use `pugflow --demo` for the full feature tour. It provides live rendering, line numbers, highlighting, completions, a **File** menu for new/open/save actions using system files, a collapsible source panel, high-DPI PNG clipboard copying, and image export dialogs. A project requires one Pug file. CSS is optional unless the Pug uses custom classes such as `.card`; select both files in the Open dialog or create CSS from the File menu. Each source tab shows its loaded filename. Source is not stored in the browser.
+The editor opens with truly blank source; the canvas is always implied. Use `pugflow --demo` for the full feature tour, or `pugflow --demo N` to open any of 10 examples spanning architecture, hiring, storytelling, recipes, family trees, roadmaps, science, math, travel, and home networking. The same examples are available in a hosted editor with `?demo=1` through `?demo=10`. The editor provides live rendering, line numbers, highlighting, completions, a **File** menu for new/open/save actions using system files, a collapsible source panel, high-DPI PNG clipboard copying, and image export dialogs. A project requires one Pug file. CSS is optional unless the Pug uses custom classes such as `.card`; select both files in the Open dialog or create CSS from the File menu. Each source tab shows its loaded filename. Source is not stored in the browser.
 
 Drag the divider beside the source panel to resize it; the width is remembered.
 Click any visible block in the preview to focus and select its corresponding source line.

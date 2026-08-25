@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
-import { pugDefinitionsToStyleSheet } from "../../src/pugflow/web/style-sheet.mjs";
+import { compileStyleSheet, pugDefinitionsToStyleSheet } from "../../src/pugflow/web/style-sheet.mjs";
+import { ADDITIONAL_DEMOS } from "../../src/pugflow/web/demo-sources.mjs";
 
 test("documentation starts as a standalone HTML document", () => {
   const docs = readFileSync(new URL("../../src/pugflow/web/docs.html", import.meta.url), "utf8");
@@ -86,6 +87,29 @@ test("the built-in showcase presents a restrained layered production architectur
   assert.equal(incident?.annotationAboveStyle.color, "#ff2bd6");
   assert.equal(incident?.annotationAboveStyle.textOutline, "transparent");
   assert.equal(incident?.annotationAboveStyle.textOutlineWidth, 0);
+});
+
+test("the nine additional demos are distinct, styled, and valid", () => {
+  assert.equal(ADDITIONAL_DEMOS.length, 9);
+  assert.equal(new Set(ADDITIONAL_DEMOS.map((demo) => demo.name)).size, 9);
+  for (const [index, demo] of ADDITIONAL_DEMOS.entries()) {
+    const styles = compileStyleSheet(demo.css);
+    assert.deepEqual(styles.errors, [], `demo ${index + 2} has invalid CSS`);
+    const result = parseDiagram(demo.pug, demo.css);
+    assert.deepEqual(result.errors, [], `demo ${index + 2} has invalid Pug`);
+    assert.ok(result.nodes.length >= 4, `demo ${index + 2} should have at least four nodes`);
+    assert.ok(result.edges.length >= 3, `demo ${index + 2} should have at least three flows`);
+    assert.match(demo.pug, new RegExp(`Demo ${index + 2}`));
+    assert.doesNotMatch(demo.pug, /#canvas|#diagram/);
+  }
+});
+
+test("launch parameters select demos 1 through 10", () => {
+  const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
+  assert.match(app, /requestedDemo >= 1 && requestedDemo <= DEMOS\.length/);
+  assert.match(app, /DEMOS\[requestedDemo - 1\]/);
+  assert.match(app, /`demo\$\{requestedDemo\}\.pug`/);
+  assert.match(app, /`demo\$\{requestedDemo\}\.css`/);
 });
 
 test("source saving writes the active document through a system file handle", () => {

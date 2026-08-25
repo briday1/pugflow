@@ -25,7 +25,15 @@ def build_parser():
     parser.add_argument("--no-browser", action="store_true", help="Do not open the application in the default browser.")
     parser.add_argument("--vim", action="store_true", help="Open the GUI with Vim editing mode enabled.")
     parser.add_argument("--gui", action="store_true", help="Open the input Pug and optional CSS in the GUI instead of rendering.")
-    parser.add_argument("--demo", action="store_true", help="Open the GUI with the full feature-tour example.")
+    parser.add_argument(
+        "--demo",
+        nargs="?",
+        const=1,
+        type=int,
+        choices=range(1, 11),
+        metavar="N",
+        help="Open the GUI with demo N (1-10; default: 1).",
+    )
     parser.add_argument("--quiet", action="store_true", help="Suppress HTTP request logging.")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser

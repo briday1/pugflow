@@ -113,7 +113,7 @@ def serve(host="127.0.0.1", port=4173, *, open_browser=True, quiet=False, vim=Fa
     browser_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
     query = []
     if vim: query.append("vim=1")
-    if demo: query.append("demo=1")
+    if demo: query.append(f"demo={int(demo)}")
     if pug_path:
         query.extend(["project=1", f"name={quote(Path(pug_path).stem)}", f"pug_name={quote(Path(pug_path).name)}"])
         if css_path: query.append(f"css_name={quote(Path(css_path).name)}")
