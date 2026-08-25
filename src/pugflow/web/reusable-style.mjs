@@ -5,8 +5,6 @@ const FIELD_MAPS = {
     ["height", "height"], ["align", "align"], ["vertical-align", "verticalAlign"], ["shadow-color", "shadowColor"],
     ["shadow-offset-x", "shadowOffsetX"], ["shadow-offset-y", "shadowOffsetY"],
     ["shadow-blur", "shadowBlur"], ["shadow-opacity", "shadowOpacity"], ["image", "image"],
-    ["image-width", "imageWidth"], ["image-height", "imageHeight"], ["image-fit", "imageFit"],
-    ["image-opacity", "imageOpacity"], ["image-padding", "imagePadding"],
     ["font-family", "fontFamily"], ["font-size", "fontSize"], ["font-weight", "fontWeight"],
     ["font-style", "fontStyle"], ["text-decoration", "textDecoration"],
     ["text-outline", "textOutline"], ["text-outline-width", "textOutlineWidth"],

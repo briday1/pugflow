@@ -1,5 +1,5 @@
 import { createBlockDiagram, parseDiagram } from "./pugflow.mjs";
-import { appendDiagramNode, appendFlowAnnotation, appendFlowReference, appendGraphNode, appendNodeAnnotation, indentSourceSelection, moveDeclarationToContainer, moveNodeToGraph, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeAnnotation, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, renameGraphReferences, renameNodeReferences, setAnnotationOffsetField, setAnnotationPosition, setAnnotationText, setDeclarationOffsetField, setGraphType, setNodeField, setNodeImageGeometry, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
+import { appendDiagramNode, appendFlowAnnotation, appendFlowReference, appendGraphImage, appendGraphNode, appendNodeAnnotation, indentSourceSelection, moveDeclarationToContainer, moveNodeToGraph, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeAnnotation, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, renameGraphReferences, renameNodeReferences, setAnnotationOffsetField, setAnnotationPosition, setAnnotationText, setDeclarationOffsetField, setGraphType, setImageGeometry, setNodeField, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
 import { attachVimMode } from "./vim-mode.mjs";
 import { attachTextEditor } from "./text-editor.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets, cleanupGraphOffsets, independentMoveOffsets } from "./layout.mjs";
@@ -190,6 +190,14 @@ const EXAMPLE_CANVAS = `
       .label API gateway
       .layer 2
 
+    image
+      .id github-mark
+      .source https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+      .width 72
+      .height 72
+      .annotation
+        .above URL image
+
     node
       .edge-service
       .id identity
@@ -212,6 +220,12 @@ const EXAMPLE_CANVAS = `
       .from gateway
       .to identity
       .label validate token
+      .edge-flow
+
+    flow
+      .from gateway
+      .to github-mark
+      .direction down
       .edge-flow
 
     flow
@@ -387,6 +401,28 @@ function showCanvasToast(message) {
   canvasToast.classList.add("show");
   clearTimeout(canvasToastTimer);
   canvasToastTimer = setTimeout(() => canvasToast.classList.remove("show"), 2200);
+}
+
+function renderImagePanel(image) {
+  const graph = graphForNode(image.id);
+  const graphOptions = currentGraph.groups.map((group) => `<option value="${escapeHtml(group.id)}"${group.id === graph?.id ? " selected" : ""}>${escapeHtml(group.label || group.id)}</option>`).join("");
+  const option = (value) => `<option${image.style.fit === value ? " selected" : ""}>${value}</option>`;
+  const preview = `<div class="preview-stage node-preview-stage"${previewStageBackground(graph)}>
+    ${annotationChip("node-annotations", "above", image.annotations.filter((item) => item.position !== "below"))}
+    <div style="position:relative;width:138px;height:92px;margin:auto">
+      <img src="${escapeHtml(image.style.source)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:${image.style.fit};opacity:${image.style.opacity}">
+      <svg viewBox="0 0 138 92" style="position:absolute;inset:0;width:100%;height:100%" aria-hidden="true">${previewShapeMarkup(image.style, 138, 92)}</svg>
+    </div>
+    ${annotationChip("node-annotations", "below", image.annotations.filter((item) => item.position === "below"))}</div>`;
+  inspectorContent.innerHTML = `<div class="inspector-heading"><div class="inspector-heading-text"><strong>Image</strong></div><label class="inspector-switch inspector-switch-heading"><span>Hidden</span><input data-node-hidden type="checkbox"${image.hidden ? " checked" : ""}></label></div>`
+    + `<label class="inspector-id-field">ID (optional)<input data-node-field="id" value="${escapeHtml(image.explicitId)}" placeholder="${escapeHtml(image.id)}" pattern="[A-Za-z][A-Za-z0-9_-]*"></label>`
+    + preview
+    + `<div class="inspector-file-row"><label>URL or file<input data-node-field="source" value="${escapeHtml(image.style.source)}" placeholder="image.png or https://…"></label><button type="button" data-choose-image>Browse…</button></div>`
+    + `<div class="inspector-grid"><label>Width<input data-node-field="width" type="number" min="1" value="${image.style.width}"></label><label>Height<input data-node-field="height" type="number" min="1" value="${image.style.height}"></label><label>Fit<select data-node-field="fit">${["contain", "cover", "fill"].map(option).join("")}</select></label><label>Opacity<input data-node-field="opacity" type="number" min="0" max="1" step="0.05" value="${image.style.opacity}"></label><label>Border padding<input data-node-field="padding" type="number" min="0" value="${image.style.padding}"></label></div>`
+    + `<details><summary>Border and overlay</summary><label>Shape<select data-node-field="shape">${["square","rounded","round","pill","diamond","hexagon"].map((shape) => `<option${image.style.shape === shape ? " selected" : ""}>${shape}</option>`).join("")}</select></label>${colorControl("Fill overlay", "fill", image.style.fill)}${colorControl("Border", "outline", image.style.outline)}<div class="inspector-grid"><label>Border style<select data-node-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${image.style.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Border width<input data-node-field="outline-width" type="number" min="0" value="${image.style.outlineWidth}"></label></div>${shadowControls("node", image.style)}</details>`
+    + `<div class="inspector-grid"><label>Graph<select data-node-graph>${graphOptions}</select></label><label>Layer (${image.layer ?? 0})<select data-node-layer-order><option value="">Choose…</option><option value="up">Move Up</option><option value="down">Move Down</option><option value="top">Send to Top</option><option value="bottom">Send to Bottom</option></select></label></div>`
+    + nodeConnectionsSection(image);
+  setReusableStyleAction();
 }
 const inspector = document.querySelector("#canvas-inspector");
 const inspectorContent = document.querySelector("#inspector-content");
@@ -714,13 +750,6 @@ function openAnnotationBuilder(target = "node") {
   document.querySelector("#annotation-builder-error").textContent = "";
   annotationBuilder.showModal();
   document.querySelector("#annotation-builder-text").select();
-}
-
-function imageControls(node = null) {
-  const style = node?.style;
-  const enabled = Boolean(style?.image);
-  const option = (value) => `<option${style?.imageFit === value ? " selected" : ""}>${value}</option>`;
-  return `<details${enabled ? " open" : ""}><summary>Image</summary><label class="inspector-switch"><span>Enabled</span><input type="checkbox" data-image-toggle${enabled ? " checked" : ""}></label><div class="inspector-file-row"><label>Source<input data-node-field="image" value="${escapeHtml(style?.image ?? "")}" placeholder="image.png or https://…"></label><button type="button" data-choose-image>Choose file…</button></div><div class="inspector-grid"><label>Width<input data-node-field="image-width" type="number" min="1" value="${style?.imageWidth ?? 64}"></label><label>Height<input data-node-field="image-height" type="number" min="1" value="${style?.imageHeight ?? 64}"></label><label>Fit<select data-node-field="image-fit">${["contain", "cover", "fill"].map(option).join("")}</select></label><label>Opacity<input data-node-field="image-opacity" type="number" min="0" max="1" step="0.05" value="${style?.imageOpacity ?? 1}"></label></div>${node ? `<label>Image offset<input value="(${node.imageOffsetX}, ${node.imageOffsetY})" readonly></label><button data-remove-field="image-offset">Remove image offset</button>` : ""}</details>`;
 }
 
 function tidyInspectorSections(root = inspectorContent) {
@@ -1198,7 +1227,6 @@ function nodeBoxSidecar(node) {
     + `<div class="inspector-grid"><label>Border style<select data-node-field="outline-style">${["solid", "dashed", "dotted"].map((value) => `<option${node.style.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Border width<input data-node-field="outline-width" type="number" min="0" value="${node.style.outlineWidth}"></label><label>Width<input data-node-field="width" value="${escapeHtml(String(node.style.width))}"></label><label>Height<input data-node-field="height" value="${escapeHtml(String(node.style.height))}"></label></div>`
     + `<details class="face-connections" open><summary>Face connections</summary><div class="inspector-grid">${faceControls}</div></details>`
     + shadowControls("node", node.style)
-    + imageControls(node)
     + `<div class="inspector-inline-field"><label>Offset<input value="(${node.offsetX}, ${node.offsetY})" readonly></label><button type="button" data-arrange="remove-offsets">Remove</button></div>`;
 }
 
@@ -1369,11 +1397,12 @@ function renderInspector() {
       inspectorContent.innerHTML = `<h3>${nodes.length} nodes selected</h3><label>Node Layer<select data-node-layer-order><option value="">Choose…</option><option value="front">Send to front</option><option value="back">Send to back</option></select></label><label>Type<select data-node-type><option value="">Choose…</option><option value="node">node</option>${custom.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label><details><summary>Appearance</summary><label>Shape<select data-node-field="shape"><option value="">Choose…</option>${["square","rounded","round","pill","diamond","hexagon","cylinder"].map((shape) => `<option>${shape}</option>`).join("")}</select></label>${colorControl("Fill", "fill", "")}${colorControl("Text", "color", "")}${colorControl("Border", "outline", "")}<label>Border style<select data-node-field="outline-style"><option value="">Choose…</option><option>solid</option><option>dashed</option><option>dotted</option></select></label><label>Border width<input data-node-field="outline-width" type="number" min="0"></label></details><details><summary><label class="shadow-toggle"><input type="checkbox" data-shadow-toggle> Shadow</label></summary>${colorControl("Color", "shadow-color", "#000000")}<label>X offset<input data-node-field="shadow-offset-x" type="number" value="4"></label><label>Y offset<input data-node-field="shadow-offset-y" type="number" value="5"></label><label>Blur<input data-node-field="shadow-blur" type="number" min="0" value="6"></label><label>Opacity<input data-node-field="shadow-opacity" type="number" min="0" max="1" step="0.05" value="0.3"></label></details><label>Align / distribute<select data-arrange-select><option value="">Choose…</option><option value="left">Align left</option><option value="center">Align center</option><option value="right">Align right</option><option value="top">Align top</option><option value="middle">Align middle</option><option value="bottom">Align bottom</option><option value="horizontal">Distribute horizontally</option><option value="vertical">Distribute vertically</option></select></label><button data-arrange="remove-offsets">Remove offsets</button>`;
       inspectorContent.querySelector("h3")?.insertAdjacentHTML("beforeend", `<label class="inspector-switch inspector-switch-heading"><span>Hidden</span><input data-node-hidden type="checkbox"${nodes.every((item) => item.hidden) ? " checked" : ""}></label>`);
       inspectorContent.querySelector("details")?.insertAdjacentHTML("afterend", fontOptions("node", { fontSize: 16 }));
-      inspectorContent.querySelectorAll("details")[1]?.insertAdjacentHTML("afterend", imageControls());
       tidyInspectorSections();
       return;
     }
-    renderNodePanel(currentGraph.nodes.find((candidate) => candidate.id === nodes[0].id));
+    const selected = currentGraph.nodes.find((candidate) => candidate.id === nodes[0].id);
+    if (selected.kind === "image") renderImagePanel(selected);
+    else renderNodePanel(selected);
     renderSidecar();
     return;
   }
@@ -1695,10 +1724,6 @@ function deleteCanvasSelection() {
       const node = currentGraph.nodes.find((candidate) => candidate.id === selection.id);
       return node ? { line: node.lineNumber, apply: (value) => setNodeField(value, node.lineNumber, "label", "") } : null;
     }
-    if (selection.kind === "image") {
-      const node = currentGraph.nodes.find((candidate) => candidate.id === selection.id);
-      return node ? { line: node.lineNumber, apply: (value) => removeNodeFields(value, node.lineNumber, ["image", "image-width", "image-height", "image-fit", "image-opacity", "image-offset", "image-padding"]) } : null;
-    }
     if (selection.kind === "annotation") return { line: selection.lineNumber, apply: (value) => removeNodeAnnotation(value, selection.lineNumber) };
     const edge = currentGraph.edges.find((candidate) => candidate.from === selection.from && candidate.to === selection.to && (!selection.lineNumber || candidate.lineNumber === selection.lineNumber));
     if (!edge) return null;
@@ -1987,6 +2012,7 @@ const structureCompletions = [
   { label: ".background", insert: ".background #ffffff", detail: "Diagram background" },
   { label: ".font", insert: ".font Verdana, sans-serif", detail: "Diagram font" },
   { label: "node", insert: "node\n  .label ", detail: "Declare a node (nest a reusable @node class to style it) or group node defaults" },
+  { label: "image", insert: "image\n  .id image-id\n  .source https://", detail: "Declare a standalone image that can participate in flows" },
   { label: ".color", insert: ".color #111111", detail: "Text, line, or annotation color" },
   { label: ".fill", insert: ".fill #ffffff", detail: "Node fill color" },
   { label: ".shape", insert: ".shape rounded", detail: "Node shape" },
@@ -1995,13 +2021,9 @@ const structureCompletions = [
   { label: ".shadow-offset-y", insert: ".shadow-offset-y 5", detail: "Vertical shadow offset" },
   { label: ".shadow-blur", insert: ".shadow-blur 6", detail: "Shadow blur radius" },
   { label: ".shadow-opacity", insert: ".shadow-opacity 0.3", detail: "Shadow opacity from 0 to 1" },
-  { label: ".image", insert: ".image image.png", detail: "Image URL or path inside a node" },
-  { label: ".image-width", insert: ".image-width 64", detail: "Rendered image width" },
-  { label: ".image-height", insert: ".image-height 64", detail: "Rendered image height" },
-  { label: ".image-fit", insert: ".image-fit contain", detail: "contain, cover, or fill" },
-  { label: ".image-opacity", insert: ".image-opacity 1", detail: "Image opacity from 0 to 1" },
-  { label: ".image-offset", insert: ".image-offset (0, 0)", detail: "Manual image offset inside its node" },
-  { label: ".image-padding", insert: ".image-padding 0", detail: "Padding around a node image" },
+  { label: ".source", insert: ".source https://", detail: "Image URL or file location" },
+  { label: ".fit", insert: ".fit contain", detail: "Image fit: contain, cover, or fill" },
+  { label: ".opacity", insert: ".opacity 1", detail: "Image opacity from 0 to 1" },
   { label: ".outline", insert: ".outline #111111", detail: "Node outline color" },
   { label: ".outline-style", insert: ".outline-style solid", detail: "solid, dashed, or dotted" },
   { label: ".outline-width", insert: ".outline-width 2", detail: "Node outline width" },
@@ -2053,9 +2075,10 @@ function availableStructureCompletions() {
 const completionLabels = {
   root: new Set(["@node", "@flow", "@graph", "@annotation", "graph", ".defaults", ".background", ".font", "flow"]),
   canvas: new Set(["graph", ".defaults", ".background", ".font", "flow"]),
-  graph: new Set(["node", "flow", ".id", ".label", ".layer", ".placement", ".relative-to", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".label-offset", ".align", ".vertical-align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
-  node: new Set([".id", ".label", ".layer", ".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".vertical-align", ".offset", ".label-offset", ".annotation", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".image", ".image-width", ".image-height", ".image-fit", ".image-opacity", ".image-offset", ".image-padding", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
-  nodeStyle: new Set([".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".vertical-align", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".image", ".image-width", ".image-height", ".image-fit", ".image-opacity", ".image-padding", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width"]),
+  graph: new Set(["node", "image", "flow", ".id", ".label", ".layer", ".placement", ".relative-to", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".label-offset", ".align", ".vertical-align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  node: new Set([".id", ".label", ".layer", ".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".vertical-align", ".offset", ".label-offset", ".annotation", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  image: new Set([".id", ".source", ".width", ".height", ".fit", ".opacity", ".padding", ".shape", ".fill", ".outline", ".outline-style", ".outline-width", ".offset", ".annotation", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".hidden"]),
+  nodeStyle: new Set([".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".vertical-align", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width"]),
   flow: new Set([".from", ".to", ".from-direction", ".to-direction", ".direction", ".color", ".outline", ".outline-width", ".width", ".arrow-style", ".arrow-shape", ".arrow-height", ".arrow-head-width", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation", ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   flowStyle: new Set([".color", ".outline", ".outline-width", ".width", ".arrow-style", ".arrow-shape", ".arrow-height", ".arrow-head-width", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   graphStyle: new Set([".label-position", ".align", ".vertical-align", ".placement", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".padding", ".x-spacing", ".y-spacing", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width"]),
@@ -2072,7 +2095,7 @@ const cssRootCompletions = [
   { label: "@annotation", insert: "@annotation custom_note {\n  \n}", cursorBack: 2, detail: "Define a reusable annotation style" },
 ];
 const cssPropertyLabels = {
-  node: ["shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align", "vertical-align", "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity", "image", "image-width", "image-height", "image-fit", "image-opacity", "image-padding", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"],
+  node: ["shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align", "vertical-align", "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"],
   flow: ["color", "outline", "outline-width", "width", "arrow-style", "arrow-shape", "arrow-height", "arrow-head-width", "stroke-style", "roundness", "source-face", "target-face", "label", "label-position", "label-offset", "label-hidden", "annotation-above", "annotation-below", "annotation-above-hidden", "annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `annotation-${position}-${property}`)), "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width", "hidden"],
   graph: ["label-position", "align", "vertical-align", "placement", "fill", "color", "outline", "outline-style", "outline-width", "padding", "x-spacing", "y-spacing", "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"],
   annotation: ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"],
@@ -2136,6 +2159,7 @@ function completionScope(caret) {
   if (parentHead === ".annotation") return ancestors.some((item) => item === ".defaults") ? "annotationStyle" : "annotation";
   if ([".above", ".below"].includes(parentHead)) return "annotationEntry";
   if (parentHead === ".defaults") return "defaults";
+  if (parentHead === "image") return "image";
   if (["node", ".node"].includes(parentHead) && ancestors.some((item) => item === ".defaults")) return "node";
   if (customKinds.get(parentHead) === "graph") return "graph";
   if (customKinds.get(parentHead) === "flow") return "flowStyle";
@@ -2266,7 +2290,7 @@ function persistElementMove(change) {
   const nextX = change.currentX + change.dx;
   const nextY = change.currentY + change.dy;
   const draggedSelection = selections.find((item) => item.selectionKey === change.selectionKey);
-  if (draggedSelection && selections.length > 1 && !["node-image", "node-image-resize", "node-label", "graph-label", "block-annotation"].includes(change.kind)) {
+  if (draggedSelection && selections.length > 1 && !["image-resize", "node-label", "graph-label", "block-annotation"].includes(change.kind)) {
     let nextSource = source.value;
     const selectedNodeIds = selections.filter((selection) => selection.kind === "node").map((selection) => selection.id);
     const nodeMoves = independentMoveOffsets(diagram?.layout?.nodes ?? [], diagram?.layout?.edges ?? [], selectedNodeIds, change.dx, change.dy)
@@ -2299,17 +2323,16 @@ function persistElementMove(change) {
     applyNodePositions(independentMoveOffsets(diagram?.layout?.nodes ?? [], diagram?.layout?.edges ?? [], [change.id], change.dx, change.dy));
     return;
   }
-  if (["node-label", "node-image"].includes(change.kind)) {
-    const prefix = change.kind === "node" ? "offset" : change.kind === "node-image" ? "image-offset" : "label-offset";
-    setSource(setNodeOffsetField(source.value, change.lineNumber, prefix, nextX, nextY));
+  if (change.kind === "node-label") {
+    setSource(setNodeOffsetField(source.value, change.lineNumber, "label-offset", nextX, nextY));
     return;
   }
-  if (change.kind === "node-image-resize") {
+  if (change.kind === "image-resize") {
     const width = Math.max(1, change.currentWidth + change.dx * change.resizeX);
     const height = Math.max(1, change.currentHeight + change.dy * change.resizeY);
     const offsetX = change.currentX + (change.resizeX ? change.dx / 2 : 0);
     const offsetY = change.currentY + (change.resizeY ? change.dy / 2 : 0);
-    setSource(setNodeImageGeometry(source.value, change.lineNumber, width, height, offsetX, offsetY));
+    setSource(setImageGeometry(source.value, change.lineNumber, width, height, offsetX, offsetY));
     return;
   }
   if (change.kind === "connection-label") {
@@ -2815,6 +2838,15 @@ canvasShell.addEventListener("wheel", (event) => {
 }, { passive: false });
 document.querySelector("#add-diagram").addEventListener("click", () => openGraphBuilder("diagram"));
 document.querySelector("#add-node").addEventListener("click", () => openGraphBuilder(currentGraph.nodes.length ? "node" : "diagram"));
+document.querySelector("#add-image").addEventListener("click", () => {
+  const graph = currentGraph.groups[0];
+  if (!graph) { showCanvasToast("Create a graph before adding an image."); return; }
+  const imageSource = window.prompt("Image URL or file location");
+  if (!imageSource?.trim()) return;
+  const id = suggestedNodeId().replace(/^node/, "image");
+  setSource(appendGraphImage(source.value, graph.lineNumber, { id, source: imageSource.trim() }));
+  selectCreatedNode(id);
+});
 document.querySelector("#add-flow").addEventListener("click", () => openGraphBuilder("flow"));
 const toolbarMenus = [...document.querySelectorAll(".toolbar-menu")];
 toolbarMenus.forEach((menu) => menu.addEventListener("click", (event) => {
@@ -3131,10 +3163,10 @@ nodeImageFile.addEventListener("change", () => {
     const imported = new Image();
     imported.onload = () => {
       let nextSource = source.value;
-      [...selectedNodes()].sort((a, b) => b.lineNumber - a.lineNumber).forEach((node) => {
-        nextSource = setNodeField(nextSource, node.lineNumber, "image", reader.result);
-        nextSource = setNodeField(nextSource, node.lineNumber, "image-width", String(imported.naturalWidth));
-        nextSource = setNodeField(nextSource, node.lineNumber, "image-height", String(imported.naturalHeight));
+      [...selectedNodes()].filter((node) => node.kind === "image").sort((a, b) => b.lineNumber - a.lineNumber).forEach((node) => {
+        nextSource = setNodeField(nextSource, node.lineNumber, "source", reader.result);
+        nextSource = setNodeField(nextSource, node.lineNumber, "width", String(imported.naturalWidth));
+        nextSource = setNodeField(nextSource, node.lineNumber, "height", String(imported.naturalHeight));
       });
       setSource(nextSource);
       nodeImageFile.value = "";
@@ -3355,14 +3387,6 @@ const handleInspectorChange = (event) => {
     let nextSource = source.value;
     [...nodes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((selected) => {
       nextSource = event.target.checked ? setNodeField(nextSource, selected.lineNumber, "hidden", "") : removeNodeField(nextSource, selected.lineNumber, "hidden");
-    });
-    setSource(nextSource);
-    return;
-  }
-  if (event.target.matches("[data-image-toggle]")) {
-    let nextSource = source.value;
-    [...nodes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((selected) => {
-      nextSource = event.target.checked ? setNodeField(nextSource, selected.lineNumber, "image", "image.png") : removeNodeField(nextSource, selected.lineNumber, "image");
     });
     setSource(nextSource);
     return;

@@ -289,7 +289,7 @@ function blockStyle(attrs, lineNumber, errors, defaults = {}) {
     shape: SHAPES.has(shape) ? shape : "round",
     fill: attrs.fill ?? defaults.fill ?? "transparent",
     color: attrs.color ?? defaults.color ?? null,
-    outline: attrs.outline ?? defaults.outline ?? null,
+    outline: attrs.outline ?? defaults.outline ?? "transparent",
     outlineStyle: LINE_STYLES.has(outlineStyle) ? outlineStyle : "solid",
     outlineWidth: numberAttribute(attrs["outline-width"], defaults.outlineWidth ?? 2, 0, "outline-width", lineNumber, errors),
     width: numberAttribute(attrs.width, defaults.width ?? "auto", 48, "width", lineNumber, errors),
@@ -547,19 +547,6 @@ function blockAttributesFor(container, labelElement, errors) {
     errors.push(`Line ${labelElement.lineNumber}: node.label does not accept attributes; use separate node property lines.`);
   }
 
-  function imageAttributesFor(container, errors) {
-    const attributes = {};
-    container.children.filter((child) => child.type === "field" && !child.classes.includes("annotation")).forEach((child) => {
-      const property = child.classes.find((name) => IMAGE_PROPERTIES.has(name));
-      if (!property) {
-        errors.push(`Line ${child.lineNumber}: unknown image property "${child.classes.join(".")}".`);
-        return;
-      }
-      if (Object.keys(child.attrs).length || child.children.length) errors.push(`Line ${child.lineNumber}: image.${property} must contain one plain-text value.`);
-      attributes[property] = child.text.trim() || true;
-    });
-    return attributes;
-  }
   container.children
     .filter((child) => child.type === "field" && child !== labelElement && !child.classes.includes("annotation"))
     .forEach((child) => {
@@ -575,6 +562,20 @@ function blockAttributesFor(container, labelElement, errors) {
       const textValue = child.text.trim();
       attributes[property] = child.attrs.value ?? (textValue || true);
     });
+  return attributes;
+}
+
+function imageAttributesFor(container, errors) {
+  const attributes = {};
+  container.children.filter((child) => child.type === "field" && !child.classes.includes("annotation")).forEach((child) => {
+    const property = child.classes.find((name) => IMAGE_PROPERTIES.has(name));
+    if (!property) {
+      errors.push(`Line ${child.lineNumber}: unknown image property "${child.classes.join(".")}".`);
+      return;
+    }
+    if (Object.keys(child.attrs).length || child.children.length) errors.push(`Line ${child.lineNumber}: image.${property} must contain one plain-text value.`);
+    attributes[property] = child.text.trim() || true;
+  });
   return attributes;
 }
 
@@ -750,30 +751,6 @@ function compileMarkup(tree) {
       return null;
     }
 
-    function createImage(container) {
-      const attributes = imageAttributesFor(container, errors);
-      const requestedId = attributes.id;
-      if (!attributes.source || attributes.source === true) errors.push(`Line ${container.lineNumber}: every image needs a .source.`);
-      if (requestedId && !ID_PATTERN.test(requestedId)) errors.push(`Line ${container.lineNumber}: "${requestedId}" is not a valid ID.`);
-      const id = requestedId ?? automaticId("image", nodesById);
-      if (nodesById.has(id)) {
-        errors.push(`Line ${container.lineNumber}: the ID "${id}" is already in use.`);
-        return null;
-      }
-      const offset = offsetTuple(attributes.offset, "image.offset", container.lineNumber, errors);
-      const layer = attributes.layer === undefined ? 0 : Number(attributes.layer);
-      if (!Number.isInteger(layer)) errors.push(`Line ${container.lineNumber}: image.layer must be an integer.`);
-      const image = {
-        id, explicitId: requestedId ?? "", nodeType: null, label: "", annotations: annotationsFor(container, errors, annotationStyles, annotationDefaults),
-        style: imageStyle(attributes, container.lineNumber, errors), hidden: hiddenElement({ attrs: attributes }),
-        offsetX: offset.x, offsetY: offset.y, labelOffsetX: 0, labelOffsetY: 0,
-        layer: Number.isInteger(layer) ? layer : 0, explicitLayer: attributes.layer !== undefined,
-        sourceIndex: nodes.length, lineNumber: container.lineNumber, kind: "image",
-      };
-      nodes.push(image);
-      nodesById.set(id, image);
-      return image;
-    }
     const attributes = blockAttributesFor(container, labelElement, errors);
     const foreignTags = [...new Set(container.children
       .filter((child) => child.type === "field" && child.tag !== "node")
@@ -790,7 +767,6 @@ function compileMarkup(tree) {
     const customDefaults = nodeStyles.get(appliedStyles[0]) ?? blockDefaults;
     const offset = offsetTuple(attributes.offset, "node.offset", labelElement.lineNumber, errors);
     const labelOffset = offsetTuple(attributes["label-offset"], "node.label-offset", labelElement.lineNumber, errors);
-    const imageOffset = offsetTuple(attributes["image-offset"], "node.image-offset", labelElement.lineNumber, errors);
     const requestedId = attributes.id;
     const layerText = attributes.layer;
     const explicitLayer = layerText !== undefined;
@@ -814,8 +790,6 @@ function compileMarkup(tree) {
       offsetY: offset.y,
       labelOffsetX: labelOffset.x,
       labelOffsetY: labelOffset.y,
-      imageOffsetX: imageOffset.x,
-      imageOffsetY: imageOffset.y,
       layer: Number.isInteger(layer) ? layer : 0,
       explicitLayer,
       sourceIndex: nodes.length,
@@ -825,6 +799,31 @@ function compileMarkup(tree) {
     nodes.push(node);
     nodesById.set(id, node);
     return node;
+  }
+
+  function createImage(container) {
+    const attributes = imageAttributesFor(container, errors);
+    const requestedId = attributes.id;
+    if (!attributes.source || attributes.source === true) errors.push(`Line ${container.lineNumber}: every image needs a .source.`);
+    if (requestedId && !ID_PATTERN.test(requestedId)) errors.push(`Line ${container.lineNumber}: "${requestedId}" is not a valid ID.`);
+    const id = requestedId ?? automaticId("image", nodesById);
+    if (nodesById.has(id)) {
+      errors.push(`Line ${container.lineNumber}: the ID "${id}" is already in use.`);
+      return null;
+    }
+    const offset = offsetTuple(attributes.offset, "image.offset", container.lineNumber, errors);
+    const layer = attributes.layer === undefined ? 0 : Number(attributes.layer);
+    if (!Number.isInteger(layer)) errors.push(`Line ${container.lineNumber}: image.layer must be an integer.`);
+    const image = {
+      id, explicitId: requestedId ?? "", nodeType: null, label: "", annotations: annotationsFor(container, errors, annotationStyles, annotationDefaults),
+      style: imageStyle(attributes, container.lineNumber, errors), hidden: hiddenElement({ attrs: attributes }),
+      offsetX: offset.x, offsetY: offset.y, labelOffsetX: 0, labelOffsetY: 0,
+      layer: Number.isInteger(layer) ? layer : 0, explicitLayer: attributes.layer !== undefined,
+      sourceIndex: nodes.length, lineNumber: container.lineNumber, kind: "image",
+    };
+    nodes.push(image);
+    nodesById.set(id, image);
+    return image;
   }
 
   function buildEntry(entry, parent, branchDefaults = {}) {
@@ -1065,7 +1064,7 @@ function compileMarkup(tree) {
     }
   });
   nodes.forEach((node) => {
-    if ((incoming.get(node.id) ?? 0) > 1) node.kind = "merge";
+    if (node.kind !== "image" && (incoming.get(node.id) ?? 0) > 1) node.kind = "merge";
   });
   for (const group of groups.filter((candidate) => candidate.hidden)) {
     const hiddenIds = new Set(group.nodeIds);

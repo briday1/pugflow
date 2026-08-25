@@ -111,6 +111,24 @@ test("parses canonical flat graphs, direct nodes, and explicit flows", () => {
   assert.equal(result.groups[0].layer, 2);
 });
 
+test("parses standalone images with annotations and flow endpoints", () => {
+  const result = parseDiagram("graph\n  image\n    .id logo\n    .source https://example.com/logo.png\n    .width 80\n    .height 48\n    .annotation\n      .below Remote logo\n  node\n    .id done\n    .label Done\n  flow\n    .from logo\n    .to done");
+  assert.deepEqual(result.errors, []);
+  const image = result.nodes.find((node) => node.id === "logo");
+  assert.equal(image.kind, "image");
+  assert.equal(image.label, "");
+  assert.equal(image.style.source, "https://example.com/logo.png");
+  assert.deepEqual([image.width, image.height], [undefined, undefined]);
+  assert.deepEqual([image.style.padding, image.style.outline, image.style.fill], [0, "transparent", "transparent"]);
+  assert.equal(image.annotations[0].text, "Remote logo");
+  assert.deepEqual(result.edges.map(({ from, to }) => [from, to]), [["logo", "done"]]);
+});
+
+test("rejects image properties on nodes", () => {
+  const result = parseDiagram("graph\n  node\n    .id profile\n    .label Profile\n    .image photo.png");
+  assert.match(result.errors.join("\n"), /unknown node property "image"/);
+});
+
 test("applies @node, @flow, @annotation, and .defaults > .flow styles", () => {
   const result = parseDiagram(SOURCE);
   assert.deepEqual(result.errors, []);

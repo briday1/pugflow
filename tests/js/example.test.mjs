@@ -72,7 +72,7 @@ test("the built-in showcase presents a restrained layered production architectur
   assert.equal(parsed.get("client")?.annotations.length, 1);
   assert.equal(parsed.get("event-stream")?.annotations.length, 0);
   assert.deepEqual([parsed.get("gateway")?.layer, parsed.get("identity")?.layer, parsed.get("policy")?.layer], [2, 1, 0]);
-  assert.ok(result.nodes.every((node) => !node.style.image));
+  assert.ok(result.nodes.some((node) => node.kind === "image" && node.style.source.startsWith("https://")));
   assert.deepEqual([parsed.get("gateway")?.style.fill, parsed.get("gateway")?.style.color, parsed.get("gateway")?.style.outline, parsed.get("gateway")?.style.fontFamily], ["#2563eb", "#ffffff", "#ffffff", "SFMono-Regular, Menlo, Consolas, monospace"]);
   assert.equal(parsed.get("policy")?.style.shape, "diamond");
   assert.deepEqual([parsed.get("api")?.style.shape, parsed.get("api")?.style.fill, parsed.get("api")?.style.color, parsed.get("api")?.style.outline], ["square", "#172554", "#fef3c7", "#fde68a"]);
