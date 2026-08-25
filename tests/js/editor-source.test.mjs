@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   appendDiagramNode,
+  appendFlowAnnotation,
   appendFlowReference,
   appendGraphNode,
   appendNodeAnnotation,
@@ -57,12 +58,12 @@ test("writes direct flow fields and label offsets", () => {
 });
 
 test("switches reusable flow types while clearing local appearance overrides", () => {
-  const source = "@flow warning\n  .color red\n@flow success\n  .color green\n" + FLAT_GRAPH.replace("      .from root", "      .warning\n      .color blue\n      .from root");
+  const source = "@flow warning\n  .color red\n@flow success\n  .color green\n" + FLAT_GRAPH.replace("      .from root", "      .warning\n      .color blue\n      .outline white\n      .outline-width 2\n      .roundness 4\n      .arrow-height 12\n      .arrow-head-width 20\n      .shadow-color black\n      .font-size 15\n      .from root");
   const parsed = parseDiagram(source);
   assert.deepEqual(parsed.errors, []);
   const updated = setStructuralLineType(source, parsed.edges[0].lineNumber, "success", ["warning", "success"]);
   assert.match(updated, /    \.flow\n      \.success\n      \.from root/);
-  assert.doesNotMatch(updated, /      \.warning|      \.color blue/);
+  assert.doesNotMatch(updated, /      \.warning|      \.color blue|      \.outline |      \.outline-width|      \.roundness|      \.arrow-height|      \.arrow-head-width|      \.shadow-color|      \.font-size/);
 });
 
 test("removes a direct flow label", () => {
@@ -132,6 +133,18 @@ test("edits repeated node annotations independently", () => {
   assert.deepEqual([result[1].offsetX, result[1].offsetY], [3, -2]);
   const removed = removeNodeAnnotation(updated, result[0].lineNumber);
   assert.deepEqual(parseDiagram(removed).nodes[0].annotations.map((item) => item.text), ["Changed"]);
+});
+
+test("adds and edits repeated direct flow annotations", () => {
+  const flow = parseDiagram(FLAT_GRAPH).edges[0];
+  let updated = appendFlowAnnotation(FLAT_GRAPH, flow.lineNumber, { text: "First", fontStyle: "italic" });
+  updated = appendFlowAnnotation(updated, parseDiagram(updated).edges[0].lineNumber, { text: "Second" });
+  let annotations = parseDiagram(updated).edges[0].annotations.filter((annotation) => !annotation.legacy);
+  assert.deepEqual(annotations.map((annotation) => annotation.text), ["First", "Second"]);
+  assert.equal(annotations[0].fontStyle, "italic");
+  updated = setAnnotationText(updated, annotations[1].lineNumber, "Changed");
+  annotations = parseDiagram(updated).edges[0].annotations.filter((annotation) => !annotation.legacy);
+  assert.deepEqual(annotations.map((annotation) => annotation.text), ["First", "Changed"]);
 });
 
 test("creates missing annotation text and style fields", () => {

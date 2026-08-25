@@ -119,6 +119,47 @@ test("validates per-face node ports and rejects flow-level ports", () => {
   assert.match(flowPorts.errors.join("\n"), /\.ports.*not valid inside \.flow/);
 });
 
+test("parses vertical node label alignment", () => {
+  const result = parseDiagram("#canvas\n  graph\n    .node\n      .label Aligned\n      .align right\n      .vertical-align bottom");
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.nodes[0].style.align, "right");
+  assert.equal(result.nodes[0].style.verticalAlign, "bottom");
+});
+
+test("places graph labels top-center inside by default and accepts placement and offsets", () => {
+  const defaults = parseDiagram("#canvas\n  graph\n    .label Default\n    .node\n      .label Node");
+  assert.deepEqual(defaults.errors, []);
+  assert.deepEqual([defaults.groups[0].labelPosition, defaults.groups[0].align, defaults.groups[0].verticalAlign], ["inside", "center", "top"]);
+  const placed = parseDiagram("#canvas\n  graph\n    .label Placed\n    .label-position outside\n    .label-offset (12.5, -8)\n    .align right\n    .vertical-align bottom\n    .node\n      .label Node");
+  assert.deepEqual(placed.errors, []);
+  assert.deepEqual([placed.groups[0].labelPosition, placed.groups[0].align, placed.groups[0].verticalAlign], ["outside", "right", "bottom"]);
+  assert.deepEqual([placed.groups[0].labelOffsetX, placed.groups[0].labelOffsetY], [12.5, -8]);
+  assert.match(parseDiagram("#canvas\n  graph\n    .vertical-align sideways").errors.join("\n"), /graph\.vertical-align must be top, middle, or bottom/);
+  assert.match(parseDiagram("#canvas\n  graph\n    .label-offset wrong").errors.join("\n"), /graph\.label-offset must be a tuple/);
+});
+
+test("parses and validates optional flow IDs", () => {
+  const result = parseDiagram("#canvas\n  graph\n    .node\n      .id a\n      .label A\n    .node\n      .id b\n      .label B\n    .flow\n      .id delivery\n      .from a\n      .to b");
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.edges[0].id, "delivery");
+});
+
+test("parses chunky arrow dimensions", () => {
+  const result = parseDiagram("#canvas\n  graph\n    .node\n      .id a\n      .label A\n    .node\n      .id b\n      .label B\n    .flow\n      .from a\n      .to b\n      .arrow-shape chunky\n      .arrow-height 14\n      .arrow-head-width 24");
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual([result.edges[0].arrowHeight, result.edges[0].arrowHeadWidth], [14, 24]);
+});
+
+test("accepts repeated direct flow annotations and preserves legacy below placement", () => {
+  const result = parseDiagram("#canvas\n  graph\n    .node\n      .id a\n      .label A\n    .node\n      .id b\n      .label B\n    .flow\n      .from a\n      .to b\n      .annotation\n        | First\n      .annotation\n        | Second\n      .annotation-below Legacy");
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.edges[0].annotations.map(({ text, position }) => ({ text, position })), [
+    { text: "Legacy", position: "below" },
+    { text: "First", position: "above" },
+    { text: "Second", position: "above" },
+  ]);
+});
+
 test("exposes effective flow annotation colors and editable text borders", () => {
   const result = parseDiagram("@flow incident\n  .color #f59e0b\n#canvas\n  .background #f8fafc\n  graph\n    .node\n      .id alerting\n      .label Alerting\n    .node\n      .id oncall\n      .label On-call\n    .flow\n      .from alerting\n      .to oncall\n      .label page\n      .incident\n      .annotation-above-color #ffffff\n      .annotation-above-text-outline #172554\n      .annotation-above-text-outline-width 2");
   assert.deepEqual(result.errors, []);

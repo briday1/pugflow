@@ -8,7 +8,7 @@ const FLOW_DIRECTIONS = new Set(["right", "left", "up", "down"]);
 const PORT_DISTRIBUTIONS = new Set(["shared", "distributed"]);
 const LINE_STYLES = new Set(["solid", "dashed", "dotted"]);
 const LINE_FIELDS = new Set([
-  "line.arrow-style", "line.arrow-shape", "line.color", "line.outline", "line.outline-width", "line.stroke-style", "line.width",
+  "line.arrow-style", "line.arrow-shape", "line.arrow-height", "line.arrow-head-width", "line.color", "line.outline", "line.outline-width", "line.stroke-style", "line.width",
   "line.source-face", "line.target-face", "line.roundness",
   "line.label", "line.label-position", "line.label-offset", "line.label-hidden",
   "line.annotation-above", "line.annotation-below", "line.annotation-above-hidden", "line.annotation-below-hidden",
@@ -28,6 +28,8 @@ const LINE_FIELDS = new Set([
 const LINE_DEFINITION_FIELDS = new Map([
   ["arrow-style", "line.arrow-style"],
   ["arrow-shape", "line.arrow-shape"],
+  ["arrow-height", "line.arrow-height"],
+  ["arrow-head-width", "line.arrow-head-width"],
   ["source-face", "line.source-face"],
   ["target-face", "line.target-face"],
   ["roundness", "line.roundness"],
@@ -58,7 +60,7 @@ const ANNOTATION_STYLE_FIELDS = new Set([
 ]);
 const BLOCK_PROPERTIES = new Set([
   "id", "shape", "fill", "color", "outline", "outline-style", "outline-width",
-  "width", "height", "align", "layer", "hidden", "offset", "label-offset",
+  "width", "height", "align", "vertical-align", "layer", "hidden", "offset", "label-offset",
   "top-ports", "right-ports", "bottom-ports", "left-ports",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
   "image", "image-width", "image-height", "image-fit", "image-opacity", "image-offset", "image-padding",
@@ -66,14 +68,14 @@ const BLOCK_PROPERTIES = new Set([
 ]);
 const BLOCK_STYLE_PROPERTIES = new Set([
   "shape", "fill", "color", "outline", "outline-style", "outline-width",
-  "width", "height", "align",
+  "width", "height", "align", "vertical-align",
   "top-ports", "right-ports", "bottom-ports", "left-ports",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
   "image", "image-width", "image-height", "image-fit", "image-opacity", "image-padding",
   "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width",
 ]);
 const GRAPH_STYLE_PROPERTIES = new Set([
-  "label-position", "align", "placement", "fill", "color", "outline", "outline-style", "outline-width",
+  "label-position", "align", "vertical-align", "placement", "fill", "color", "outline", "outline-style", "outline-width",
   "padding", "x-spacing", "y-spacing",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
   "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width",
@@ -288,6 +290,7 @@ function blockStyle(attrs, lineNumber, errors, defaults = {}) {
     width: numberAttribute(attrs.width, defaults.width ?? "auto", 48, "width", lineNumber, errors),
     height: numberAttribute(attrs.height, defaults.height ?? "auto", 28, "height", lineNumber, errors),
     align: ["left", "center", "right"].includes(attrs.align) ? attrs.align : defaults.align ?? "center",
+    verticalAlign: ["top", "middle", "bottom"].includes(attrs["vertical-align"]) ? attrs["vertical-align"] : defaults.verticalAlign ?? "middle",
     ports,
     ...shadowStyle(attrs, defaults, lineNumber, errors),
     image: attrs.image ?? defaults.image ?? null,
@@ -357,7 +360,7 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
   const resolvedDirection = effective["line.arrow-style"] ?? defaults.direction ?? "forward";
   if (!DIRECTIONS.has(resolvedDirection)) errors.push(`Line ${lineNumber}: unknown arrow direction "${resolvedDirection}".`);
   const resolvedArrowShape = effective["line.arrow-shape"] ?? defaults.arrowShape ?? "triangle";
-  if (!ARROW_SHAPES.has(resolvedArrowShape)) errors.push(`Line ${lineNumber}: unknown arrow shape "${resolvedArrowShape}". Must be triangle, open, diamond, or circle.`);
+  if (!ARROW_SHAPES.has(resolvedArrowShape)) errors.push(`Line ${lineNumber}: unknown arrow shape "${resolvedArrowShape}". Must be triangle, open, diamond, circle, or chunky.`);
   if (!LINE_STYLES.has(style)) errors.push(`Line ${lineNumber}: unknown line style "${style}".`);
   const layoutDirection = attrs.direction ?? defaults.layoutDirection ?? "right";
   if (!FLOW_DIRECTIONS.has(layoutDirection)) errors.push(`Line ${lineNumber}: direction must be right, left, up, or down.`);
@@ -375,6 +378,8 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
     lineType: presetName,
     direction: DIRECTIONS.has(resolvedDirection) ? resolvedDirection : "forward",
     arrowShape: ARROW_SHAPES.has(resolvedArrowShape) ? resolvedArrowShape : "triangle",
+    arrowHeight: numberAttribute(effective["line.arrow-height"], defaults.arrowHeight ?? 8, 1, "line.arrow-height", lineNumber, errors),
+    arrowHeadWidth: numberAttribute(effective["line.arrow-head-width"], defaults.arrowHeadWidth ?? 16, 1, "line.arrow-head-width", lineNumber, errors),
     color: effective["line.color"] ?? defaults.color ?? null,
     outline: effective["line.outline"] ?? defaults.outline ?? "transparent",
     outlineWidth: numberAttribute(effective["line.outline-width"], defaults.outlineWidth ?? 0, 0, "line.outline-width", lineNumber, errors),
@@ -441,7 +446,7 @@ function connectionAttributesFor(container, errors, extras = [], rejectInline = 
     graph: new Set(["graph", "branch", "merge", "flow", "connect"]),
     branch: new Set(["entry"]),
     entry: new Set(["graph", "branch", "merge", "flow", "connect"]),
-    flow: new Set(["entry"]),
+    flow: new Set(["entry", "annotation"]),
     merge: new Set(["source", "entry"]),
     source: new Set(),
   }[container.type] ?? new Set();
@@ -485,7 +490,7 @@ function connectionAttributesFor(container, errors, extras = [], rejectInline = 
 
 function annotationsFor(container, errors, annotationStyles, defaults = {}) {
   return container.children
-    .filter((child) => child.type === "field" && child.classes.includes("annotation"))
+    .filter((child) => child.type === "annotation" || child.type === "field" && child.classes.includes("annotation"))
     .map((child) => {
       if (Object.keys(child.attrs).length) errors.push(`Line ${child.lineNumber}: annotations do not accept inline attributes; use indented .color and .offset fields.`);
       const presetFields = child.children.filter((item) => annotationStyles.has(item.type));
@@ -505,7 +510,7 @@ function annotationsFor(container, errors, annotationStyles, defaults = {}) {
       const offset = offsetField ? offsetTuple(offsetField.text.trim(), "offset", offsetField.lineNumber, errors) : preset.offset ?? { x: 0, y: 0 };
       return {
         text: textFor(child, errors, ["color", "offset", "hidden", ...Object.keys(textFields), ...annotationStyles.keys()]),
-        position: child.classes.includes("below") ? "below" : "above",
+        position: child.classes?.includes("below") ? "below" : "above",
         color: colorField?.text.trim() ?? preset.color ?? defaults.color ?? null,
         lineNumber: child.lineNumber,
         offsetX: offset.x,
@@ -591,7 +596,7 @@ function customLineStyles(tree, errors) {
 }
 
 const GRAPH_DEFAULTS = {
-  labelPosition: "inside", align: "left", placement: "below", fill: "transparent", color: null,
+  labelPosition: "inside", labelOffsetX: 0, labelOffsetY: 0, align: "center", verticalAlign: "top", placement: "below", fill: "transparent", color: null,
   outline: "transparent", outlineStyle: "solid", outlineWidth: 1.5, padding: 24, xSpacing: 60, ySpacing: 40,
   shadowColor: null, shadowOffsetX: 4, shadowOffsetY: 5, shadowBlur: 6, shadowOpacity: 0.3,
   fontFamily: null, fontSize: 13, fontWeight: "600", fontStyle: "normal", textDecoration: "none",
@@ -790,8 +795,14 @@ function compileMarkup(tree) {
   }
 
   function buildFlow(flow, graphId = null) {
-    const attributes = connectionAttributesFor(flow, errors, ["from", "to", "from-direction", "to-direction", "direction"], true, lineStyles, knownStyles);
+    const attributes = connectionAttributesFor(flow, errors, ["id", "from", "to", "from-direction", "to-direction", "direction"], true, lineStyles, knownStyles);
     const defaults = edgeStyle(attributes, edgeDefaults, flow.lineNumber, errors, lineStyles);
+    const explicitAnnotations = annotationsFor(flow, errors, annotationStyles, annotationDefaults);
+    const legacyAnnotations = [
+      defaults.annotationAbove ? { text: defaults.annotationAbove, position: "above", lineNumber: defaults.annotationAboveLineNumber, offsetX: defaults.labelOffsetX, offsetY: defaults.labelOffsetY, hidden: defaults.annotationAboveHidden, legacy: true, ...defaults.annotationAboveStyle } : null,
+      defaults.annotationBelow ? { text: defaults.annotationBelow, position: "below", lineNumber: defaults.annotationBelowLineNumber, offsetX: defaults.labelOffsetX, offsetY: defaults.labelOffsetY, hidden: defaults.annotationBelowHidden, legacy: true, ...defaults.annotationBelowStyle } : null,
+    ].filter(Boolean);
+    defaults.annotations = [...legacyAnnotations, ...explicitAnnotations];
     const entries = flow.children.filter((child) => child.type === "entry");
     if (entries.length) errors.push(`Line ${flow.lineNumber}: flows cannot contain nodes; declare nodes directly in a graph and reference them with .from and .to.`);
     pendingFlows.push({ flow, attributes, defaults, graphId });
@@ -813,14 +824,17 @@ function compileMarkup(tree) {
     });
     const field = (name) => component.children.find((child) => child.type === name)?.text.trim() ?? graphPreset[name];
     const graphOffset = offsetTuple(field("offset"), "graph.offset", component.lineNumber, errors);
+    const labelOffset = offsetTuple(field("label-offset"), "graph.label-offset", component.lineNumber, errors);
     const layerText = field("layer");
     const layer = layerText === undefined || layerText === "" ? 0 : Number(layerText);
     if (!Number.isInteger(layer)) errors.push(`Line ${component.lineNumber}: graph.layer must be an integer.`);
     const labelPosition = field("label-position") || "inside";
-    const align = field("align") || "left";
+    const align = field("align") || "center";
+    const verticalAlign = field("vertical-align") || "top";
     const placement = field("placement") || "below";
     if (!["inside", "outside"].includes(labelPosition)) errors.push(`Line ${component.lineNumber}: graph.label-position must be inside or outside.`);
     if (!["left", "center", "right"].includes(align)) errors.push(`Line ${component.lineNumber}: graph.align must be left, center, or right.`);
+    if (!["top", "middle", "bottom"].includes(verticalAlign)) errors.push(`Line ${component.lineNumber}: graph.vertical-align must be top, middle, or bottom.`);
     if (!["above", "below", "left", "right"].includes(placement)) errors.push(`Line ${component.lineNumber}: graph.placement must be above, below, left, or right.`);
     const hiddenField = component.children.find((child) => child.type === "hidden");
     const hidden = Boolean(hiddenField && !["false", "no", "0"].includes(hiddenField.text.trim()));
@@ -833,7 +847,10 @@ function compileMarkup(tree) {
       graphType,
       label: field("label") || "",
       labelPosition: ["inside", "outside"].includes(labelPosition) ? labelPosition : "inside",
-      align: ["left", "center", "right"].includes(align) ? align : "left",
+      labelOffsetX: labelOffset.x,
+      labelOffsetY: labelOffset.y,
+      align: ["left", "center", "right"].includes(align) ? align : "center",
+      verticalAlign: ["top", "middle", "bottom"].includes(verticalAlign) ? verticalAlign : "top",
       fill: field("fill") || "transparent",
       color: field("color") || null,
       fontFamily: field("font-family") || null,
@@ -961,7 +978,12 @@ function compileMarkup(tree) {
   }
   for (const group of groups) validatePlacementChain(group);
   const graphByNode = new Map(groups.flatMap((group) => group.nodeIds.map((id) => [id, group.id])));
+  const flowIds = new Set();
   for (const { flow, attributes, defaults, graphId } of pendingFlows) {
+    const id = attributes.id ?? "";
+    if (id && !ID_PATTERN.test(id)) errors.push(`Line ${flow.lineNumber}: flow ID must start with a letter and contain only letters, numbers, underscores, or hyphens.`);
+    if (id && flowIds.has(id)) errors.push(`Line ${flow.lineNumber}: the flow ID "${id}" is already in use.`);
+    if (id) flowIds.add(id);
     const from = attributes.from;
     const to = attributes.to;
     if (!from || !nodesById.has(from)) errors.push(`Line ${flow.lineNumber}: flow source "${from || "(missing)"}" is not defined.`);
@@ -975,7 +997,7 @@ function compileMarkup(tree) {
     const toDirection = attributes["to-direction"] ?? fromDirection;
     if (!FLOW_DIRECTIONS.has(fromDirection)) errors.push(`Line ${flow.lineNumber}: from-direction must be right, left, up, or down.`);
     if (!FLOW_DIRECTIONS.has(toDirection)) errors.push(`Line ${flow.lineNumber}: to-direction must be right, left, up, or down.`);
-    edges.push({ from, to, kind: "flow", declarationKind: "flow", explicitFlow: true, graphId, ...defaults,
+    edges.push({ id, from, to, kind: "flow", declarationKind: "flow", explicitFlow: true, graphId, ...defaults,
       layoutDirection: FLOW_DIRECTIONS.has(fromDirection) ? fromDirection : "right",
       sourceDirection: defaults.sourceFace ? defaults.sourceDirection : (FLOW_DIRECTIONS.has(fromDirection) ? fromDirection : "right"),
       targetLayoutDirection: defaults.targetFace ? defaults.targetLayoutDirection : (FLOW_DIRECTIONS.has(toDirection) ? toDirection : fromDirection) });

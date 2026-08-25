@@ -195,7 +195,10 @@ function addRichLabel(group, node, colors, x, top, anchor, textColor) {
     "data-current-x": node.labelOffsetX, "data-current-y": node.labelOffsetY,
     role: "link", tabindex: 0, "aria-label": "Move or edit label " + node.label.replace(/\n/g, " "),
   });
-  let rowTop = top + (node.height - node.textHeight) / 2 + node.labelOffsetY;
+  const verticalTop = node.style.verticalAlign === "top" ? top + 12
+    : node.style.verticalAlign === "bottom" ? top + node.height - node.textHeight - 12
+      : top + (node.height - node.textHeight) / 2;
+  let rowTop = verticalTop + node.labelOffsetY;
   node.lines.forEach((line) => {
     let cursor = anchor === "start" ? x : anchor === "end" ? x - line.width : x - line.width / 2;
     line.runs.forEach((run) => {
@@ -338,7 +341,9 @@ function addNode(svg, node, colors, defs) {
   const text = svgElement("text", {
     class: "label",
     x,
-    y: top + node.height / 2 - ((node.lines.length - 1) * node.lineHeight / 2) + node.labelOffsetY,
+    y: (node.style.verticalAlign === "top" ? top + 12 + node.lineHeight / 2
+      : node.style.verticalAlign === "bottom" ? top + node.height - 12 - ((node.lines.length - 1) * node.lineHeight)
+        : top + node.height / 2 - ((node.lines.length - 1) * node.lineHeight / 2)) + node.labelOffsetY,
     fill: textColor,
     "font-family": node.style.fontFamily ?? colors.font,
     "font-size": node.style.fontSize, "font-weight": node.style.fontWeight,
@@ -387,22 +392,57 @@ function ensureMarker(defs, color, outline = "transparent", outlineWidth = 0, ar
   } else if (arrowShape === "circle") {
     markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 10, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
     markerEl.append(svgElement("circle", { cx: 5, cy: 5, r: 4.5, fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke" }));
-  } else if (arrowShape === "chunky") {
-    markerEl = svgElement("marker", { id, viewBox: "0 0 12 12", refX: 10, refY: 6, markerWidth: 5.5, markerHeight: 5.5, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
-    markerEl.append(svgElement("path", {
-      d: "M 0.5 0.5 L 11.5 6 L 0.5 11.5 L 3 6 z",
-      fill: color,
-      stroke: outline === "transparent" ? "none" : outline,
-      "stroke-width": outline === "transparent" ? 0 : Math.max(outlineWidth, 1),
-      "paint-order": "stroke",
-      "stroke-linejoin": "round",
-    }));
   } else {
     markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
     markerEl.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke", "stroke-linejoin": "round" }));
   }
   defs.append(markerEl);
   return id;
+}
+
+function chunkyArrowPath(routeD, direction, arrowHeight, arrowHeadWidth) {
+  const guide = svgElement("path", { d: routeD });
+  const length = guide.getTotalLength();
+  if (!length) return routeD;
+  const shaftHalf = Math.max(0.5, arrowHeight / 2);
+  const headHalf = shaftHalf * 1.8;
+  const headLength = Math.min(Math.max(1, arrowHeadWidth), length * 0.4);
+  const backward = ["backward", "both"].includes(direction);
+  const forward = ["forward", "both"].includes(direction);
+  const bodyStart = backward ? headLength : 0;
+  const bodyEnd = forward ? length - headLength : length;
+  const point = (distance) => guide.getPointAtLength(Math.max(0, Math.min(length, distance)));
+  const offset = (distance, amount) => {
+    const current = point(distance);
+    const before = point(distance - 0.5);
+    const after = point(distance + 0.5);
+    const dx = after.x - before.x;
+    const dy = after.y - before.y;
+    const magnitude = Math.hypot(dx, dy) || 1;
+    return { x: current.x - dy / magnitude * amount, y: current.y + dx / magnitude * amount };
+  };
+  const distances = [bodyStart];
+  const steps = Math.max(1, Math.ceil((bodyEnd - bodyStart) / 5));
+  for (let index = 1; index < steps; index += 1) distances.push(bodyStart + (bodyEnd - bodyStart) * index / steps);
+  distances.push(bodyEnd);
+  const left = distances.map((distance) => offset(distance, shaftHalf));
+  const right = [...distances].reverse().map((distance) => offset(distance, -shaftHalf));
+  const commands = [`M ${left[0].x} ${left[0].y}`, ...left.slice(1).map((item) => `L ${item.x} ${item.y}`)];
+  if (forward) {
+    const upperBase = offset(bodyEnd, headHalf);
+    const tip = point(length);
+    const lowerBase = offset(bodyEnd, -headHalf);
+    commands.push(`L ${upperBase.x} ${upperBase.y}`, `L ${tip.x} ${tip.y}`, `L ${lowerBase.x} ${lowerBase.y}`);
+  }
+  commands.push(...right.map((item) => `L ${item.x} ${item.y}`));
+  if (backward) {
+    const lowerBase = offset(bodyStart, -headHalf);
+    const tip = point(0);
+    const upperBase = offset(bodyStart, headHalf);
+    commands.push(`L ${lowerBase.x} ${lowerBase.y}`, `L ${tip.x} ${tip.y}`, `L ${upperBase.x} ${upperBase.y}`);
+  }
+  commands.push("Z");
+  return commands.join(" ");
 }
 
 /** Route a connection with straight segments and small rounded 90-degree bends. */
@@ -604,7 +644,7 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
   const outline = edge.outline ?? "transparent";
   const outlineWidth = edge.outlineWidth ?? 0;
   const arrowShape = edge.arrowShape ?? "triangle";
-  const marker = ensureMarker(defs, color, outline, outlineWidth, arrowShape);
+  const marker = arrowShape === "chunky" ? null : ensureMarker(defs, color, outline, outlineWidth, arrowShape);
   const sourceDirection = edge.sourceDirection ?? edge.layoutDirection;
   const vertical = ["up", "down"].includes(sourceDirection);
   const targetDirection = edge.targetLayoutDirection ?? edge.layoutDirection;
@@ -632,54 +672,75 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
     "pointer-events": "stroke",
   });
   const shadow = shadowFilter(defs, edge, `flow-${edge.from}-${edge.to}-${edge.lineNumber}`);
-  const path = svgElement("path", {
-    ...selection,
-    d: route.d,
-    class: `connector ${edge.kind}`,
-    filter: outlineWidth > 0 ? null : shadow,
-    stroke: color,
-    "stroke-width": edge.width,
-    "stroke-dasharray": dashArray(edge.style),
-    "marker-start": ["backward", "both"].includes(edge.direction) ? `url(#${marker})` : null,
-    "marker-end": ["forward", "both"].includes(edge.direction) ? `url(#${marker})` : null,
-    "pointer-events": "none",
-  });
-  svg.append(hitPath);
-  if (outlineWidth > 0 && !["none", "transparent"].includes(String(outline).toLowerCase())) {
+  if (arrowShape === "chunky") {
+    const chunkyPath = chunkyArrowPath(route.d, edge.direction, edge.arrowHeight, edge.arrowHeadWidth);
+    const hasOutline = outlineWidth > 0 && !["none", "transparent"].includes(String(outline).toLowerCase());
     svg.append(svgElement("path", {
-      d: route.d,
-      class: `connector connector-outline ${edge.kind}`,
+      ...selection,
+      d: chunkyPath,
+      class: `connector chunky ${edge.kind}`,
+      fill: color,
       filter: shadow,
-      stroke: outline,
-      "stroke-width": edge.width + outlineWidth * 2,
+      stroke: hasOutline ? outline : "none",
+      "stroke-width": hasOutline ? outlineWidth * 2 : 0,
       "stroke-dasharray": dashArray(edge.style),
+      "stroke-linejoin": "round",
+      "stroke-linecap": "round",
+      "paint-order": "stroke fill",
+      "pointer-events": "none",
+    }));
+    svg.append(hitPath);
+  }
+  if (arrowShape !== "chunky") {
+    svg.append(hitPath);
+    if (outlineWidth > 0 && !["none", "transparent"].includes(String(outline).toLowerCase())) {
+      svg.append(svgElement("path", {
+        d: route.d,
+        class: `connector connector-outline ${edge.kind}`,
+        filter: shadow,
+        stroke: outline,
+        "stroke-width": edge.width + outlineWidth * 2,
+        "stroke-dasharray": dashArray(edge.style),
+        "pointer-events": "none",
+      }));
+    }
+    svg.append(svgElement("path", {
+      ...selection,
+      d: route.d,
+      class: `connector ${edge.kind}`,
+      filter: outlineWidth > 0 ? null : shadow,
+      stroke: color,
+      "stroke-width": edge.width,
+      "stroke-dasharray": dashArray(edge.style),
+      "marker-start": ["backward", "both"].includes(edge.direction) ? `url(#${marker})` : null,
+      "marker-end": ["forward", "both"].includes(edge.direction) ? `url(#${marker})` : null,
       "pointer-events": "none",
     }));
   }
-  svg.append(path);
-  const annotations = [
-    { text: edge.annotationAbove, position: "above", hidden: edge.annotationAboveHidden, lineNumber: edge.annotationAboveLineNumber },
-    { text: edge.annotationBelow, position: "below", hidden: edge.annotationBelowHidden, lineNumber: edge.annotationBelowLineNumber },
-  ];
+  const annotations = edge.annotations ?? [];
+  const annotationStackHeight = { above: 0, below: 0 };
   annotations.filter((annotation) => annotation.text && !annotation.hidden).forEach((annotation) => {
-    const annotationStyle = annotation.position === "below" ? edge.annotationBelowStyle : edge.annotationAboveStyle;
+    const annotationStyle = annotation;
     const annotationColor = annotationStyle?.color === "merge" ? colors.merge : annotationStyle?.color ?? color;
-    const offset = annotation.position === "below" ? 16 : -8;
     const rich = containsMath(annotation.text);
-    const richLayout = rich ? richTextLayout(annotation.text, edge, colors) : null;
-    const x = route.labelX + edge.labelOffsetX;
-    const baseline = route.labelY + offset + edge.labelOffsetY;
+    const richLayout = rich ? richTextLayout(annotation.text, annotationStyle, colors) : null;
+    const renderHeight = richLayout?.height ?? annotationStyle.fontSize ?? edge.fontSize ?? 12;
+    const x = route.labelX + (annotation.offsetX ?? 0);
+    const position = annotation.position === "below" ? "below" : "above";
+    const baseline = route.labelY + (position === "below" ? 8 + renderHeight + annotationStackHeight.below : -8 - annotationStackHeight.above) + (annotation.offsetY ?? 0);
+    annotationStackHeight[position] += renderHeight + 4;
     const common = {
       class: "connection-annotation", "data-line": annotation.lineNumber,
-      "data-offset-line": edge.lineNumber, "data-drag-kind": "connection-label",
+      "data-offset-line": annotation.legacy ? edge.lineNumber : annotation.lineNumber,
+      "data-drag-kind": annotation.legacy ? "connection-label" : "flow-annotation",
       "data-select-kind": "line", "data-selection-key": `line:${edge.from}:${edge.to}:${edge.lineNumber}`,
-      "data-from": edge.from, "data-to": edge.to, "data-current-x": edge.labelOffsetX,
-      "data-current-y": edge.labelOffsetY, role: "link", tabindex: 0,
-      "aria-label": `Move or edit ${annotation.position} connection annotation ` + annotation.text,
+      "data-from": edge.from, "data-to": edge.to, "data-current-x": annotation.offsetX ?? 0,
+      "data-current-y": annotation.offsetY ?? 0, role: "link", tabindex: 0,
+      "aria-label": "Move or edit connection annotation " + annotation.text,
     };
     if (rich) {
       const wrapper = svgElement("g", common);
-      let rowTop = annotation.position === "above" ? baseline - richLayout.height : baseline;
+      let rowTop = baseline - richLayout.height;
       richLayout.lines.forEach((line) => {
         let cursor = x - line.width / 2;
         line.runs.forEach((run) => {
@@ -725,9 +786,13 @@ function layoutOptionsForLabels(edges, colors, requested = {}) {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
   const widestLabel = Math.max(0, ...edges.map((edge) => {
-    context.font = `${edge.fontStyle ?? "normal"} ${edge.fontWeight ?? "normal"} ${edge.fontSize ?? 12}px ${edge.fontFamily ?? colors.font}`;
-    const measure = (value) => containsMath(value) ? richTextLayout(value, edge, colors).width : context.measureText(value).width;
-    return Math.max(measure(edge.annotationAbove ?? ""), measure(edge.annotationBelow ?? ""));
+    const measure = (annotation) => {
+      context.font = `${annotation.fontStyle ?? "normal"} ${annotation.fontWeight ?? "normal"} ${annotation.fontSize ?? 12}px ${annotation.fontFamily ?? colors.font}`;
+      return containsMath(annotation.text ?? "")
+        ? richTextLayout(annotation.text ?? "", annotation, colors).width
+        : context.measureText(annotation.text ?? "").width;
+    };
+    return Math.max(0, ...(edge.annotations ?? []).map(measure));
   }));
   return {
     ...requested,
@@ -741,21 +806,29 @@ function diagramBounds(groups, nodesById, colors) {
     if (!nodes.length) return null;
     const padding = group.padding ?? 24;
     const titleHeight = group.label ? Math.ceil((group.fontSize ?? 13) * 1.2) : 0;
-    const titleSpace = group.label && group.labelPosition !== "outside" ? titleHeight + 6 : 0;
+    const titleSpace = group.label && group.labelPosition !== "outside" && group.verticalAlign !== "middle" ? titleHeight + 6 : 0;
+    const titleAtBottom = group.verticalAlign === "bottom";
     const bounds = {
       ...group,
       x: Math.min(...nodes.map((node) => node.x)) - padding,
-      y: Math.min(...nodes.map((node) => node.y)) - padding - titleSpace,
+      y: Math.min(...nodes.map((node) => node.y)) - padding - (titleAtBottom ? 0 : titleSpace),
       right: Math.max(...nodes.map((node) => node.x + node.width)) + padding,
-      bottom: Math.max(...nodes.map((node) => node.y + node.layoutHeight)) + padding,
+      bottom: Math.max(...nodes.map((node) => node.y + node.layoutHeight)) + padding + (titleAtBottom ? titleSpace : 0),
     };
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
     context.font = `${group.fontStyle ?? "normal"} ${group.fontWeight ?? "600"} ${group.fontSize ?? 13}px ${group.fontFamily ?? colors.font}`;
     const labelWidth = group.label ? context.measureText(group.label).width : 0;
-    const labelLeft = group.align === "center" ? (bounds.x + bounds.right - labelWidth) / 2
-      : group.align === "right" ? bounds.right - 12 - labelWidth : bounds.x + 12;
-    bounds.visualTop = group.label && group.labelPosition === "outside" ? bounds.y - titleHeight - 8 : bounds.y;
+    const labelLeft = (group.align === "center" ? (bounds.x + bounds.right - labelWidth) / 2
+      : group.align === "right" ? bounds.right - 12 - labelWidth : bounds.x + 12) + (group.labelOffsetX ?? 0);
+    const labelBaseline = group.labelPosition === "outside"
+      ? group.verticalAlign === "bottom" ? bounds.bottom + (group.fontSize ?? 13) + 8 : bounds.y - 8
+      : group.verticalAlign === "bottom" ? bounds.bottom - 8
+        : group.verticalAlign === "middle" ? (bounds.y + bounds.bottom) / 2 + (group.fontSize ?? 13) * 0.35
+          : bounds.y + (group.fontSize ?? 13) + 4;
+    const shiftedLabelBaseline = labelBaseline + (group.labelOffsetY ?? 0);
+    bounds.visualTop = group.label ? Math.min(bounds.y, shiftedLabelBaseline - titleHeight) : bounds.y;
+    bounds.visualBottom = group.label ? Math.max(bounds.bottom, shiftedLabelBaseline + 3) : bounds.bottom;
     bounds.visualLeft = Math.min(bounds.x, labelLeft);
     bounds.visualRight = Math.max(bounds.right, labelLeft + labelWidth);
     return bounds;
@@ -790,11 +863,28 @@ function addDiagramFrame(parent, group, colors, defs) {
     rx: 12, fill: "none", stroke: "var(--accent)", "stroke-width": 3, "stroke-dasharray": "7 4", "pointer-events": "none",
   }));
   if (group.label) {
-    const align = group.align ?? "left";
-    const x = align === "center" ? (group.x + group.right) / 2 : align === "right" ? group.right - 12 : group.x + 12;
+    const align = group.align ?? "center";
+    const verticalAlign = group.verticalAlign ?? "top";
+    const x = (align === "center" ? (group.x + group.right) / 2 : align === "right" ? group.right - 12 : group.x + 12) + (group.labelOffsetX ?? 0);
+    const fontSize = group.fontSize ?? 13;
+    const y = (group.labelPosition === "outside"
+      ? verticalAlign === "bottom" ? group.bottom + fontSize + 8 : group.y - 8
+      : verticalAlign === "bottom" ? group.bottom - 8
+        : verticalAlign === "middle" ? (group.y + group.bottom) / 2 + fontSize * 0.35
+          : group.y + fontSize + 4) + (group.labelOffsetY ?? 0);
     const label = svgElement("text", {
       class: "subdiagram-label", x,
-      y: group.labelPosition === "outside" ? group.y - 8 : group.y + (group.fontSize ?? 13) + 4,
+      y,
+      "data-line": group.lineNumber,
+      "data-id": group.id,
+      "data-select-kind": "graph",
+      "data-selection-key": `graph:${group.id}`,
+      "data-drag-kind": "graph-label",
+      "data-current-x": group.labelOffsetX ?? 0,
+      "data-current-y": group.labelOffsetY ?? 0,
+      role: "button",
+      tabindex: 0,
+      "aria-label": `Move graph label: ${group.label}`,
       fill: group.color ?? colors.text,
       "font-family": group.fontFamily ?? colors.font,
       "font-size": group.fontSize ?? 13,
@@ -803,7 +893,7 @@ function addDiagramFrame(parent, group, colors, defs) {
       "text-decoration": group.textDecoration ?? "none",
       ...textBorder(group),
       "text-anchor": align === "center" ? "middle" : align === "right" ? "end" : "start",
-      "pointer-events": "none",
+      "pointer-events": "auto",
     });
     label.textContent = group.label;
     frame.append(label);
@@ -839,7 +929,7 @@ function packGraphs(nodes, groups, colors, gap = 80) {
         ? { x: target.visualLeft + targetShift.x - gap - group.visualRight, y: target.y + targetShift.y - group.y }
         : placement === "right"
           ? { x: target.visualRight + targetShift.x + gap - group.visualLeft, y: target.y + targetShift.y - group.y }
-          : { x: target.x + targetShift.x - group.x, y: target.bottom + targetShift.y + gap - group.visualTop };
+          : { x: target.x + targetShift.x - group.x, y: target.visualBottom + targetShift.y + gap - group.visualTop };
     graphShifts.set(group.id, shift);
     resolving.delete(group.id);
     return shift;
@@ -894,7 +984,7 @@ function renderSvg(container, graph, options) {
   const viewX = extentX.length ? Math.min(...extentX.map((value) => value - 60), ...groups.map((group) => group.visualLeft - 20)) : 0;
   const viewY = extentY.length ? Math.min(...extentY.map((value) => value - 40), ...groups.map((group) => group.visualTop - 20)) : 0;
   const viewRight = extentX.length ? Math.max(...extentX.map((value) => value + 60), ...groups.map((group) => group.visualRight + 20)) : 1;
-  const viewBottom = extentY.length ? Math.max(...extentY.map((value) => value + 40), ...groups.map((group) => group.bottom + 20)) : 1;
+  const viewBottom = extentY.length ? Math.max(...extentY.map((value) => value + 40), ...groups.map((group) => group.visualBottom + 20)) : 1;
   const viewWidth = viewRight - viewX;
   const viewHeight = viewBottom - viewY;
   const svg = svgElement("svg", { xmlns: SVG_NS, viewBox: `${viewX} ${viewY} ${viewWidth} ${viewHeight}`, width: viewWidth, height: viewHeight, role: "img", "aria-label": options.accessibleLabel ?? "Block diagram" });

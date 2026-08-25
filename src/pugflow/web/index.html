@@ -108,8 +108,8 @@
             <section class="flow-endpoint">
               <label class="connected-source-choice"><span id="builder-from-graph-label">From graph</span><select id="builder-from-graph"></select></label>
               <fieldset class="flow-only connected-source-choice"><legend>From Node</legend><div id="builder-sources" class="node-choice-list" role="listbox" aria-label="From node"></div></fieldset>
-              <label class="connected-node-only">Connected node<input id="builder-connected-node" readonly></label>
-              <label class="flow-only">From direction<select id="builder-from-direction"><option>right</option><option>left</option><option>down</option><option>up</option></select></label>
+              <div class="connected-node-only connected-node-summary"><label>Connected node<input id="builder-connected-node" readonly></label><label>Face<input id="builder-connected-face" readonly></label></div>
+              <label class="flow-only existing-flow-only">From direction<select id="builder-from-direction"><option>right</option><option>left</option><option>down</option><option>up</option></select></label>
             </section>
             <section class="flow-endpoint flow-only existing-target-only">
               <label>To graph<select id="builder-to-graph"></select></label>
@@ -118,7 +118,6 @@
             </section>
           </div>
           <label class="connected-node-only">Flow direction<select id="builder-flow-direction"><option value="to">To new node</option><option value="from">From new node</option></select></label>
-          <label class="connected-node-only">Face / placement<select id="builder-connected-face"><option value="right">right</option><option value="left">left</option><option value="down">down</option><option value="up">up</option></select></label>
           <label class="connected-node-only">New node graph<select id="builder-new-node-graph"></select></label>
           <label class="new-target-only">Node type<select id="builder-node-type"></select></label>
           <label class="relationship-only">Flow type<select id="builder-line-type"><option value="">Default flow</option></select></label>
@@ -140,7 +139,7 @@
         <div class="dialog-title"><div><small>CANVAS BUILDER</small><h2>Add annotation</h2></div></div>
         <p class="dialog-help" id="annotation-builder-help">Add another annotation to the selected node.</p>
         <div class="builder-grid">
-          <label>Position<select id="annotation-builder-position"><option value="above">Above</option><option value="below">Below</option></select></label>
+          <label id="annotation-builder-position-row">Position<select id="annotation-builder-position"><option value="above">Above</option><option value="below">Below</option></select></label>
           <label>Type<select id="annotation-builder-type"><option value="">Default annotation</option></select></label>
           <label class="builder-wide">Text<textarea id="annotation-builder-text" rows="3" required>Annotation</textarea></label>
           <label>Color<input id="annotation-builder-color" placeholder="Optional CSS color"></label>

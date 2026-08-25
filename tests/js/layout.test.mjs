@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
-import { arrangeNodeOffsets, cleanupAlignmentOffsets, DEFAULT_LAYOUT, independentMoveOffsets, inheritedFlowOffsets, layoutDiagram } from "../../src/pugflow/web/layout.mjs";
+import { arrangeNodeOffsets, cleanupAlignmentOffsets, cleanupGraphOffsets, DEFAULT_LAYOUT, independentMoveOffsets, inheritedFlowOffsets, layoutDiagram } from "../../src/pugflow/web/layout.mjs";
 import { connectionPath, connectionPathAvoidingNodes, constrainDragDelta, edgeIsVisible } from "../../src/pugflow/web/pugflow.mjs";
 
 test("constrains modified drags to their dominant axis", () => {
@@ -129,6 +129,40 @@ test("centers same-direction sibling branches around their source", () => {
   assert.equal(centerX(placed.get("payment")), (placed.get("retry").x + placed.get("approve").x + placed.get("approve").width) / 2);
   assert.equal(placed.get("retry").y, placed.get("approve").y);
   assert.equal(placed.get("approve").x - (placed.get("retry").x + placed.get("retry").width), DEFAULT_LAYOUT.horizontalGutter);
+});
+
+test("perpendicular sibling branches do not change existing chain spacing", () => {
+  const chain = [
+    { id: "client", width: 145, height: 42 },
+    { id: "gateway", width: 150, height: 42 },
+    { id: "identity", width: 150, height: 42 },
+    { id: "policy", width: 140, height: 60 },
+  ];
+  const chainEdges = [
+    { from: "client", to: "gateway", kind: "branch", layoutDirection: "right" },
+    { from: "gateway", to: "identity", kind: "branch", layoutDirection: "right" },
+    { from: "identity", to: "policy", kind: "branch", layoutDirection: "right" },
+  ];
+  const options = { horizontalGutter: 72, verticalGutter: 48, padding: 30 };
+  const base = new Map(layoutDiagram(chain, chainEdges, options).nodes.map((node) => [node.id, node]));
+  const branches = [
+    { id: "node-14", width: 120, height: 42 },
+    { id: "node-15", width: 180, height: 42 },
+  ];
+  const branchEdges = [
+    { from: "identity", to: "node-14", kind: "branch", layoutDirection: "up" },
+    { from: "identity", to: "node-15", kind: "branch", layoutDirection: "up" },
+  ];
+  const expanded = new Map(layoutDiagram([...chain, ...branches], [...chainEdges, ...branchEdges], options).nodes.map((node) => [node.id, node]));
+  chain.forEach(({ id }) => assert.equal(expanded.get(id).x, base.get(id).x));
+  [["client", "gateway"], ["gateway", "identity"], ["identity", "policy"]].forEach(([from, to]) => {
+    assert.equal(expanded.get(to).x - (expanded.get(from).x + expanded.get(from).width), options.horizontalGutter);
+  });
+  assert.equal(expanded.get("node-14").y, expanded.get("node-15").y);
+  assert.ok(expanded.get("node-14").y < expanded.get("identity").y);
+  assert.equal(expanded.get("node-15").x - (expanded.get("node-14").x + expanded.get("node-14").width), options.horizontalGutter);
+  const identityCenter = expanded.get("identity").x + expanded.get("identity").width / 2;
+  assert.equal(identityCenter, (expanded.get("node-14").x + expanded.get("node-15").x + expanded.get("node-15").width) / 2);
 });
 
 test("lays out a horizontal branch and merge compactly and symmetrically", () => {
@@ -532,6 +566,52 @@ test("preserves a centered multi-source merge during cleanup", () => {
     { from: "accept", to: "publish", kind: "merge", declarationKind: "flow", layoutDirection: "right", sourceDirection: "right", targetLayoutDirection: "right" },
   ];
   assert.deepEqual(cleanupAlignmentOffsets(nodes, edges), []);
+});
+
+test("cleans a small cross-graph kink by moving the graph instead of its node", () => {
+  const nodes = [
+    { id: "source", x: 100, y: 100, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 4 },
+    { id: "target", x: 500, y: 120, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 10 },
+  ];
+  const groups = [
+    { id: "first", nodeIds: ["source"], offsetX: 0, offsetY: 0, sourceIndex: 0, lineNumber: 2 },
+    { id: "second", nodeIds: ["target"], offsetX: 10, offsetY: 20, sourceIndex: 1, lineNumber: 8 },
+  ];
+  const edges = [{ from: "source", to: "target", kind: "branch", layoutDirection: "right", sourceDirection: "right", targetLayoutDirection: "right" }];
+  assert.deepEqual(cleanupGraphOffsets(nodes, edges, groups), [
+    { id: "second", lineNumber: 8, offsetX: 10, offsetY: 0 },
+  ]);
+  assert.deepEqual(cleanupAlignmentOffsets(nodes, []), []);
+  assert.equal(edges[0].sourceDirection, "right");
+  assert.equal(edges[0].targetLayoutDirection, "right");
+});
+
+test("preserves a deliberate bend between graphs", () => {
+  const nodes = [
+    { id: "source", x: 100, y: 100, width: 160, height: 60 },
+    { id: "target", x: 420, y: 280, width: 160, height: 60 },
+  ];
+  const groups = [
+    { id: "first", nodeIds: ["source"], offsetX: 0, offsetY: 0, sourceIndex: 0, lineNumber: 2 },
+    { id: "second", nodeIds: ["target"], offsetX: 0, offsetY: 0, sourceIndex: 1, lineNumber: 8 },
+  ];
+  const edges = [{ from: "source", to: "target", kind: "branch", layoutDirection: "down", sourceDirection: "right", targetLayoutDirection: "down" }];
+  assert.deepEqual(cleanupGraphOffsets(nodes, edges, groups), []);
+});
+
+test("cleans a small perpendicular kink between graphs", () => {
+  const nodes = [
+    { id: "source", x: 100, y: 100, width: 160, height: 60 },
+    { id: "target", x: 226, y: 280, width: 160, height: 60 },
+  ];
+  const groups = [
+    { id: "first", nodeIds: ["source"], offsetX: 0, offsetY: 0, sourceIndex: 0, lineNumber: 2 },
+    { id: "second", nodeIds: ["target"], offsetX: 0, offsetY: 0, sourceIndex: 1, lineNumber: 8 },
+  ];
+  const edges = [{ from: "source", to: "target", kind: "branch", layoutDirection: "down", sourceDirection: "right", targetLayoutDirection: "down" }];
+  assert.deepEqual(cleanupGraphOffsets(nodes, edges, groups), [
+    { id: "second", lineNumber: 8, offsetX: -22, offsetY: 0 },
+  ]);
 });
 
 test("distributes rendered positions while preserving existing offsets", () => {

@@ -2,7 +2,7 @@ const FIELD_MAPS = {
   node: [
     ["shape", "shape"], ["fill", "fill"], ["color", "color"], ["outline", "outline"],
     ["outline-style", "outlineStyle"], ["outline-width", "outlineWidth"], ["width", "width"],
-    ["height", "height"], ["align", "align"], ["shadow-color", "shadowColor"],
+    ["height", "height"], ["align", "align"], ["vertical-align", "verticalAlign"], ["shadow-color", "shadowColor"],
     ["shadow-offset-x", "shadowOffsetX"], ["shadow-offset-y", "shadowOffsetY"],
     ["shadow-blur", "shadowBlur"], ["shadow-opacity", "shadowOpacity"], ["image", "image"],
     ["image-width", "imageWidth"], ["image-height", "imageHeight"], ["image-fit", "imageFit"],
@@ -14,7 +14,8 @@ const FIELD_MAPS = {
   flow: [
     ["color", "color"], ["outline", "outline"], ["outline-width", "outlineWidth"],
     ["width", "width"], ["roundness", "roundness"],
-    ["stroke-style", "style"], ["arrow-style", "direction"], ["arrow-shape", "arrowShape"], ["label-position", "labelPosition"],
+    ["stroke-style", "style"], ["arrow-style", "direction"], ["arrow-shape", "arrowShape"],
+    ["arrow-height", "arrowHeight"], ["arrow-head-width", "arrowHeadWidth"], ["label-position", "labelPosition"],
     ["shadow-color", "shadowColor"], ["shadow-offset-x", "shadowOffsetX"],
     ["shadow-offset-y", "shadowOffsetY"], ["shadow-blur", "shadowBlur"], ["shadow-opacity", "shadowOpacity"],
     ["font-family", "fontFamily"], ["font-size", "fontSize"], ["font-weight", "fontWeight"],
@@ -27,7 +28,7 @@ const FIELD_MAPS = {
     ["text-outline", "textOutline"], ["text-outline-width", "textOutlineWidth"],
   ],
   graph: [
-    ["label-position", "labelPosition"], ["align", "align"], ["placement", "placement"],
+    ["label-position", "labelPosition"], ["align", "align"], ["vertical-align", "verticalAlign"], ["placement", "placement"],
     ["fill", "fill"], ["color", "color"], ["outline", "outline"], ["outline-style", "outlineStyle"],
     ["outline-width", "outlineWidth"], ["padding", "padding"], ["x-spacing", "xSpacing"], ["y-spacing", "ySpacing"],
     ["shadow-color", "shadowColor"], ["shadow-offset-x", "shadowOffsetX"],
@@ -41,14 +42,14 @@ const FIELD_MAPS = {
 const BASELINES = {
   node: {
     shape: "round", fill: "transparent", outlineStyle: "solid", outlineWidth: 2, width: "auto", height: "auto",
-    align: "center", shadowOffsetX: 4, shadowOffsetY: 5, shadowBlur: 6, shadowOpacity: 0.3,
+    align: "center", verticalAlign: "middle", shadowOffsetX: 4, shadowOffsetY: 5, shadowBlur: 6, shadowOpacity: 0.3,
     imageWidth: 64, imageHeight: 64, imageFit: "contain", imageOpacity: 1, imagePadding: 0,
     fontSize: 16, fontWeight: "normal", fontStyle: "normal", textDecoration: "none",
     textOutline: "transparent", textOutlineWidth: 0,
   },
   flow: {
     outline: "transparent", outlineWidth: 0, width: 2, roundness: 9, style: "solid", direction: "forward",
-    arrowShape: "triangle", labelPosition: "above", shadowOffsetX: 4, shadowOffsetY: 5, shadowBlur: 6, shadowOpacity: 0.3, fontSize: 12, fontWeight: "normal", fontStyle: "normal",
+    arrowShape: "triangle", arrowHeight: 8, arrowHeadWidth: 16, labelPosition: "above", shadowOffsetX: 4, shadowOffsetY: 5, shadowBlur: 6, shadowOpacity: 0.3, fontSize: 12, fontWeight: "normal", fontStyle: "normal",
     textDecoration: "none", textOutline: "transparent", textOutlineWidth: 0,
   },
   annotation: {
@@ -56,7 +57,7 @@ const BASELINES = {
     textOutline: "transparent", textOutlineWidth: 0,
   },
   graph: {
-    labelPosition: "inside", align: "left", placement: "below", fill: "transparent", outline: "transparent",
+    labelPosition: "inside", align: "center", verticalAlign: "top", placement: "below", fill: "transparent", outline: "transparent",
     outlineStyle: "solid", outlineWidth: 1.5, padding: 24, xSpacing: 60, ySpacing: 40, shadowOffsetX: 4, shadowOffsetY: 5, shadowBlur: 6, shadowOpacity: 0.3, fontSize: 13,
     fontWeight: "600", fontStyle: "normal", textDecoration: "none", textOutline: "transparent", textOutlineWidth: 0,
   },

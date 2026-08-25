@@ -274,6 +274,7 @@ Node identity, text, layout, and appearance use separate readable fields. For ea
   .width 220
   .height auto
   .align left
+  .vertical-align middle
   .shape pill
   .fill #1e4f7a
   .color #ffffff
@@ -295,6 +296,7 @@ Supported options:
 | `.outline-width` | Number, in SVG pixels |
 | `.width`, `.height` | Number or `auto` |
 | `.align` | `left`, `center`, `right` |
+| `.vertical-align` | `top`, `middle`, `bottom` |
 
 Auto-sized blocks measure their content, wrap long labels, and grow vertically. Indented `|` lines create intentional line breaks and keep longer descriptions readable in the source. The old escaped-`\n` form is not supported.
 
@@ -334,7 +336,7 @@ Click a block, block label, annotation, connection, or connection label in the p
 
 Selecting a node or flow also opens the canvas inspector. Ctrl-click (Cmd-click on macOS) toggles additional items into the selection. The inspector shows only controls applicable to every selected item. Every inspector operation edits the Pug source directly.
 
-Graphs are packed without overlap by default. Graph titles support `.label-position inside|outside`, `.align left|center|right`, `.color`, and the standard font fields. Use `.x-spacing` and `.y-spacing` to tune a graph's layout. Drag a graph to write its `.offset`; explicit offsets may overlap graph frames. Set `.layer 1` (or any integer) in source, use the inspector's **Graph Layer** selector, or reorder graphs in the collapsible **Graphs** section of the right-side **Graphs** panel. Higher layers render in front and equal layers retain source order. A flow renders at the higher layer of its two endpoint graphs, so it remains visible over both endpoints but may be obscured by an unrelated graph on a higher layer. Choose a graph in that panel to browse its nodes and flows; selecting an item opens its normal property inspector. The node list is ordered front to back. Initially, node declaration order determines that stacking without adding `.layer` fields. Dragging nodes or using **Node Layer** to send selected nodes to the front or back persists explicit `.layer` values in the source.
+Graphs are packed without overlap by default. Graph titles support `.label-position inside|outside`, horizontal `.align left|center|right`, vertical `.vertical-align top|middle|bottom`, `.label-offset (x, y)`, `.color`, and the standard font fields. The defaults are inside, horizontally centered, and at the top. Drag a graph title to write its `.label-offset`. Use `.x-spacing` and `.y-spacing` to tune a graph's layout. Drag a graph to write its `.offset`; explicit offsets may overlap graph frames. **Clean Up** removes small accidental flow kinks within and between graphs while preserving deliberate bends; cross-graph corrections translate whole graphs rather than altering their internal layouts. Set `.layer 1` (or any integer) in source, use the inspector's **Graph Layer** selector, or reorder graphs in the collapsible **Graphs** section of the right-side **Graphs** panel. Higher layers render in front and equal layers retain source order. A flow renders at the higher layer of its two endpoint graphs, so it remains visible over both endpoints but may be obscured by an unrelated graph on a higher layer. Choose a graph in that panel to browse its nodes and flows; selecting an item opens its normal property inspector. The node list is ordered front to back. Initially, node declaration order determines that stacking without adding `.layer` fields. Dragging nodes or using **Node Layer** to send selected nodes to the front or back persists explicit `.layer` values in the source.
 
 The **Node** builder adds an independent node to the chosen graph. The **Flow** builder places graph-filtered **From** and **To** endpoints side by side with independent directions.
 

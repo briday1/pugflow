@@ -259,17 +259,55 @@ function compactSiblingBranches(nodes, edges, options) {
   return nodes;
 }
 
+/**
+ * Compact sibling lanes are positioned around their source after the main grid
+ * is built. Anchor them to the source track during grid sizing so their
+ * temporary fractional cells do not insert empty columns or rows into
+ * unrelated paths.
+ */
+function gridCellsWithoutCompactSiblingLanes(cells, edges) {
+  const gridCells = new Map([...cells].map(([id, position]) => [id, { ...position }]));
+  const compactVerticalTargets = new Set();
+  const compactHorizontalTargets = new Set();
+  const groups = new Map();
+  edges.forEach((edge) => {
+    if (edge.kind !== "branch") return;
+    const key = `${edge.from}|${edgeLayoutDirection(edge)}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(edge);
+  });
+  groups.forEach((group) => {
+    if (group.length < 2) return;
+    const source = cells.get(group[0].from);
+    if (!source) return;
+    const vertical = ["up", "down"].includes(edgeLayoutDirection(group[0]));
+    group.forEach((edge) => {
+      const target = gridCells.get(edge.to);
+      if (!target) return;
+      if (vertical) {
+        target.x = source.x;
+        compactVerticalTargets.add(edge.to);
+      } else {
+        target.y = source.y;
+        compactHorizontalTargets.add(edge.to);
+      }
+    });
+  });
+  return { gridCells, compactVerticalTargets, compactHorizontalTargets };
+}
+
 export function layoutDiagram(nodes, edges, overrides = {}) {
   const options = { ...DEFAULT_LAYOUT, ...overrides };
   const cells = alignTerminalMergeSources(assignCells(nodes, edges), edges);
   const routedEdges = assignConnectionPorts(nodes, edges, cells);
-  const xValues = [...new Set([...cells.values()].map((position) => position.x))].sort((a, b) => a - b);
-  const yValues = [...new Set([...cells.values()].map((position) => position.y))].sort((a, b) => a - b);
+  const { gridCells, compactVerticalTargets, compactHorizontalTargets } = gridCellsWithoutCompactSiblingLanes(cells, edges);
+  const xValues = [...new Set([...gridCells.values()].map((position) => position.x))].sort((a, b) => a - b);
+  const yValues = [...new Set([...gridCells.values()].map((position) => position.y))].sort((a, b) => a - b);
   const columnWidths = new Map(xValues.map((x) => [x, Math.max(...nodes
-    .filter((node) => cells.get(node.id).x === x)
+    .filter((node) => gridCells.get(node.id).x === x && !compactVerticalTargets.has(node.id))
     .map((node) => node.width ?? 150), 0)]));
   const rowHeights = new Map(yValues.map((y) => [y, Math.max(...nodes
-    .filter((node) => cells.get(node.id).y === y)
+    .filter((node) => gridCells.get(node.id).y === y && !compactHorizontalTargets.has(node.id))
     .map((node) => node.layoutHeight ?? node.height ?? 42), 0)]));
   const columnLeft = new Map();
   const rowTop = new Map();
@@ -288,14 +326,15 @@ export function layoutDiagram(nodes, edges, overrides = {}) {
 
   const placed = nodes.map((node) => {
     const cell = cells.get(node.id);
+    const gridCell = gridCells.get(node.id);
     const nodeWidth = node.width ?? 150;
     const nodeHeight = node.height ?? 42;
     const layoutHeight = node.layoutHeight ?? nodeHeight;
     return {
       ...node,
       rank: cell.x,
-      x: columnLeft.get(cell.x) + (columnWidths.get(cell.x) - nodeWidth) / 2,
-      y: rowTop.get(cell.y) + (rowHeights.get(cell.y) - layoutHeight) / 2,
+      x: columnLeft.get(gridCell.x) + (columnWidths.get(gridCell.x) - nodeWidth) / 2,
+      y: rowTop.get(gridCell.y) + (rowHeights.get(gridCell.y) - layoutHeight) / 2,
       width: nodeWidth,
       height: nodeHeight,
       layoutHeight,
@@ -414,6 +453,93 @@ export function cleanupAlignmentOffsets(nodes, edges) {
     changed.set(source.id, { kind: "offset", id: source.id, lineNumber: source.lineNumber, offsetX: source.offsetX, offsetY: source.offsetY });
   });
   return [...changed.values()];
+}
+
+/** Align connector ports across graph boundaries by translating whole graphs. */
+export function cleanupGraphOffsets(nodes, edges, groups) {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const ownerByNode = new Map();
+  groups.forEach((group) => group.nodeIds.forEach((id) => ownerByNode.set(id, group)));
+  const centerX = (node) => node.x + node.width / 2;
+  const centerY = (node) => node.y + node.height / 2;
+  const verticalDirection = (direction) => direction === "up" || direction === "down";
+  const directionSign = (direction) => direction === "left" || direction === "up" ? -1 : 1;
+  const constraints = [];
+  edges.forEach((edge) => {
+    const source = byId.get(edge.from);
+    const target = byId.get(edge.to);
+    const sourceGroup = ownerByNode.get(edge.from);
+    const targetGroup = ownerByNode.get(edge.to);
+    if (!source || !target || !sourceGroup || !targetGroup || sourceGroup === targetGroup
+      || source.hidden || target.hidden || edge.hidden || sourceGroup.hidden || targetGroup.hidden) return;
+    const sourceDirection = edge.sourceDirection ?? edge.layoutDirection;
+    const targetDirection = edge.targetLayoutDirection ?? edge.layoutDirection;
+    const sourceVertical = verticalDirection(sourceDirection);
+    const targetVertical = verticalDirection(targetDirection);
+    const axis = targetVertical ? "x" : "y";
+    const sourcePortOffset = (edge.sourcePortFraction ?? 0) * (sourceVertical ? source.width : source.height);
+    const targetPortOffset = (edge.targetPortFraction ?? 0) * (targetVertical ? target.width : target.height);
+    let difference;
+    if (sourceVertical) {
+      const sourcePortX = centerX(source) + sourcePortOffset;
+      const targetPortY = centerY(target) + targetPortOffset;
+      difference = targetVertical
+        ? sourcePortX - (centerX(target) + targetPortOffset)
+        : source.y + (sourceDirection === "down" ? source.height : 0) + directionSign(sourceDirection) * 24 - targetPortY;
+    } else {
+      const sourcePortY = centerY(source) + sourcePortOffset;
+      const targetPortX = centerX(target) + targetPortOffset;
+      difference = targetVertical
+        ? source.x + (sourceDirection === "right" ? source.width : 0) + directionSign(sourceDirection) * 24 - targetPortX
+        : sourcePortY - (centerY(target) + targetPortOffset);
+    }
+    if (Math.abs(difference) < 0.05 || Math.abs(difference) > 32) return;
+    const currentSource = axis === "x" ? sourceGroup.offsetX ?? 0 : sourceGroup.offsetY ?? 0;
+    const currentTarget = axis === "x" ? targetGroup.offsetX ?? 0 : targetGroup.offsetY ?? 0;
+    constraints.push({ axis, source: sourceGroup.id, target: targetGroup.id, delta: currentTarget - currentSource + difference });
+  });
+
+  const next = new Map(groups.map((group) => [group.id, { x: group.offsetX ?? 0, y: group.offsetY ?? 0 }]));
+  for (const axis of ["x", "y"]) {
+    const axisConstraints = constraints.filter((constraint) => constraint.axis === axis);
+    const adjacent = new Map(groups.map((group) => [group.id, []]));
+    axisConstraints.forEach((constraint) => {
+      adjacent.get(constraint.source)?.push({ id: constraint.target, delta: constraint.delta });
+      adjacent.get(constraint.target)?.push({ id: constraint.source, delta: -constraint.delta });
+    });
+    const remaining = new Set(groups.filter((group) => adjacent.get(group.id)?.length).map((group) => group.id));
+    while (remaining.size) {
+      const first = remaining.values().next().value;
+      const component = [];
+      const queue = [first];
+      remaining.delete(first);
+      while (queue.length) {
+        const id = queue.shift();
+        component.push(id);
+        adjacent.get(id).forEach((neighbor) => {
+          if (!remaining.delete(neighbor.id)) return;
+          queue.push(neighbor.id);
+        });
+      }
+      const anchor = component.map((id) => groups.find((group) => group.id === id))
+        .sort((a, b) => (a.sourceIndex ?? 0) - (b.sourceIndex ?? 0))[0].id;
+      const key = axis;
+      for (let iteration = 0; iteration < 24; iteration += 1) {
+        component.forEach((id) => {
+          if (id === anchor) return;
+          const implied = adjacent.get(id).map((neighbor) => next.get(neighbor.id)[key] - neighbor.delta);
+          if (implied.length) next.get(id)[key] = implied.reduce((sum, value) => sum + value, 0) / implied.length;
+        });
+      }
+    }
+  }
+  return groups.flatMap((group) => {
+    const position = next.get(group.id);
+    const offsetX = Math.round(position.x * 10) / 10;
+    const offsetY = Math.round(position.y * 10) / 10;
+    if (Math.abs(offsetX - (group.offsetX ?? 0)) < 0.05 && Math.abs(offsetY - (group.offsetY ?? 0)) < 0.05) return [];
+    return [{ id: group.id, lineNumber: group.lineNumber, offsetX, offsetY }];
+  });
 }
 
 export function arrangeNodeOffsets(nodes, action) {

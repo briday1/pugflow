@@ -141,7 +141,13 @@ function setReusableLine(value, start, end, fieldIndent, type, knownTypes) {
   if (existing >= 0) lines[existing] = replacement;
   else lines.splice(start + 1, 0, replacement);
   const baseIndent = indentationWidth(fieldIndent);
-  const appearance = new Set(["color", "width", "stroke-style", "arrow-style", "arrow-shape", "label-position"]);
+  const appearance = new Set([
+    "color", "outline", "outline-width", "width", "roundness", "stroke-style", "arrow-style", "arrow-shape",
+    "arrow-height", "arrow-head-width", "label-position", "shadow-color", "shadow-offset-x", "shadow-offset-y",
+    "shadow-blur", "shadow-opacity", "font-family", "font-size", "font-weight", "font-style", "text-decoration",
+    "text-outline", "text-outline-width",
+  ]);
+  const appearancePattern = [...appearance].join("|");
   for (let index = lines.length - 1; index > start; index -= 1) {
     if (index >= end + (existing < 0 ? 1 : 0)) continue;
     const indent = indentationWidth(lines[index]);
@@ -150,7 +156,7 @@ function setReusableLine(value, start, end, fieldIndent, type, knownTypes) {
       lines.splice(index, 1);
       continue;
     }
-    if (indent === baseIndent && /^\.line\.(color|width|stroke-style|arrow-style|arrow-shape|label-position)(?:\s|$)/.test(text)) {
+    if (indent === baseIndent && new RegExp(`^\\.line\\.(${appearancePattern})(?:\\s|$)`).test(text)) {
       lines.splice(index, 1);
       continue;
     }
@@ -188,7 +194,7 @@ export function setAnnotationText(value, declarationLineNumber, text) {
   const lines = value.split("\n");
   const index = declarationLineNumber - 1;
   const declaration = lines[index] ?? "";
-  const match = declaration.match(/^(\s*)\.(above|below)(?:\s.*)?$/);
+  const match = declaration.match(/^(\s*)\.(above|below|annotation)(?:\s.*)?$/);
   if (!match) return value;
   const indent = indentationWidth(declaration);
   const childIndent = indent + 2;
@@ -269,6 +275,30 @@ export function appendNodeAnnotation(value, labelLineNumber, { position = "above
   let groupEnd = group + 1;
   while (groupEnd < lines.length && (!lines[groupEnd].trim() || indentationWidth(lines[groupEnd]) > annotationIndent)) groupEnd += 1;
   lines.splice(groupEnd, 0, ...annotationLines);
+  return lines.join("\n");
+}
+
+/** Append an independently styled annotation directly inside a flow. */
+export function appendFlowAnnotation(value, flowLineNumber, { text = "Annotation", type = "", color = "", fontSize = "", fontFamily = "", fontWeight = "", fontStyle = "", textDecoration = "", textOutline = "", textOutlineWidth = "" } = {}) {
+  const lines = value.split("\n");
+  const flowIndex = flowLineNumber - 1;
+  const flowIndent = indentationWidth(lines[flowIndex] ?? "");
+  const indentation = (lines[flowIndex]?.match(/^\s*/)?.[0] ?? "") + "  ";
+  let end = flowIndex + 1;
+  while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > flowIndent)) end += 1;
+  const annotation = [
+    `${indentation}.annotation ${text}`,
+    ...(type ? [`${indentation}  .${type}`] : []),
+    ...(color ? [`${indentation}  .color ${color}`] : []),
+    ...(fontSize ? [`${indentation}  .font-size ${fontSize}`] : []),
+    ...(fontFamily ? [`${indentation}  .font-family ${fontFamily}`] : []),
+    ...(fontWeight ? [`${indentation}  .font-weight ${fontWeight}`] : []),
+    ...(fontStyle ? [`${indentation}  .font-style ${fontStyle}`] : []),
+    ...(textDecoration ? [`${indentation}  .text-decoration ${textDecoration}`] : []),
+    ...(textOutline ? [`${indentation}  .text-outline ${textOutline}`] : []),
+    ...(textOutlineWidth ? [`${indentation}  .text-outline-width ${textOutlineWidth}`] : []),
+  ];
+  lines.splice(end, 0, ...annotation);
   return lines.join("\n");
 }
 
@@ -701,6 +731,15 @@ export function renameNodeReferences(value, oldId, newId) {
     if (!members) return endpoint;
     return members[1] + members[2].split(/([\s,]+)/).map((token) => token === oldId ? newId : token).join("");
   }).join("\n");
+}
+
+export function renameGraphReferences(value, oldId, newId) {
+  if (!oldId || !newId || oldId === newId) return value;
+  const escapedId = escapeRegExp(oldId);
+  return value.split("\n").map((line) => line.replace(
+    new RegExp(`^(\\s*\\.relative-to\\s+)${escapedId}(\\s*)$`),
+    `$1${newId}$2`,
+  )).join("\n");
 }
 
 export function removeMergeEdge(value, sourceLineNumber) {
