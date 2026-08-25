@@ -14,7 +14,9 @@ const FIELD_MAPS = {
   flow: [
     ["color", "color"], ["outline", "outline"], ["outline-width", "outlineWidth"],
     ["width", "width"], ["roundness", "roundness"],
-    ["stroke-style", "style"], ["arrow-style", "direction"], ["label-position", "labelPosition"],
+    ["stroke-style", "style"], ["arrow-style", "direction"], ["arrow-shape", "arrowShape"], ["label-position", "labelPosition"],
+    ["shadow-color", "shadowColor"], ["shadow-offset-x", "shadowOffsetX"],
+    ["shadow-offset-y", "shadowOffsetY"], ["shadow-blur", "shadowBlur"], ["shadow-opacity", "shadowOpacity"],
     ["font-family", "fontFamily"], ["font-size", "fontSize"], ["font-weight", "fontWeight"],
     ["font-style", "fontStyle"], ["text-decoration", "textDecoration"],
     ["text-outline", "textOutline"], ["text-outline-width", "textOutlineWidth"],
@@ -28,6 +30,8 @@ const FIELD_MAPS = {
     ["label-position", "labelPosition"], ["align", "align"], ["placement", "placement"],
     ["fill", "fill"], ["color", "color"], ["outline", "outline"], ["outline-style", "outlineStyle"],
     ["outline-width", "outlineWidth"], ["padding", "padding"], ["x-spacing", "xSpacing"], ["y-spacing", "ySpacing"],
+    ["shadow-color", "shadowColor"], ["shadow-offset-x", "shadowOffsetX"],
+    ["shadow-offset-y", "shadowOffsetY"], ["shadow-blur", "shadowBlur"], ["shadow-opacity", "shadowOpacity"],
     ["font-family", "fontFamily"], ["font-size", "fontSize"], ["font-weight", "fontWeight"],
     ["font-style", "fontStyle"], ["text-decoration", "textDecoration"],
     ["text-outline", "textOutline"], ["text-outline-width", "textOutlineWidth"],
@@ -44,7 +48,7 @@ const BASELINES = {
   },
   flow: {
     outline: "transparent", outlineWidth: 0, width: 2, roundness: 9, style: "solid", direction: "forward",
-    arrowShape: "triangle", labelPosition: "above", fontSize: 12, fontWeight: "normal", fontStyle: "normal",
+    arrowShape: "triangle", labelPosition: "above", shadowOffsetX: 4, shadowOffsetY: 5, shadowBlur: 6, shadowOpacity: 0.3, fontSize: 12, fontWeight: "normal", fontStyle: "normal",
     textDecoration: "none", textOutline: "transparent", textOutlineWidth: 0,
   },
   annotation: {
@@ -53,7 +57,7 @@ const BASELINES = {
   },
   graph: {
     labelPosition: "inside", align: "left", placement: "below", fill: "transparent", outline: "transparent",
-    outlineStyle: "solid", outlineWidth: 1.5, padding: 24, xSpacing: 60, ySpacing: 40, fontSize: 13,
+    outlineStyle: "solid", outlineWidth: 1.5, padding: 24, xSpacing: 60, ySpacing: 40, shadowOffsetX: 4, shadowOffsetY: 5, shadowBlur: 6, shadowOpacity: 0.3, fontSize: 13,
     fontWeight: "600", fontStyle: "normal", textDecoration: "none", textOutline: "transparent", textOutlineWidth: 0,
   },
 };

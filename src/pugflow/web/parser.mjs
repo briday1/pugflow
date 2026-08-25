@@ -588,6 +588,7 @@ function customLineStyles(tree, errors) {
 const GRAPH_DEFAULTS = {
   labelPosition: "inside", align: "left", placement: "below", fill: "transparent", color: null,
   outline: "transparent", outlineStyle: "solid", outlineWidth: 1.5, padding: 24, xSpacing: 60, ySpacing: 40,
+  shadowColor: null, shadowOffsetX: 4, shadowOffsetY: 5, shadowBlur: 6, shadowOpacity: 0.3,
   fontFamily: null, fontSize: 13, fontWeight: "600", fontStyle: "normal", textDecoration: "none",
   textOutline: "transparent", textOutlineWidth: 0,
 };
@@ -843,6 +844,8 @@ function compileMarkup(tree) {
       padding: Number(field("padding") || 24),
       xSpacing: numberAttribute(field("x-spacing"), 60, 0, "graph.x-spacing", component.lineNumber, errors),
       ySpacing: numberAttribute(field("y-spacing"), 40, 0, "graph.y-spacing", component.lineNumber, errors),
+      ...shadowStyle(Object.fromEntries(["shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity"]
+        .map((name) => [name, field(name) || undefined])), {}, component.lineNumber, errors),
       placement: ["above", "below", "left", "right"].includes(placement) ? placement : "below",
       relativeTo: field("relative-to") || null,
       rootId: directNodes[0]?.id ?? null,

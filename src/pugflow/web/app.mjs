@@ -963,6 +963,30 @@ function structuralNumber(label, field, value, lineNumber, { min = 0, step = 1 }
   return `<label>${label}<input type="number" min="${min}" step="${step}" data-structural-field="${field}" data-structural-line="${lineNumber}" value="${escapeHtml(value ?? "")}"></label>`;
 }
 
+/** Shadow editor shared by the node, flow, and graph sidecars. */
+function shadowControls(scope, style = {}) {
+  const enabled = Boolean(style.shadowColor);
+  const field = (name) => `data-${scope}-field="${name}"`;
+  const color = colorControl("Color", "shadow-color", style.shadowColor ?? "#000000", scope, `${scope}:shadow-color`);
+  return `<details${enabled ? " open" : ""}><summary><label class="shadow-toggle"><input type="checkbox" data-shadow-toggle="${scope}"${enabled ? " checked" : ""}> Shadow</label></summary>${color}`
+    + `<div class="inspector-grid"><label>X offset<input ${field("shadow-offset-x")} type="number" value="${style.shadowOffsetX ?? 4}"></label>`
+    + `<label>Y offset<input ${field("shadow-offset-y")} type="number" value="${style.shadowOffsetY ?? 5}"></label>`
+    + `<label>Blur<input ${field("shadow-blur")} type="number" min="0" value="${style.shadowBlur ?? 6}"></label>`
+    + `<label>Opacity<input ${field("shadow-opacity")} type="number" min="0" max="1" step="0.05" value="${style.shadowOpacity ?? 0.3}"></label></div></details>`;
+}
+
+/** CSS shadow for previews; `drop-shadow` follows the drawn shape, `box-shadow` the frame. */
+function previewShadowCss(style = {}, property = "filter") {
+  if (!style.shadowColor) return "";
+  const color = `color-mix(in srgb, ${style.shadowColor} ${Math.round(Math.min(1, Number(style.shadowOpacity ?? 0.3)) * 100)}%, transparent)`;
+  const offsetX = Number(style.shadowOffsetX ?? 4);
+  const offsetY = Number(style.shadowOffsetY ?? 5);
+  const blur = Number(style.shadowBlur ?? 6);
+  return property === "box-shadow"
+    ? `box-shadow:${offsetX}px ${offsetY}px ${blur}px ${color}`
+    : `filter:drop-shadow(${offsetX}px ${offsetY}px ${blur}px ${color})`;
+}
+
 // --- Preview building blocks -----------------------------------------------
 
 function previewFontStyle(style = {}) {
@@ -1026,7 +1050,7 @@ function nodePreviewMarkup(node) {
   return `<div class="preview-stage">${annotationChip("node-annotations", "above", above)}
     <div class="node-preview">
       <div class="node-preview-box preview-part" data-sidecar="node-box" role="button" tabindex="0" title="Edit box fill, outline, size, shadow, and image">
-        <svg class="node-preview-shape" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-hidden="true">${previewShapeMarkup(node.style, width, height)}</svg>
+        <svg class="node-preview-shape" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="${escapeHtml(previewShadowCss(node.style))}" aria-hidden="true">${previewShapeMarkup(node.style, width, height)}</svg>
         <span class="node-preview-label preview-part" data-sidecar="node-label" role="button" tabindex="0" style="${previewFontStyle(node.style)}" title="Edit label text and typography">${escapeHtml(node.label.replace(/\n/g, " ") || "label")}</span>
         ${faceMarkup}
       </div>
@@ -1070,7 +1094,7 @@ function flowPreviewMarkup(edge) {
     ["backward", "both"].includes(direction) ? previewArrowMarkup(start, -1, shape, color, outline, outlineWidth, size) : "",
   ].join("");
   const line = `${outline ? `<path d="M ${start} 23 H ${end}" fill="none" stroke="${escapeHtml(outline)}" stroke-width="${width + Math.max(outlineWidth, 1) * 2}" stroke-linecap="round"${dash}/>` : ""}<path d="M ${start} 23 H ${end}" fill="none" stroke="${escapeHtml(color)}" stroke-width="${width}" stroke-linecap="round"${dash}/>`;
-  return `<div class="preview-part flow-preview-wrap" data-sidecar="flow-line" role="button" tabindex="0" title="Edit line colour, width, stroke, and arrows"><svg class="flow-preview" viewBox="0 0 210 46" aria-hidden="true">${line}${arrows}</svg></div>`;
+  return `<div class="preview-part flow-preview-wrap" data-sidecar="flow-line" role="button" tabindex="0" title="Edit line colour, width, stroke, and arrows"><svg class="flow-preview" viewBox="0 0 210 46" style="${escapeHtml(previewShadowCss(edge))}" aria-hidden="true">${line}${arrows}</svg></div>`;
 }
 
 function flowPreviewStage(edge) {
@@ -1090,7 +1114,8 @@ function graphPreviewMarkup(group) {
     `border:${Math.min(Number(group?.outlineWidth ?? 1.5) || 0, 6)}px ${group?.outlineStyle ?? "solid"} ${group?.outline && group.outline !== "transparent" ? group.outline : "var(--border-strong)"}`,
     `border-radius:6px`,
     `padding:${Math.min(Math.max(Number(group?.padding ?? 24) / 3, 4), 16)}px`,
-  ].join(";"));
+    previewShadowCss(group ?? {}, "box-shadow"),
+  ].filter(Boolean).join(";"));
   const titleStyle = previewFontStyle(group ?? {});
   const align = group?.align === "right" ? "right" : group?.align === "center" ? "center" : "left";
   const title = `<button type="button" class="preview-part graph-preview-title" data-sidecar="graph-title" style="${titleStyle};text-align:${align}" title="Edit the graph title, placement, and typography">${escapeHtml(group?.label || "Graph title")}</button>`;
@@ -1117,7 +1142,7 @@ function nodeBoxSidecar(node) {
     + colorControl("Fill", "fill", node.style.fill)
     + colorControl("Border", "outline", node.style.outline)
     + `<div class="inspector-grid"><label>Border style<select data-node-field="outline-style">${["solid", "dashed", "dotted"].map((value) => `<option${node.style.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Border width<input data-node-field="outline-width" type="number" min="0" value="${node.style.outlineWidth}"></label><label>Width<input data-node-field="width" value="${escapeHtml(String(node.style.width))}"></label><label>Height<input data-node-field="height" value="${escapeHtml(String(node.style.height))}"></label></div>`
-    + `<details${node.style.shadowColor ? " open" : ""}><summary><label class="shadow-toggle"><input type="checkbox" data-shadow-toggle${node.style.shadowColor ? " checked" : ""}> Shadow</label></summary>${colorControl("Color", "shadow-color", node.style.shadowColor ?? "#000000")}<div class="inspector-grid"><label>X offset<input data-node-field="shadow-offset-x" type="number" value="${node.style.shadowOffsetX}"></label><label>Y offset<input data-node-field="shadow-offset-y" type="number" value="${node.style.shadowOffsetY}"></label><label>Blur<input data-node-field="shadow-blur" type="number" min="0" value="${node.style.shadowBlur}"></label><label>Opacity<input data-node-field="shadow-opacity" type="number" min="0" max="1" step="0.05" value="${node.style.shadowOpacity}"></label></div></details>`
+    + shadowControls("node", node.style)
     + imageControls(node)
     + `<div class="inspector-inline-field"><label>Offset<input value="(${node.offsetX}, ${node.offsetY})" readonly></label><button type="button" data-arrange="remove-offsets">Remove</button></div>`;
 }
@@ -1173,6 +1198,7 @@ function flowLineSidecar(edge) {
     + `<label>Arrow direction<select data-line-field="arrow-style">${["forward", "backward", "both", "none"].map((value) => `<option${edge?.direction === value ? " selected" : ""}>${value}</option>`).join("")}</select></label>`
     + `<label>Arrow shape<select data-line-field="arrow-shape">${["triangle", "open", "diamond", "circle", "chunky"].map((value) => `<option${edge?.arrowShape === value ? " selected" : ""}>${value}</option>`).join("")}</select></label>`
     + `<small class="sidecar-help">Chunky arrows pair the flow colour with its outline for a bolder head.</small>`
+    + shadowControls("line", edge ?? {})
     + fontOptions("line", edge ?? {}, false);
 }
 
@@ -1207,7 +1233,8 @@ function sidecarMarkup(state) {
       return colorControl("Fill", "fill", group.fill, "graph")
         + colorControl("Outline", "outline", group.outline, "graph")
         + `<div class="inspector-grid"><label>Outline style<select data-graph-field="outline-style">${["solid", "dashed", "dotted"].map((value) => `<option${group.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Outline width<input data-graph-field="outline-width" type="number" min="0" value="${group.outlineWidth ?? 1.5}"></label></div>`
-        + `<label>Padding<input data-graph-field="padding" type="number" min="0" value="${group.padding ?? 24}"></label>`;
+        + `<label>Padding<input data-graph-field="padding" type="number" min="0" value="${group.padding ?? 24}"></label>`
+        + shadowControls("graph", group);
     }
     if (state.kind === "graph-title") {
       return `<label>Title<input data-graph-field="label" value="${escapeHtml(group.label ?? "")}"></label>`
@@ -3011,6 +3038,19 @@ const handleInspectorChange = (event) => {
     setSource(event.target.value === ""
       ? removeDeclarationField(source.value, lineNumber, structuralField)
       : setStructuralField(source.value, lineNumber, structuralField, event.target.value));
+    return;
+  }
+  const shadowScope = event.target.dataset.shadowToggle;
+  if (shadowScope === "line" || shadowScope === "graph") {
+    const value = event.target.checked ? "#000000" : "transparent";
+    const targets = shadowScope === "line"
+      ? selectedEdges().map((edge) => edge.lineNumber)
+      : selections.filter((item) => item.kind === "graph").map((item) => item.lineNumber);
+    let nextSource = source.value;
+    [...new Set(targets)].sort((a, b) => b - a).forEach((lineNumber) => {
+      nextSource = setStructuralField(nextSource, lineNumber, "shadow-color", value);
+    });
+    if (nextSource !== source.value) setSource(nextSource);
     return;
   }
   if (event.target.matches("[data-graph-type]")) {
