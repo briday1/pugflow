@@ -28,6 +28,8 @@ test("source completions behave like an IDE near the caret", () => {
   assert.match(app, /replace\(\/\^\\\.\/, ""\)\.includes\(prefix\)/);
   assert.match(app, /leftRank - rightRank \|\| leftLabel\.localeCompare\(rightLabel\)/);
   assert.match(app, /item\.insert\.replaceAll\("\\n", `\\n\$\{indentation\}`\)/);
+  assert.match(app, /event\.inputType === "insertLineBreak" \|\| \/\^\[a-z@\.\#\(-\]\$\/i\.test\(event\.data \?\? ""\)/);
+  assert.match(app, /event\.key === "ArrowDown" \|\| event\.key === "ArrowUp"[\s\S]*activeCompletion = \(activeCompletion \+ direction/);
   assert.match(app, /if \(!completionMenu\.hidden\)[\s\S]*event\.key === "Tab"[\s\S]*acceptCompletion\(\)/);
   assert.doesNotMatch(app, /event\.key !== "Tab"[\s\S]*showCompletions\(\)/);
   assert.match(app, /if \(event\.key === "Enter"\) hideCompletions\(\)/);
@@ -248,7 +250,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /flow: \["color", "outline", "outline-width", "width", "arrow-style"/);
   assert.match(app, /annotation: \["color", "font-family"/);
   assert.match(app, /activeDocument === "css"\) return cssCompletionContext\(caret\)/);
-  assert.match(app, /event\.inputType === "insertLineBreak" \|\| \/\^\[a-z@-\]\$\/i\.test/);
+  assert.match(app, /event\.inputType === "insertLineBreak" \|\| \/\^\[a-z@\.\#\(-\]\$\/i\.test/);
   assert.match(styles, /::highlight\(sbd-color\)/);
   assert.match(styles, /::highlight\(sbd-number\)/);
   assert.match(diagramStyles, /--diagram-annotation: #000000/);

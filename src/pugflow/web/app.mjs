@@ -2656,7 +2656,7 @@ source.addEventListener("input", (event) => {
   storeActiveDocument();
   highlightSource();
   update();
-  if (event.data === "." || event.data === "(" || (activeDocument === "css" && (event.inputType === "insertLineBreak" || /^[a-z@-]$/i.test(event.data ?? "")))) showCompletions();
+  if (event.inputType === "insertLineBreak" || /^[a-z@.#(-]$/i.test(event.data ?? "")) showCompletions();
   else if (!completionMenu.hidden) showCompletions();
 });
 source.addEventListener("keydown", (event) => {
