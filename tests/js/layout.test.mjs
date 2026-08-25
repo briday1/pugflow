@@ -208,6 +208,27 @@ test("uses flow direction for layout independently of connector faces", () => {
   assert.equal(rightward.get("approve").y, rightward.get("payment").y);
 });
 
+test("places a later-declared flow source before an anchored first node", () => {
+  const graph = parseDiagram([
+    "graph",
+    "  node",
+    "    .id first",
+    "    .label First",
+    "  image",
+    "    .id image",
+    "    .source image.png",
+    "  flow",
+    "    .from image",
+    "    .to first",
+    "    .target-face left",
+  ].join("\n"));
+  assert.deepEqual(graph.errors, []);
+
+  const placed = new Map(layoutDiagram(graph.nodes, graph.edges).nodes.map((node) => [node.id, node]));
+  assert.ok(placed.get("image").x < placed.get("first").x);
+  assert.equal(placed.get("image").y + placed.get("image").height / 2, placed.get("first").y + placed.get("first").height / 2);
+});
+
 test("routes merge connections with rounded orthogonal bends", () => {
   const source = { x: 10, y: 10, width: 100, height: 40, aboveHeight: 0 };
   const target = { x: 260, y: 100, width: 100, height: 40, aboveHeight: 0 };
