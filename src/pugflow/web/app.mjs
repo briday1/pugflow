@@ -770,20 +770,27 @@ function selectedEdges() {
   return selections.filter((item) => item.kind === "line").map((item) => diagram?.layout?.edges.find((edge) => edge.from === item.from && edge.to === item.to && (!item.lineNumber || edge.lineNumber === item.lineNumber))).filter(Boolean);
 }
 
-function flowConnectionControls(edge) {
-  if (!edge) return "";
+function flowEndpointNodes(edge) {
   const owningGroup = edge.graphId ? currentGraph.groups.find((group) => group.id === edge.graphId) : null;
   const allowedIds = owningGroup ? new Set(owningGroup.nodeIds) : null;
-  const nodes = currentGraph.nodes.filter((node) => !allowedIds || allowedIds.has(node.id));
-  const endpointOptions = (selected, excluded) => nodes.map((node) => {
-    const group = graphForNode(node.id);
-    const label = `${node.label || node.id}${group ? ` — ${group.label || group.id}` : ""}`;
-    return `<option value="${escapeHtml(node.id)}"${node.id === selected ? " selected" : ""}${node.id === excluded ? " disabled" : ""}>${escapeHtml(label)}</option>`;
-  }).join("");
+  return currentGraph.nodes.filter((node) => !allowedIds || allowedIds.has(node.id));
+}
+
+function flowConnectionControls(edge) {
+  if (!edge) return "";
+  const endpointInput = (field, selected, excluded) => {
+    const listId = `flow-${edge.lineNumber}-${field}-nodes`;
+    const options = flowEndpointNodes(edge).filter((node) => node.id !== excluded).map((node) => {
+      const group = graphForNode(node.id);
+      const label = `${node.label || node.id}${group ? ` — ${group.label || group.id}` : ""}`;
+      return `<option value="${escapeHtml(node.id)}" label="${escapeHtml(label)}"></option>`;
+    }).join("");
+    return `<input data-line-endpoint="${field}" value="${escapeHtml(selected)}" list="${listId}" autocomplete="off"><datalist id="${listId}">${options}</datalist>`;
+  };
   const sourceFace = edge.sourceFace ?? ({ up: "top", right: "right", down: "bottom", left: "left" }[edge.sourceDirection] ?? "right");
   const targetFace = edge.targetFace ?? ({ down: "top", left: "right", up: "bottom", right: "left" }[edge.targetLayoutDirection ?? edge.layoutDirection] ?? "left");
   const faceOptions = (explicit, effective) => `<option value=""${explicit ? "" : " selected"}>Auto (${effective})</option>${["top", "right", "bottom", "left"].map((face) => `<option value="${face}"${explicit === face ? " selected" : ""}>${face}</option>`).join("")}`;
-  return `<details open class="flow-connection-editor"><summary>Connection</summary><div class="inspector-grid"><label>From object<select data-line-endpoint="from">${endpointOptions(edge.from, edge.to)}</select></label><label>To object<select data-line-endpoint="to">${endpointOptions(edge.to, edge.from)}</select></label><label>Leaves source<select data-line-face="source-face">${faceOptions(edge.sourceFace, sourceFace)}</select></label><label>Enters target<select data-line-face="target-face">${faceOptions(edge.targetFace, targetFace)}</select></label></div></details>`;
+  return `<details open class="flow-connection-editor"><summary>Connection</summary><div class="inspector-grid"><label>From object${endpointInput("from", edge.from, edge.to)}</label><label>To object${endpointInput("to", edge.to, edge.from)}</label><label>Leaves source<select data-line-face="source-face">${faceOptions(edge.sourceFace, sourceFace)}</select></label><label>Enters target<select data-line-face="target-face">${faceOptions(edge.targetFace, targetFace)}</select></label></div></details>`;
 }
 
 function reusableNames(kind) {
@@ -1730,6 +1737,7 @@ graphNodesList.addEventListener("dragend", () => {
 });
 
 function deleteCanvasSelection() {
+  closeSidecar();
   const operations = selections.map((selection) => {
     if (selection.kind === "graph") {
       const group = currentGraph.groups.find((candidate) => candidate.id === selection.id);
@@ -3257,12 +3265,14 @@ const handleInspectorChange = (event) => {
   const lineEndpoint = event.target.dataset.lineEndpoint;
   if (lineEndpoint) {
     const edge = selectedEdges()[0];
-    if (!edge || !event.target.value) return;
-    const from = lineEndpoint === "from" ? event.target.value : edge.from;
-    const to = lineEndpoint === "to" ? event.target.value : edge.to;
+    if (!edge) return;
+    const endpoint = event.target.value.trim();
+    if (!flowEndpointNodes(edge).some((node) => node.id === endpoint)) { renderInspector(); return; }
+    const from = lineEndpoint === "from" ? endpoint : edge.from;
+    const to = lineEndpoint === "to" ? endpoint : edge.to;
     if (from === to) { renderInspector(); return; }
     selections = [{ kind: "line", from, to, lineNumber: edge.lineNumber, selectionKey: `line:${from}:${to}:${edge.lineNumber}`, additive: false }];
-    setSource(setStructuralField(source.value, edge.lineNumber, lineEndpoint, event.target.value));
+    setSource(setStructuralField(source.value, edge.lineNumber, lineEndpoint, endpoint));
     return;
   }
   const lineFace = event.target.dataset.lineFace;

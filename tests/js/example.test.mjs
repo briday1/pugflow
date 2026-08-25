@@ -293,10 +293,14 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /colorControl\("Outline", "outline"/);
   assert.match(app, /data-line-endpoint="from"/);
   assert.match(app, /data-line-endpoint="to"/);
+  assert.match(app, /<input data-line-endpoint="\$\{field\}"[^>]*list="\$\{listId\}"/);
+  assert.match(app, /<datalist id="\$\{listId\}">/);
+  assert.match(app, /flowEndpointNodes\(edge\)\.some\(\(node\) => node\.id === endpoint\)/);
   assert.match(app, /data-line-face="source-face"/);
   assert.match(app, /data-line-face="target-face"/);
   assert.match(app, /Auto \(\$\{effective\}\)/);
   assert.match(app, /selectionKey: `line:\$\{from\}:\$\{to\}:\$\{edge\.lineNumber\}`/);
+  assert.match(app, /function deleteCanvasSelection\(\) \{\s*closeSidecar\(\);/);
   assert.match(html, /class="inspector-footer"[^>]*>.*id="save-reusable-style"/);
   assert.match(styles, /\.canvas-inspector \.inspector-preset-bar \{[^}]*color: var\(--accent\);[^}]*border-color: color-mix\(in srgb, var\(--accent\) 55%, var\(--border\)\);[^}]*background: color-mix\(in srgb, var\(--accent\) 9%, var\(--surface\)\);/);
   assert.match(html, /id="style-builder-preview"[^>]*readonly/);
