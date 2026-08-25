@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from pugflow import __version__  # noqa: E402
+from pugflow.cli import build_parser  # noqa: E402
 from pugflow.server import create_server  # noqa: E402
 
 
@@ -62,6 +63,13 @@ class ServerTests(unittest.TestCase):
         self.server.project_css = "@node card { fill: #fff; }\n"
         self.assertEqual(self.get("/__project.pug")[2], b"#canvas\n")
         self.assertEqual(self.get("/__project.css")[2], b"@node card { fill: #fff; }\n")
+
+    def test_cli_accepts_numbered_demos_and_defaults_to_one(self):
+        self.assertIsNone(build_parser().parse_args([]).demo)
+        self.assertEqual(build_parser().parse_args(["--demo"]).demo, 1)
+        self.assertEqual(build_parser().parse_args(["--demo", "10"]).demo, 10)
+        with self.assertRaises(SystemExit):
+            build_parser().parse_args(["--demo", "11"])
 
 
 if __name__ == "__main__":
