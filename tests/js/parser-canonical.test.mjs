@@ -93,6 +93,25 @@ test("allows nodes to disable inherited shadows", () => {
   assert.equal(result.nodes[1].style.shadowColor, null);
 });
 
+test("applies reusable node classes nested inside .node", () => {
+  const definitions = "@node cli_card\n  .shape pill\n  .fill #123456\n";
+  const nested = parseDiagram(`${definitions}#canvas\n  graph\n    .node\n      .cli_card\n      .id new\n      .label New\n`);
+  assert.deepEqual(nested.errors, []);
+  assert.equal(nested.nodes[0].nodeType, "cli_card");
+  assert.equal(nested.nodes[0].style.fill, "#123456");
+  assert.equal(nested.nodes[0].style.shape, "pill");
+
+  const legacy = parseDiagram(`${definitions}#canvas\n  graph\n    .cli_card\n      .id old\n      .label Old\n`);
+  assert.deepEqual(legacy.errors, []);
+  assert.equal(legacy.nodes[0].nodeType, "cli_card");
+  assert.equal(legacy.nodes[0].style.fill, "#123456");
+
+  const overridden = parseDiagram(`${definitions}#canvas\n  graph\n    .node\n      .cli_card\n        .fill #ff0000\n      .id over\n      .label Over\n`);
+  assert.deepEqual(overridden.errors, []);
+  assert.equal(overridden.nodes[0].style.fill, "#ff0000");
+  assert.equal(overridden.nodes[0].style.shape, "pill");
+});
+
 test("validates per-face node ports and rejects flow-level ports", () => {
   const invalidNode = parseDiagram("#canvas\n  graph\n    .node\n      .top-ports staggered\n      .label Invalid");
   assert.match(invalidNode.errors.join("\n"), /top-ports must be shared or distributed/);

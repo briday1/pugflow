@@ -174,7 +174,8 @@ const EXAMPLE_DOCUMENT = `// Production delivery architecture — layered graphs
     .padding 30
     .x-spacing 72
     .y-spacing 48
-    .edge-external
+    .node
+      .edge-external
       .id client
       .label Client application
       .annotation
@@ -182,17 +183,20 @@ const EXAMPLE_DOCUMENT = `// Production delivery architecture — layered graphs
           .context
           | Public entry point
 
-    .edge-service
+    .node
+      .edge-service
       .id gateway
       .label API gateway
       .layer 2
 
-    .edge-service
+    .node
+      .edge-service
       .id identity
       .label Identity provider
       .layer 1
 
-    .edge-decision
+    .node
+      .edge-decision
       .id policy
       .label Access policy
       .layer 0
@@ -228,23 +232,28 @@ const EXAMPLE_DOCUMENT = `// Production delivery architecture — layered graphs
     .padding 30
     .x-spacing 76
     .y-spacing 48
-    .application-service
+    .node
+      .application-service
       .id api
       .label Application API
 
-    .application-service
+    .node
+      .application-service
       .id orders
       .label Order service
 
-    .application-service
+    .node
+      .application-service
       .id inventory
       .label Inventory service
 
-    .application-datastore
+    .node
+      .application-datastore
       .id primary-db
       .label Primary database
 
-    .application-datastore
+    .node
+      .application-datastore
       .id event-stream
       .label Event stream
 
@@ -292,19 +301,23 @@ const EXAMPLE_DOCUMENT = `// Production delivery architecture — layered graphs
     .font-weight 600
     .padding 30
     .x-spacing 72
-    .operations-service
+    .node
+      .operations-service
       .id collector
       .label Telemetry collector
 
-    .operations-datastore
+    .node
+      .operations-datastore
       .id metrics
       .label Metrics store
 
-    .operations-service
+    .node
+      .operations-service
       .id alerting
       .label Alert manager
 
-    .operations-external
+    .node
+      .operations-external
       .id oncall
       .label On-call engineer
 
@@ -1986,7 +1999,7 @@ const structureCompletions = [
   ...["top", "right", "bottom", "left"].map((face) => ({ label: `.${face}-ports`, insert: `.${face}-ports distributed`, detail: `Use distributed or shared ports on the ${face} face` })),
   { label: ".background", insert: ".background #ffffff", detail: "Diagram background" },
   { label: ".font", insert: ".font Verdana, sans-serif", detail: "Diagram font" },
-  { label: ".node", insert: ".node\n  .fill #ffffff", detail: "Group default node properties" },
+  { label: ".node", insert: ".node\n  .label ", detail: "Declare a node (nest a reusable @node class to style it) or group node defaults" },
   { label: ".color", insert: ".color #111111", detail: "Text, line, or annotation color" },
   { label: ".fill", insert: ".fill #ffffff", detail: "Node fill color" },
   { label: ".shape", insert: ".shape rounded", detail: "Node shape" },
@@ -2039,8 +2052,8 @@ const structureCompletions = [
 function availableStructureCompletions() {
   const custom = [...`${pugSource}\n${cssSource}`.matchAll(/^@(node|flow|annotation)\s+([a-zA-Z][\w-]*)/gm)].map((match) => ({
     label: `.${match[2]}`,
-    insert: match[1] === "node" ? `.${match[2]}\n  .label ` : `.${match[2]}`,
-    detail: match[1] === "node" ? "Insert reusable node type" : `Apply reusable ${match[1]} class`,
+    insert: `.${match[2]}`,
+    detail: `Apply reusable ${match[1]} class`,
     reusableKind: match[1],
   }));
   return [...structureCompletions, ...custom];
@@ -3215,7 +3228,7 @@ const handleInspectorChange = (event) => {
   if (event.target.matches("[data-node-type]") && node) {
     if (!event.target.value) return;
     let nextSource = source.value;
-    [...nodes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((selected) => { nextSource = setNodeType(nextSource, selected.lineNumber, event.target.value); });
+    [...nodes].sort((a, b) => b.lineNumber - a.lineNumber).forEach((selected) => { nextSource = setNodeType(nextSource, selected.lineNumber, event.target.value, reusableNames("node")); });
     setSource(nextSource);
     return;
   }

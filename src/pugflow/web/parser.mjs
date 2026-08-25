@@ -162,6 +162,11 @@ function normalizeGroups(item, errors, nodeTypeNames, lineTypeNames) {
       }
       continue;
     }
+    if (item.type === "node" && nodeTypeNames.has(child.type)) {
+      expanded.push({ ...child, children: [] });
+      for (const field of child.children) expanded.push(field);
+      continue;
+    }
     if (child.type === "node-group" || child.type === "node" || nodeTypeNames.has(child.type)) {
       if (child.text || Object.keys(child.attrs).length) errors.push(`Line ${child.lineNumber}: node is a group; put its fields on indented lines.`);
       const nodeChildren = [];
