@@ -5,6 +5,7 @@ import { attachTextEditor } from "./text-editor.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets, cleanupGraphOffsets, independentMoveOffsets } from "./layout.mjs";
 import { pugDefinitionsToStyleSheet } from "./style-sheet.mjs";
 import { appendReusableStyle, reusableStyleDeclarations } from "./reusable-style.mjs";
+import { ADDITIONAL_DEMOS } from "./demo-sources.mjs";
 
 const EXAMPLE_DEFINITIONS = `// Production delivery architecture — layered graphs and cross-graph flows
 @node edge-service
@@ -371,6 +372,10 @@ const EXAMPLE_CANVAS = `
   const EXAMPLE_CANVAS_SOURCE = EXAMPLE_CANVAS.trim().split("\n").map((line) => line.startsWith("  ") ? line.slice(2) : line).join("\n");
   const EXAMPLE = `// Pugflow showcase — edit anything and watch the preview update\n${EXAMPLE_CANVAS_SOURCE}`;
   const EXAMPLE_STYLES = pugDefinitionsToStyleSheet(EXAMPLE_DEFINITIONS);
+  const DEMOS = [
+    { name: "Production architecture", pug: EXAMPLE, css: EXAMPLE_STYLES },
+    ...ADDITIONAL_DEMOS,
+  ];
 
 const source = attachTextEditor(document.querySelector("#source"));
 const editorShell = document.querySelector(".editor-shell");
@@ -482,10 +487,14 @@ let colorPickerActive = false;
 let colorPickerSourceAnchor = null;
 let activeDocument = "pug";
 const launchParams = new URLSearchParams(location.search);
-let pugSource = launchParams.get("demo") === "1" ? EXAMPLE : "";
-let cssSource = launchParams.get("demo") === "1" ? EXAMPLE_STYLES : "";
-let pugFileName = launchParams.get("pug_name") ?? (launchParams.get("demo") === "1" ? "demo.pug" : "");
-let cssFileName = launchParams.get("css_name") ?? (launchParams.get("demo") === "1" ? "demo.css" : "");
+const requestedDemo = Number(launchParams.get("demo"));
+const selectedDemo = Number.isInteger(requestedDemo) && requestedDemo >= 1 && requestedDemo <= DEMOS.length
+  ? DEMOS[requestedDemo - 1]
+  : null;
+let pugSource = selectedDemo?.pug ?? "";
+let cssSource = selectedDemo?.css ?? "";
+let pugFileName = launchParams.get("pug_name") ?? (selectedDemo ? `demo${requestedDemo}.pug` : "");
+let cssFileName = launchParams.get("css_name") ?? (selectedDemo ? `demo${requestedDemo}.css` : "");
 let pugFileHandle = null;
 let cssFileHandle = null;
 let hasCssDocument = Boolean(cssFileName || cssSource);
