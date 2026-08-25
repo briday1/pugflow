@@ -63,7 +63,6 @@ const BLOCK_PROPERTIES = new Set([
   "width", "height", "align", "vertical-align", "layer", "hidden", "offset", "label-offset",
   "top-ports", "right-ports", "bottom-ports", "left-ports",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
-  "image", "image-width", "image-height", "image-fit", "image-opacity", "image-offset", "image-padding",
   "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width",
 ]);
 const BLOCK_STYLE_PROPERTIES = new Set([
@@ -71,8 +70,13 @@ const BLOCK_STYLE_PROPERTIES = new Set([
   "width", "height", "align", "vertical-align",
   "top-ports", "right-ports", "bottom-ports", "left-ports",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
-  "image", "image-width", "image-height", "image-fit", "image-opacity", "image-padding",
   "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width",
+]);
+const IMAGE_PROPERTIES = new Set([
+  "id", "source", "shape", "fill", "outline", "outline-style", "outline-width",
+  "width", "height", "fit", "opacity", "padding", "layer", "hidden", "offset",
+  "top-ports", "right-ports", "bottom-ports", "left-ports",
+  "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
 ]);
 const GRAPH_STYLE_PROPERTIES = new Set([
   "label-position", "align", "vertical-align", "placement", "fill", "color", "outline", "outline-style", "outline-width",
@@ -109,7 +113,7 @@ function parseMarkupLine(body, lineNumber, errors) {
   if (styleDefinition) return { type: styleDefinition[1] + "-definition", name: styleDefinition[2], classes: [], attrs: {}, text: "", children: [], lineNumber };
   const diagram = body.match(/^#(?:canvas|diagram)(?:\((.*)\))?$/);
   if (diagram) return { type: "diagram", classes: [], attrs: parseAttributes(diagram[1], lineNumber, errors), text: "", children: [], lineNumber };
-  if (["graph", "node", "flow"].includes(body)) return { type: body, classes: [], attrs: {}, text: "", children: [], lineNumber };
+  if (["graph", "node", "image", "flow"].includes(body)) return { type: body, classes: [], attrs: {}, text: "", children: [], lineNumber };
   if (/^[a-zA-Z][\w-]*$/.test(body)) return { type: "node-group", tag: body, classes: [], attrs: {}, text: "", children: [], lineNumber };
 
   const element = body.match(/^([a-zA-Z][\w-]*)?((?:\.[\w-]+)+)(?:\((.*)\))?(?:\s+(.*))?$/);
@@ -169,8 +173,9 @@ function normalizeGroups(item, errors, nodeTypeNames, lineTypeNames) {
       for (const field of child.children) expanded.push(field);
       continue;
     }
-    if (child.type === "node-group" || child.type === "node" || nodeTypeNames.has(child.type)) {
-      if (child.text || Object.keys(child.attrs).length) errors.push(`Line ${child.lineNumber}: node is a group; put its fields on indented lines.`);
+    if (child.type === "node-group" || child.type === "node" || child.type === "image" || nodeTypeNames.has(child.type)) {
+      const isImage = child.type === "image";
+      if (child.text || Object.keys(child.attrs).length) errors.push(`Line ${child.lineNumber}: ${isImage ? "image" : "node"} is a group; put its fields on indented lines.`);
       const nodeChildren = [];
       for (const field of child.children) {
         if (field.type === "annotation") {
@@ -181,13 +186,13 @@ function normalizeGroups(item, errors, nodeTypeNames, lineTypeNames) {
             }
             nodeChildren.push({ ...annotation, type: "field", tag: "node", classes: ["annotation", annotation.type] });
           }
-        } else if (field.type === "label" || BLOCK_PROPERTIES.has(field.type)) {
-          nodeChildren.push({ ...field, type: "field", tag: child.tag ?? (child.type === "node" ? "node" : child.type), classes: [field.type] });
+        } else if ((!isImage && field.type === "label") || (isImage ? IMAGE_PROPERTIES : BLOCK_PROPERTIES).has(field.type)) {
+          nodeChildren.push({ ...field, type: "field", tag: isImage ? "image" : child.tag ?? (child.type === "node" ? "node" : child.type), classes: [field.type] });
         } else {
           nodeChildren.push(field);
         }
       }
-      const entry = { type: "entry", classes: ["entry"], attrs: {}, text: "", children: nodeChildren, lineNumber: child.lineNumber, synthetic: true };
+      const entry = { type: "entry", classes: ["entry"], attrs: {}, text: "", children: nodeChildren, lineNumber: child.lineNumber, synthetic: true, objectType: isImage ? "image" : "node" };
       if (["branch", "merge", "flow", "graph"].includes(item.type)) {
         expanded.push(entry);
       } else if (itemIsNode) {
@@ -293,12 +298,6 @@ function blockStyle(attrs, lineNumber, errors, defaults = {}) {
     verticalAlign: ["top", "middle", "bottom"].includes(attrs["vertical-align"]) ? attrs["vertical-align"] : defaults.verticalAlign ?? "middle",
     ports,
     ...shadowStyle(attrs, defaults, lineNumber, errors),
-    image: attrs.image ?? defaults.image ?? null,
-    imageWidth: numberAttribute(attrs["image-width"], defaults.imageWidth ?? 64, 1, "image-width", lineNumber, errors),
-    imageHeight: numberAttribute(attrs["image-height"], defaults.imageHeight ?? 64, 1, "image-height", lineNumber, errors),
-    imageFit: ["contain", "cover", "fill"].includes(attrs["image-fit"]) ? attrs["image-fit"] : defaults.imageFit ?? "contain",
-    imageOpacity: numberAttribute(attrs["image-opacity"], defaults.imageOpacity ?? 1, 0, "image-opacity", lineNumber, errors),
-    imagePadding: numberAttribute(attrs["image-padding"], defaults.imagePadding ?? 0, 0, "image-padding", lineNumber, errors),
     fontFamily: attrs["font-family"] ?? defaults.fontFamily ?? null,
     fontSize: numberAttribute(attrs["font-size"], defaults.fontSize ?? 16, 1, "font-size", lineNumber, errors),
     fontWeight: attrs["font-weight"] ?? defaults.fontWeight ?? "normal",
@@ -306,6 +305,21 @@ function blockStyle(attrs, lineNumber, errors, defaults = {}) {
     textDecoration: attrs["text-decoration"] ?? defaults.textDecoration ?? "none",
     textOutline: attrs["text-outline"] ?? defaults.textOutline ?? "transparent",
     textOutlineWidth: numberAttribute(attrs["text-outline-width"], defaults.textOutlineWidth ?? 0, 0, "text-outline-width", lineNumber, errors),
+  };
+}
+
+function imageStyle(attrs, lineNumber, errors) {
+  const style = blockStyle(attrs, lineNumber, errors, {
+    shape: "square", fill: "transparent", outline: "transparent", width: 64, height: 64,
+  });
+  const fit = attrs.fit ?? "contain";
+  if (!["contain", "cover", "fill"].includes(fit)) errors.push(`Line ${lineNumber}: image.fit must be contain, cover, or fill.`);
+  return {
+    ...style,
+    source: attrs.source ?? "",
+    fit: ["contain", "cover", "fill"].includes(fit) ? fit : "contain",
+    opacity: numberAttribute(attrs.opacity, 1, 0, "image.opacity", lineNumber, errors),
+    padding: numberAttribute(attrs.padding, 0, 0, "image.padding", lineNumber, errors),
   };
 }
 
@@ -532,6 +546,20 @@ function blockAttributesFor(container, labelElement, errors) {
   if (Object.keys(labelElement.attrs).length) {
     errors.push(`Line ${labelElement.lineNumber}: node.label does not accept attributes; use separate node property lines.`);
   }
+
+  function imageAttributesFor(container, errors) {
+    const attributes = {};
+    container.children.filter((child) => child.type === "field" && !child.classes.includes("annotation")).forEach((child) => {
+      const property = child.classes.find((name) => IMAGE_PROPERTIES.has(name));
+      if (!property) {
+        errors.push(`Line ${child.lineNumber}: unknown image property "${child.classes.join(".")}".`);
+        return;
+      }
+      if (Object.keys(child.attrs).length || child.children.length) errors.push(`Line ${child.lineNumber}: image.${property} must contain one plain-text value.`);
+      attributes[property] = child.text.trim() || true;
+    });
+    return attributes;
+  }
   container.children
     .filter((child) => child.type === "field" && child !== labelElement && !child.classes.includes("annotation"))
     .forEach((child) => {
@@ -721,6 +749,31 @@ function compileMarkup(tree) {
       errors.push(`Line ${container.lineNumber}: every diagram/entry needs a node.label.`);
       return null;
     }
+
+    function createImage(container) {
+      const attributes = imageAttributesFor(container, errors);
+      const requestedId = attributes.id;
+      if (!attributes.source || attributes.source === true) errors.push(`Line ${container.lineNumber}: every image needs a .source.`);
+      if (requestedId && !ID_PATTERN.test(requestedId)) errors.push(`Line ${container.lineNumber}: "${requestedId}" is not a valid ID.`);
+      const id = requestedId ?? automaticId("image", nodesById);
+      if (nodesById.has(id)) {
+        errors.push(`Line ${container.lineNumber}: the ID "${id}" is already in use.`);
+        return null;
+      }
+      const offset = offsetTuple(attributes.offset, "image.offset", container.lineNumber, errors);
+      const layer = attributes.layer === undefined ? 0 : Number(attributes.layer);
+      if (!Number.isInteger(layer)) errors.push(`Line ${container.lineNumber}: image.layer must be an integer.`);
+      const image = {
+        id, explicitId: requestedId ?? "", nodeType: null, label: "", annotations: annotationsFor(container, errors, annotationStyles, annotationDefaults),
+        style: imageStyle(attributes, container.lineNumber, errors), hidden: hiddenElement({ attrs: attributes }),
+        offsetX: offset.x, offsetY: offset.y, labelOffsetX: 0, labelOffsetY: 0,
+        layer: Number.isInteger(layer) ? layer : 0, explicitLayer: attributes.layer !== undefined,
+        sourceIndex: nodes.length, lineNumber: container.lineNumber, kind: "image",
+      };
+      nodes.push(image);
+      nodesById.set(id, image);
+      return image;
+    }
     const attributes = blockAttributesFor(container, labelElement, errors);
     const foreignTags = [...new Set(container.children
       .filter((child) => child.type === "field" && child.tag !== "node")
@@ -775,6 +828,7 @@ function compileMarkup(tree) {
   }
 
   function buildEntry(entry, parent, branchDefaults = {}) {
+    if (entry.objectType === "image") return createImage(entry);
     const label = entry.children.find((child) => child.type === "field" && child.classes.includes("label"));
     const node = createNode(entry, label);
     if (!node) return null;
@@ -804,7 +858,7 @@ function compileMarkup(tree) {
     ].filter(Boolean);
     defaults.annotations = [...legacyAnnotations, ...explicitAnnotations];
     const entries = flow.children.filter((child) => child.type === "entry");
-    if (entries.length) errors.push(`Line ${flow.lineNumber}: flows cannot contain nodes; declare nodes directly in a graph and reference them with .from and .to.`);
+    if (entries.length) errors.push(`Line ${flow.lineNumber}: flows cannot contain nodes or images; declare objects directly in a graph and reference them with .from and .to.`);
     pendingFlows.push({ flow, attributes, defaults, graphId });
   }
 
@@ -886,7 +940,7 @@ function compileMarkup(tree) {
     });
     entries.forEach((entry) => {
       const nested = entry.children.find((child) => ["branch", "flow", "merge", "connect", "entry"].includes(child.type));
-      if (nested) errors.push(`Line ${nested.lineNumber}: nodes cannot contain nodes or flows; declare both directly in graph.`);
+      if (nested) errors.push(`Line ${nested.lineNumber}: objects cannot contain nodes, images, or flows; declare them directly in graph.`);
     });
   }
 
