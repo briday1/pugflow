@@ -17,6 +17,10 @@ export function constrainDragDelta(dx, dy, constrained) {
   return Math.abs(dx) >= Math.abs(dy) ? { dx, dy: 0 } : { dx: 0, dy };
 }
 
+export function constrainResizeDelta(dx, dy, resizeX, resizeY) {
+  return { dx: resizeX ? dx : 0, dy: resizeY ? dy : 0 };
+}
+
 function cssVariables(element) {
   const styles = getComputedStyle(element);
   const read = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
@@ -947,9 +951,9 @@ function addDiagramFrame(parent, group, colors, defs) {
   parent.append(frame);
 }
 
-function packGraphs(nodes, groups, colors, gap = 80) {
+function packGraphs(nodes, groups, colors, gap = 80, packingNodes = nodes) {
   if (groups.length < 2) return nodes;
-  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const byId = new Map(packingNodes.map((node) => [node.id, node]));
   const bounds = diagramBounds(groups, byId, colors);
   const boundsById = new Map(bounds.map((group) => [group.id, group]));
   const shifts = new Map();
@@ -1005,7 +1009,7 @@ function renderSvg(container, graph, options) {
   if (ungroupedNodes.length) layouts.push(layoutDiagram(ungroupedNodes, graph.edges.filter((edge) => !groupedIds.has(edge.from) && !groupedIds.has(edge.to)), layoutOptionsForLabels(graph.edges, colors, options.layout)));
   const layout = { nodes: layouts.flatMap((item) => item.nodes), edges: graph.edges };
   let visualNodes = layout.nodes.map((node) => ({ ...node, x: node.x + node.offsetX, y: node.y + node.offsetY }));
-  visualNodes = packGraphs(visualNodes, graph.groups ?? [], colors);
+  visualNodes = packGraphs(visualNodes, graph.groups ?? [], colors, 80, layout.nodes);
   const ownerByNode = new Map();
   (graph.groups ?? []).forEach((group) => group.nodeIds.forEach((id) => ownerByNode.set(id, group)));
   visualNodes = visualNodes.map((node) => {
@@ -1188,11 +1192,14 @@ function renderSvg(container, graph, options) {
       svg.addEventListener("pointermove", (event) => {
         if (!drag || drag.pointerId !== event.pointerId) return;
         const point = pointFor(event);
-        const { dx, dy } = constrainDragDelta(
+        const constrained = constrainDragDelta(
           point.x - drag.start.x,
           point.y - drag.start.y,
           event.metaKey || event.ctrlKey || event.shiftKey,
         );
+        const { dx, dy } = drag.target.dataset.resizeX === undefined
+          ? constrained
+          : constrainResizeDelta(constrained.dx, constrained.dy, Number(drag.target.dataset.resizeX), Number(drag.target.dataset.resizeY));
         drag.dx = dx;
         drag.dy = dy;
         drag.elements.forEach((movingElement) => movingElement.setAttribute("transform", `translate(${drag.dx} ${drag.dy})`));

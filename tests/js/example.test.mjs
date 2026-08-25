@@ -196,6 +196,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /imagePreviewMarkup\(image\)[\s\S]*nodeConnectionsSection\(image\)/);
   assert.match(renderer, /kind: "node-resize"/);
   assert.match(renderer, /kind: "graph-resize"/);
+  assert.match(renderer, /packGraphs\(visualNodes, graph\.groups \?\? \[\], colors, 80, layout\.nodes\)/);
   assert.match(styles, /\.entry\.selected-element > \.resize-handles/);
   assert.doesNotMatch(app, /preview-face-add-outer/);
   assert.doesNotMatch(styles, /\.node-preview-label \{[^}]*text-shadow:/);
