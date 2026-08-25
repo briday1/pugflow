@@ -2,12 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets, cleanupGraphOffsets, DEFAULT_LAYOUT, independentMoveOffsets, inheritedFlowOffsets, layoutDiagram } from "../../src/pugflow/web/layout.mjs";
-import { connectionPath, connectionPathAvoidingNodes, constrainDragDelta, edgeIsVisible } from "../../src/pugflow/web/pugflow.mjs";
+import { connectionPath, connectionPathAvoidingNodes, constrainDragDelta, constrainResizeDelta, edgeIsVisible } from "../../src/pugflow/web/pugflow.mjs";
 
 test("constrains modified drags to their dominant axis", () => {
   assert.deepEqual(constrainDragDelta(35, 12, true), { dx: 35, dy: 0 });
   assert.deepEqual(constrainDragDelta(8, -24, true), { dx: 0, dy: -24 });
   assert.deepEqual(constrainDragDelta(8, -24, false), { dx: 8, dy: -24 });
+});
+
+test("constrains side resize handles to their active axis", () => {
+  assert.deepEqual(constrainResizeDelta(35, 12, 1, 0), { dx: 35, dy: 0 });
+  assert.deepEqual(constrainResizeDelta(8, -24, 0, -1), { dx: 0, dy: -24 });
+  assert.deepEqual(constrainResizeDelta(8, -24, 1, -1), { dx: 8, dy: -24 });
 });
 
 test("uses compact horizontal and vertical flow spacing", () => {
