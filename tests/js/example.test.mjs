@@ -23,7 +23,7 @@ test("source editor preserves standard selection, deletion, and copy shortcuts",
 test("source completions behave like an IDE near the caret", () => {
   const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
   const styles = readFileSync(new URL("../../src/pugflow/web/styles.css", import.meta.url), "utf8");
-  assert.match(app, /graph: new Set\(\["node", "flow"/);
+  assert.match(app, /graph: new Set\(\["node", "image", "flow"/);
   assert.match(app, /scope === item\.reusableKind/);
   assert.match(app, /replace\(\/\^\\\.\/, ""\)\.includes\(prefix\)/);
   assert.match(app, /leftRank - rightRank \|\| leftLabel\.localeCompare\(rightLabel\)/);
@@ -47,7 +47,7 @@ test("the built-in showcase presents a restrained layered production architectur
   assert.doesNotMatch(canvas, /#canvas|#diagram/);
   const result = parseDiagram(canvas, pugDefinitionsToStyleSheet(definitions));
   assert.deepEqual(result.errors, []);
-  assert.equal(result.nodes.length, 13);
+  assert.equal(result.nodes.length, 14);
   assert.deepEqual(result.groups.map((group) => group.id), ["edge", "application", "operations"]);
   assert.deepEqual(result.groups.map((group) => group.layer), [2, 1, 0]);
   assert.ok(result.groups.every((group) => group.placement === "below" && group.relativeTo === null));

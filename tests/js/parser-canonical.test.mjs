@@ -126,7 +126,7 @@ test("parses standalone images with annotations and flow endpoints", () => {
 
 test("rejects image properties on nodes", () => {
   const result = parseDiagram("graph\n  node\n    .id profile\n    .label Profile\n    .image photo.png");
-  assert.match(result.errors.join("\n"), /unknown node property "image"/);
+  assert.match(result.errors.join("\n"), /image is a group|images must also be declared directly in graph/);
 });
 
 test("applies @node, @flow, @annotation, and .defaults > .flow styles", () => {

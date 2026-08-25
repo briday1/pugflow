@@ -939,7 +939,7 @@ function compileMarkup(tree) {
     });
     entries.forEach((entry) => {
       const nested = entry.children.find((child) => ["branch", "flow", "merge", "connect", "entry"].includes(child.type));
-      if (nested) errors.push(`Line ${nested.lineNumber}: objects cannot contain nodes, images, or flows; declare them directly in graph.`);
+      if (nested) errors.push(`Line ${nested.lineNumber}: nodes cannot contain nodes or flows, and images must also be declared directly in graph.`);
     });
   }
 
@@ -1044,8 +1044,8 @@ function compileMarkup(tree) {
     if (!from || !to || !nodesById.has(from) || !nodesById.has(to)) continue;
     const fromGraph = graphByNode.get(from);
     const toGraph = graphByNode.get(to);
-    if (graphId && (fromGraph !== graphId || toGraph !== graphId)) errors.push(`Line ${flow.lineNumber}: a graph flow must connect two nodes in graph "${graphId}"; place cross-graph flows directly at the source root.`);
-    if (!graphId && fromGraph && toGraph && fromGraph === toGraph) errors.push(`Line ${flow.lineNumber}: a canvas flow must connect nodes in different graphs; place this flow inside graph "${fromGraph}".`);
+    if (graphId && (fromGraph !== graphId || toGraph !== graphId)) errors.push(`Line ${flow.lineNumber}: a graph flow must connect two objects in graph "${graphId}"; place cross-graph flows directly at the source root.`);
+    if (!graphId && fromGraph && toGraph && fromGraph === toGraph) errors.push(`Line ${flow.lineNumber}: a canvas flow must connect objects in different graphs; place this flow inside graph "${fromGraph}".`);
     const fromDirection = attributes["from-direction"] ?? attributes.direction ?? "right";
     const toDirection = attributes["to-direction"] ?? fromDirection;
     if (!FLOW_DIRECTIONS.has(fromDirection)) errors.push(`Line ${flow.lineNumber}: from-direction must be right, left, up, or down.`);
