@@ -104,6 +104,21 @@ test("the nine additional demos are distinct, styled, and valid", () => {
   }
 });
 
+test("the demo collection balances linear and branching layouts", () => {
+  const diagrams = ADDITIONAL_DEMOS.map((demo) => parseDiagram(demo.pug, demo.css));
+  const horizontalChains = diagrams.filter((diagram) =>
+    diagram.nodes.length === 4
+    && diagram.edges.length === 3
+    && diagram.edges.every((edge) => edge.layoutDirection === "right"));
+  const branching = diagrams.filter((diagram) => {
+    const outgoing = new Map();
+    for (const edge of diagram.edges) outgoing.set(edge.from, (outgoing.get(edge.from) ?? 0) + 1);
+    return [...outgoing.values()].some((count) => count > 1);
+  });
+  assert.equal(horizontalChains.length, 2);
+  assert.ok(branching.length >= 6);
+});
+
 test("launch parameters select demos 1 through 10", () => {
   const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
   assert.match(app, /requestedDemo >= 1 && requestedDemo <= DEMOS\.length/);
