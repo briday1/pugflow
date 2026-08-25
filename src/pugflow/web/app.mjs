@@ -1883,7 +1883,6 @@ function renderColorDecorators() {
       source.setRangeText(color, start, Number(decorator.dataset.end), "end");
       decorator.dataset.end = String(start + color.length);
       source.dispatchEvent(new Event("input", { bubbles: true }));
-      source.focus();
     };
     decorator.addEventListener("click", () => openColorPickerPopup(decorator, color, replaceColor));
     swatches.push(decorator);
@@ -1903,8 +1902,9 @@ function highlightSource() {
   const end = source.selectionEnd;
   if (source.childNodes.length !== 1 || source.firstChild?.nodeType !== Node.TEXT_NODE) {
     const value = source.value;
+    const editing = sourceHasFocus();
     source.value = value;
-    source.setSelectionRange(start, end);
+    if (editing) source.setSelectionRange(start, end);
   }
   const textNode = source.firstChild;
   if (!textNode) return;
@@ -2469,12 +2469,59 @@ function zoomCanvasAt(clientX, clientY, percent) {
   });
 }
 
+/** True while the caret lives in the source editor, so edits there keep their selection. */
+function sourceHasFocus() {
+  return document.activeElement === source || source.contains(document.activeElement);
+}
+
+/** Describe an inspector control well enough to find it again after a re-render. */
+function controlIdentity(control, root) {
+  if (!control || !root) return null;
+  const tagName = control.tagName.toLowerCase();
+  return {
+    root,
+    tagName,
+    type: control.type ?? "",
+    dataset: { ...control.dataset },
+    index: [...root.querySelectorAll(tagName)].indexOf(control),
+    selectionStart: control.selectionStart ?? null,
+    selectionEnd: control.selectionEnd ?? null,
+  };
+}
+
+function restoreControlFocus(identity) {
+  if (!identity) return false;
+  const roots = [identity.root, identity.root === inspectorContent ? sidecarContent : inspectorContent];
+  const keys = Object.keys(identity.dataset);
+  for (const root of roots) {
+    if (!root.isConnected) continue;
+    const candidates = [...root.querySelectorAll(identity.tagName)];
+    const control = (keys.length
+      ? candidates.find((candidate) => candidate.type === identity.type
+        && keys.every((key) => candidate.dataset[key] === identity.dataset[key]))
+      : null) ?? candidates[identity.index];
+    if (!control) continue;
+    control.focus({ preventScroll: true });
+    if (identity.selectionStart !== null && typeof control.setSelectionRange === "function") {
+      try { control.setSelectionRange(identity.selectionStart, identity.selectionEnd ?? identity.selectionStart); } catch { /* unsupported input type */ }
+    }
+    return document.activeElement === control;
+  }
+  return false;
+}
+
+/** Keep focus inside the property panel when the edited control disappeared. */
+function focusInspectorFallback(root) {
+  const target = [root, inspectorContent].find((candidate) => candidate?.isConnected && !candidate.closest("[hidden]"))
+    ?.querySelector("input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])");
+  if (target) { target.focus({ preventScroll: true }); return; }
+  inspector.tabIndex = -1;
+  inspector.focus({ preventScroll: true });
+}
+
 function setSource(value, recordHistory = true) {
   const activeRoot = [inspectorContent, sidecarContent].find((root) => root.contains(document.activeElement));
-  const activeControl = activeRoot ? document.activeElement : null;
-  const focusIdentity = activeControl?.dataset && Object.keys(activeControl.dataset).length
-    ? { tagName: activeControl.tagName, type: activeControl.type, dataset: { ...activeControl.dataset } }
-    : null;
+  const focusIdentity = controlIdentity(activeRoot ? document.activeElement : null, activeRoot);
   if (activeDocument !== "pug") activateDocument("pug");
   if (recordHistory && !colorPickerActive && value !== pugSource) {
     canvasUndo.push(pugSource);
@@ -2486,12 +2533,7 @@ function setSource(value, recordHistory = true) {
   syncHighlightScroll();
   hideCompletions();
   update();
-  if (focusIdentity) {
-    const control = [...activeRoot.querySelectorAll(focusIdentity.tagName.toLowerCase())].find((candidate) =>
-      candidate.type === focusIdentity.type
-      && Object.entries(focusIdentity.dataset).every(([key, fieldValue]) => candidate.dataset[key] === fieldValue));
-    control?.focus({ preventScroll: true });
-  }
+  if (activeRoot && !restoreControlFocus(focusIdentity)) focusInspectorFallback(activeRoot);
 }
 
 function undoCanvas() {

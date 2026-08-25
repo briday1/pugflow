@@ -21,6 +21,7 @@ const LINE_FIELDS = new Set([
   "line.annotation-above-text-outline", "line.annotation-below-text-outline",
   "line.annotation-above-text-outline-width", "line.annotation-below-text-outline-width",
   "line.use", "line.hidden",
+  "line.shadow-color", "line.shadow-offset-x", "line.shadow-offset-y", "line.shadow-blur", "line.shadow-opacity",
   "line.font-family", "line.font-size", "line.font-weight", "line.font-style", "line.text-decoration",
   "line.text-outline", "line.text-outline-width",
 ]);
@@ -43,6 +44,9 @@ const LINE_DEFINITION_FIELDS = new Map([
   ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"]
     .map((property) => [`annotation-${position}-${property}`, `line.annotation-${position}-${property}`])),
   ["hidden", "line.hidden"],
+  ["shadow-color", "line.shadow-color"], ["shadow-offset-x", "line.shadow-offset-x"],
+  ["shadow-offset-y", "line.shadow-offset-y"], ["shadow-blur", "line.shadow-blur"],
+  ["shadow-opacity", "line.shadow-opacity"],
   ["font-family", "line.font-family"], ["font-size", "line.font-size"],
   ["font-weight", "line.font-weight"], ["font-style", "line.font-style"],
   ["text-decoration", "line.text-decoration"], ["text-outline", "line.text-outline"],
@@ -71,6 +75,7 @@ const BLOCK_STYLE_PROPERTIES = new Set([
 const GRAPH_STYLE_PROPERTIES = new Set([
   "label-position", "align", "placement", "fill", "color", "outline", "outline-style", "outline-width",
   "padding", "x-spacing", "y-spacing",
+  "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
   "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width",
 ]);
 
@@ -246,10 +251,21 @@ function offsetTuple(value, name, lineNumber, errors) {
   return { x: Number(match[1]), y: Number(match[2]) };
 }
 
+/** Shared shadow parsing for blocks, flows, and graphs. */
+function shadowStyle(attrs, defaults, lineNumber, errors, prefix = "") {
+  const color = attrs[`${prefix}shadow-color`] ?? defaults.shadowColor ?? null;
+  return {
+    shadowColor: /^(?:none|transparent)$/i.test(color ?? "") ? null : color,
+    shadowOffsetX: numberAttribute(attrs[`${prefix}shadow-offset-x`], defaults.shadowOffsetX ?? 4, -100, `${prefix}shadow-offset-x`, lineNumber, errors),
+    shadowOffsetY: numberAttribute(attrs[`${prefix}shadow-offset-y`], defaults.shadowOffsetY ?? 5, -100, `${prefix}shadow-offset-y`, lineNumber, errors),
+    shadowBlur: numberAttribute(attrs[`${prefix}shadow-blur`], defaults.shadowBlur ?? 6, 0, `${prefix}shadow-blur`, lineNumber, errors),
+    shadowOpacity: numberAttribute(attrs[`${prefix}shadow-opacity`], defaults.shadowOpacity ?? 0.3, 0, `${prefix}shadow-opacity`, lineNumber, errors),
+  };
+}
+
 function blockStyle(attrs, lineNumber, errors, defaults = {}) {
   const shape = attrs.shape ?? defaults.shape ?? "round";
   const outlineStyle = attrs["outline-style"] ?? defaults.outlineStyle ?? "solid";
-  const shadowColor = attrs["shadow-color"] ?? defaults.shadowColor ?? null;
   if (!SHAPES.has(shape)) errors.push(`Line ${lineNumber}: unknown block shape "${shape}".`);
   if (!LINE_STYLES.has(outlineStyle)) errors.push(`Line ${lineNumber}: unknown outline style "${outlineStyle}".`);
   const ports = Object.fromEntries(["top", "right", "bottom", "left"].map((face) => {
@@ -268,11 +284,7 @@ function blockStyle(attrs, lineNumber, errors, defaults = {}) {
     height: numberAttribute(attrs.height, defaults.height ?? "auto", 28, "height", lineNumber, errors),
     align: ["left", "center", "right"].includes(attrs.align) ? attrs.align : defaults.align ?? "center",
     ports,
-    shadowColor: /^(?:none|transparent)$/i.test(shadowColor ?? "") ? null : shadowColor,
-    shadowOffsetX: numberAttribute(attrs["shadow-offset-x"], defaults.shadowOffsetX ?? 4, -100, "shadow-offset-x", lineNumber, errors),
-    shadowOffsetY: numberAttribute(attrs["shadow-offset-y"], defaults.shadowOffsetY ?? 5, -100, "shadow-offset-y", lineNumber, errors),
-    shadowBlur: numberAttribute(attrs["shadow-blur"], defaults.shadowBlur ?? 6, 0, "shadow-blur", lineNumber, errors),
-    shadowOpacity: numberAttribute(attrs["shadow-opacity"], defaults.shadowOpacity ?? 0.3, 0, "shadow-opacity", lineNumber, errors),
+    ...shadowStyle(attrs, defaults, lineNumber, errors),
     image: attrs.image ?? defaults.image ?? null,
     imageWidth: numberAttribute(attrs["image-width"], defaults.imageWidth ?? 64, 1, "image-width", lineNumber, errors),
     imageHeight: numberAttribute(attrs["image-height"], defaults.imageHeight ?? 64, 1, "image-height", lineNumber, errors),
@@ -362,6 +374,7 @@ function edgeStyle(attrs, defaults, lineNumber, errors, lineStyles = new Map()) 
     outline: effective["line.outline"] ?? defaults.outline ?? "transparent",
     outlineWidth: numberAttribute(effective["line.outline-width"], defaults.outlineWidth ?? 0, 0, "line.outline-width", lineNumber, errors),
     style: LINE_STYLES.has(style) ? style : "solid",
+    ...shadowStyle(effective, defaults, lineNumber, errors, "line."),
     width: numberAttribute(effective["line.width"], defaults.width ?? 2, 0.5, "line.width", lineNumber, errors),
     roundness: numberAttribute(effective["line.roundness"], defaults.roundness ?? 9, 0, "line.roundness", lineNumber, errors),
     label: effective["line.label"] ?? defaults.label ?? "",
