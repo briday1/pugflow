@@ -193,6 +193,10 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(styles, /\.node-preview-stage > \.preview-face-add\[data-face-add="left"\], \.node-preview-stage > \.preview-face-add\[data-face-add="right"\] \{ width: 14px; height: 22px;/);
   assert.match(app, /class="image-preview-box preview-part" data-sidecar="image-box"/);
   assert.match(app, /function imageBoxSidecar\(image\)/);
+  assert.match(app, /opacity:\$\{image\.style\.opacity\};\$\{escapeHtml\(previewShadowCss\(image\.style\)\)\}/);
+  assert.match(renderer, /shape\.removeAttribute\("filter"\)/);
+  assert.match(renderer, /const imageShadow = svgElement\("g", \{ filter: ensureShadow\(defs, node\) \}\)/);
+  assert.match(renderer, /imageShadow\.append\(svgElement\("image"/);
   assert.match(app, /imagePreviewMarkup\(image\)[\s\S]*nodeConnectionsSection\(image\)/);
   assert.match(renderer, /kind: "node-resize"/);
   assert.match(renderer, /kind: "graph-resize"/);
@@ -291,12 +295,16 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /function previewChunkyArrowMarkup\(start, end, direction, color, outline, outlineWidth, arrowHeight, arrowHeadWidth\)/);
     assert.doesNotMatch(app, /ID <small>optional<\/small><input data-line-field="id"/);
   assert.match(app, /colorControl\("Outline", "outline"/);
-  assert.match(app, /data-line-endpoint="from"/);
-  assert.match(app, /data-line-endpoint="to"/);
+  assert.match(app, /endpointInput\("from", edge\.from, edge\.to\)/);
+  assert.match(app, /endpointInput\("to", edge\.to, edge\.from\)/);
+  assert.match(app, /<input data-line-endpoint="\$\{field\}"[^>]*list="\$\{listId\}"/);
+  assert.match(app, /<datalist id="\$\{listId\}">/);
+  assert.match(app, /flowEndpointNodes\(edge\)\.some\(\(node\) => node\.id === endpoint\)/);
   assert.match(app, /data-line-face="source-face"/);
   assert.match(app, /data-line-face="target-face"/);
   assert.match(app, /Auto \(\$\{effective\}\)/);
   assert.match(app, /selectionKey: `line:\$\{from\}:\$\{to\}:\$\{edge\.lineNumber\}`/);
+  assert.match(app, /function deleteCanvasSelection\(\) \{\s*closeSidecar\(\);/);
   assert.match(html, /class="inspector-footer"[^>]*>.*id="save-reusable-style"/);
   assert.match(styles, /\.canvas-inspector \.inspector-preset-bar \{[^}]*color: var\(--accent\);[^}]*border-color: color-mix\(in srgb, var\(--accent\) 55%, var\(--border\)\);[^}]*background: color-mix\(in srgb, var\(--accent\) 9%, var\(--surface\)\);/);
   assert.match(html, /id="style-builder-preview"[^>]*readonly/);
@@ -317,6 +325,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.doesNotMatch(html, /node-annotation-only/);
   assert.match(app, /data-flow-annotation-field/);
   assert.match(app, /setAnnotationText\(source\.value, flowAnnotationLine/);
+  assert.match(app, /if \(annotation\.legacy\) return legacyFlowAnnotationEditor\(edge, annotation\.position\)/);
   assert.match(app, /CSS\.supports\("color"/);
   assert.match(app, /currentTrigger\?\.style\.setProperty\("--swatch", color\)/);
   assert.doesNotMatch(styles, /\.color-decorator \{/);
@@ -415,7 +424,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(styles, /\.canvas-inspector \{ position: fixed/);
   assert.match(app, /canvasShell\.getBoundingClientRect\(\)/);
   assert.match(app, /new ResizeObserver\(constrainInspectorToCanvas\)\.observe\(canvasShell\)/);
-  assert.match(app, /canvasShell\.addEventListener\("wheel", \(event\) => \{\s+if \(inspector\.contains\(event\.target\)\) return;/);
+  assert.match(app, /canvasShell\.addEventListener\("wheel", \(event\) => \{\s+if \(inspector\.contains\(event\.target\) \|\| sidecar\.contains\(event\.target\)\) return;/);
   assert.match(styles, /writing-mode: vertical-rl/);
   assert.match(styles, /\.inspector-footer \{ position: sticky/);
   assert.match(styles, /button\.danger[^}]*var\(--danger\)[^}]*background:/);
