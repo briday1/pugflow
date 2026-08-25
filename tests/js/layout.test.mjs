@@ -568,6 +568,41 @@ test("preserves a centered multi-source merge during cleanup", () => {
   assert.deepEqual(cleanupAlignmentOffsets(nodes, edges), []);
 });
 
+test("cleans tiny offsets around branches and merges to a fixed point", () => {
+  const nodes = [
+    { id: "api", x: 24, y: 24, width: 150, height: 42, offsetX: 0, offsetY: 0, lineNumber: 1 },
+    { id: "orders", x: 248.7, y: 24.1, width: 150, height: 42, offsetX: -1.3, offsetY: 0.1, lineNumber: 2 },
+    { id: "inventory", x: 474.8, y: 24.4, width: 150, height: 42, offsetX: -1.2, offsetY: 0.4, lineNumber: 3 },
+    { id: "primary-db", x: 250, y: 114, width: 150, height: 42, offsetX: 0, offsetY: 0, lineNumber: 4 },
+    { id: "event-stream", x: 473.7, y: 114.2, width: 150, height: 42, offsetX: -1.3, offsetY: 0.2, lineNumber: 5 },
+  ];
+  const edges = [
+    { from: "api", to: "orders", kind: "branch", layoutDirection: "right" },
+    { from: "orders", to: "inventory", kind: "branch", layoutDirection: "right" },
+    { from: "orders", to: "primary-db", kind: "merge", declarationKind: "flow", layoutDirection: "down" },
+    { from: "orders", to: "event-stream", kind: "branch", layoutDirection: "down" },
+    { from: "inventory", to: "primary-db", kind: "merge", declarationKind: "flow", layoutDirection: "down" },
+  ];
+  const changes = cleanupAlignmentOffsets(nodes, edges);
+  assert.deepEqual(changes.map(({ id, offsetX, offsetY }) => ({ id, offsetX, offsetY })), [
+    { id: "orders", offsetX: 0, offsetY: 0 },
+    { id: "inventory", offsetX: 0, offsetY: 0 },
+    { id: "event-stream", offsetX: 0, offsetY: 0 },
+  ]);
+  const byId = new Map(changes.map((change) => [change.id, change]));
+  const cleaned = nodes.map((node) => {
+    const change = byId.get(node.id);
+    return change ? {
+      ...node,
+      x: node.x + change.offsetX - node.offsetX,
+      y: node.y + change.offsetY - node.offsetY,
+      offsetX: change.offsetX,
+      offsetY: change.offsetY,
+    } : node;
+  });
+  assert.deepEqual(cleanupAlignmentOffsets(cleaned, edges), []);
+});
+
 test("cleans a small cross-graph kink by moving the graph instead of its node", () => {
   const nodes = [
     { id: "source", x: 100, y: 100, width: 160, height: 60, offsetX: 0, offsetY: 0, lineNumber: 4 },

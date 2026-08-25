@@ -493,6 +493,12 @@ export function ensureGraphComponents(value) {
 }
 
 function appendToContainer(lines, containerLineNumber, declarations) {
+  if (containerLineNumber <= 0) {
+    while (lines.length && !lines.at(-1).trim()) lines.pop();
+    if (lines.length) lines.push("");
+    lines.push(...declarations(""));
+    return;
+  }
   const start = containerLineNumber - 1;
   const indentation = (lines[start]?.match(/^\s*/)?.[0] ?? "") + "  ";
   const containerIndent = indentationWidth(lines[start] ?? "");
@@ -520,7 +526,7 @@ export function appendGraphNode(value, graphLineNumber, { nodeType = "node", id 
 }
 
 export function appendFlowReference(value, scopeLineNumber, options = {}) {
-  const lines = value.split("\n");
+  const lines = value ? value.split("\n") : [];
   appendToContainer(lines, scopeLineNumber, (indentation) => flowDeclaration(indentation, options));
   return lines.join("\n");
 }
@@ -534,6 +540,12 @@ export function moveDeclarationToContainer(value, declarationLineNumber, contain
   while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > indent)) end += 1;
   const block = lines.slice(start, end);
   lines.splice(start, end - start);
+  if (containerLineNumber <= 0) {
+    while (lines.length && !lines.at(-1).trim()) lines.pop();
+    if (lines.length) lines.push("");
+    lines.push(...block.map((line) => line.slice(originalIndent.length)));
+    return lines.join("\n");
+  }
   let containerIndex = containerLineNumber - 1;
   if (start < containerIndex) containerIndex -= block.length;
   const containerIndent = indentationWidth(lines[containerIndex] ?? "");
@@ -563,7 +575,19 @@ export function moveNodeToGraph(value, labelLineNumber, graphLineNumber) {
 export function appendDiagramNode(value, { nodeType = "node", id = "", label = "", diagramId = "", diagramLabel = "", diagramPlacement = "", diagramRelativeTo = "", diagramFill = "", diagramOutline = "" } = {}) {
   let lines = ensureGraphComponents(value).split("\n");
   const rootIndex = lines.findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim()));
-  if (rootIndex < 0) return value;
+  if (rootIndex < 0) {
+    if (lines.length === 1 && !lines[0]) lines = [];
+    while (lines.length && !lines.at(-1).trim()) lines.pop();
+    if (lines.length) lines.push("");
+    lines.push("graph",
+      ...(diagramId ? [`  .id ${diagramId}`] : []),
+      ...(diagramLabel ? [`  .label ${diagramLabel}`] : []),
+      ...(diagramRelativeTo ? [`  .placement ${diagramPlacement || "below"}`, `  .relative-to ${diagramRelativeTo}`] : []),
+      ...(diagramFill ? [`  .fill ${diagramFill}`] : []),
+      ...(diagramOutline ? [`  .outline ${diagramOutline}`] : []),
+      ...nodeDeclaration(nodeType, "  ", id, label));
+    return lines.join("\n");
+  }
   const rootIndent = indentationWidth(lines[rootIndex]);
   let end = rootIndex + 1;
   while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > rootIndent)) end += 1;
@@ -765,6 +789,12 @@ export function moveNodeToDiagram(value, labelLineNumber) {
   const block = lines.slice(node.start, node.end);
   lines.splice(node.start, node.end - node.start);
   const rootIndex = lines.findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim()));
+  if (rootIndex < 0) {
+    while (lines.length && !lines.at(-1).trim()) lines.pop();
+    if (lines.length) lines.push("");
+    lines.push("graph", ...block.map((line) => `  ${line.slice(originalIndent.length)}`));
+    return lines.join("\n");
+  }
   const rootIndent = indentationWidth(lines[rootIndex] ?? "");
   let end = rootIndex + 1;
   while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > rootIndent)) end += 1;

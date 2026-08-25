@@ -316,7 +316,7 @@ export function attachVimMode(textarea, toggle, indicator) {
 
   textarea.addEventListener("keydown", (event) => {
     if (!state.enabled) return;
-    if (event.ctrlKey && event.key.toLowerCase() === "c") {
+    if (event.ctrlKey && event.key.toLowerCase() === "c" && textarea.selectionStart === textarea.selectionEnd) {
       event.preventDefault();
       event.stopImmediatePropagation();
       hideCompletionsIfPresent();

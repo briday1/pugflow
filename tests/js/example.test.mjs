@@ -9,12 +9,25 @@ test("documentation starts as a standalone HTML document", () => {
   assert.match(docs, /^<!doctype html>/i);
 });
 
+test("source editor preserves standard selection, deletion, and copy shortcuts", () => {
+  const editor = readFileSync(new URL("../../src/pugflow/web/text-editor.mjs", import.meta.url), "utf8");
+  const vim = readFileSync(new URL("../../src/pugflow/web/vim-mode.mjs", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
+  assert.match(editor, /event\.key\.toLowerCase\(\) === "a"[\s\S]*setSelectionRange\(0, element\.value\.length\)/);
+  assert.match(editor, /\["Backspace", "Delete"\][\s\S]*setRangeText\("", element\.selectionStart, element\.selectionEnd, "end"\)/);
+  assert.match(vim, /key\.toLowerCase\(\) === "c" && textarea\.selectionStart === textarea\.selectionEnd/);
+  assert.match(app, /source\.addEventListener\("beforeinput"[\s\S]*canvasUndo\.push\(pugSource\)/);
+  assert.match(app, /activeDocument === "pug"[\s\S]*\["z", "y"\][\s\S]*undoCanvas\(\)/);
+});
+
 test("the built-in showcase presents a restrained layered production architecture", () => {
   const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
-  const document = app.match(/const EXAMPLE_DOCUMENT = `([\s\S]*?)`;/)?.[1];
-  assert.ok(document, "could not locate the built-in example");
-  const start = document.indexOf("#canvas");
-  const result = parseDiagram(document.slice(start), pugDefinitionsToStyleSheet(document.slice(0, start)));
+  const definitions = app.match(/const EXAMPLE_DEFINITIONS = `([\s\S]*?)`;/)?.[1];
+  const indentedCanvas = app.match(/const EXAMPLE_CANVAS = `([\s\S]*?)`;/)?.[1];
+  assert.ok(definitions && indentedCanvas, "could not locate the built-in example");
+  const canvas = indentedCanvas.trim().split("\n").map((line) => line.startsWith("  ") ? line.slice(2) : line).join("\n");
+  assert.doesNotMatch(canvas, /#canvas|#diagram/);
+  const result = parseDiagram(canvas, pugDefinitionsToStyleSheet(definitions));
   assert.deepEqual(result.errors, []);
   assert.equal(result.nodes.length, 13);
   assert.deepEqual(result.groups.map((group) => group.id), ["edge", "application", "operations"]);

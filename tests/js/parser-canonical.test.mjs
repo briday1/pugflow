@@ -57,6 +57,38 @@ const SOURCE = [
   "      .to result",
 ].join("\n");
 
+test("treats a blank document as an empty implied canvas", () => {
+  const result = parseDiagram("");
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.nodes, []);
+  assert.deepEqual(result.edges, []);
+  assert.deepEqual(result.groups, []);
+});
+
+test("parses canvas settings and graphs directly at the source root", () => {
+  const result = parseDiagram(".background #f8fafc\n.defaults\n  .node\n    .font-size 14\ngraph\n  .id main\n  .node\n    .id first\n    .label First");
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.figure.background, "#f8fafc");
+  assert.equal(result.nodes[0].style.fontSize, 14);
+  assert.equal(result.groups[0].id, "main");
+  assert.equal(result.nodes[0].lineNumber, 9);
+});
+
+test("supports root-level cross-graph flows without a canvas declaration", () => {
+  const result = parseDiagram("graph\n  .id first-graph\n  .node\n    .id first\n    .label First\ngraph\n  .id second-graph\n  .node\n    .id second\n    .label Second\n.flow\n  .from first\n  .to second");
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.edges.map(({ from, to, graphId }) => [from, to, graphId]), [["first", "second", null]]);
+});
+
+test("continues to parse explicit legacy canvas roots", () => {
+  const result = parseDiagram("#canvas\n  graph\n    .node\n      .label Legacy");
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.nodes[0].label, "Legacy");
+  const diagram = parseDiagram("#diagram\n  graph\n    .node\n      .label Older");
+  assert.deepEqual(diagram.errors, []);
+  assert.equal(diagram.nodes[0].label, "Older");
+});
+
 test("parses canonical flat graphs, direct nodes, and explicit flows", () => {
   const result = parseDiagram(SOURCE);
   assert.deepEqual(result.errors, []);
@@ -272,7 +304,7 @@ test("rejects removed legacy structure with actionable errors", () => {
 
 test("enforces flow scope and validates malformed fields", () => {
   const crossGraph = parseDiagram("#canvas\n  graph\n    .id one\n    .node\n      .id a\n      .label A\n  graph\n    .id two\n    .node\n      .id b\n      .label B\n    .flow\n      .from a\n      .to b");
-  assert.match(crossGraph.errors.join("\n"), /place cross-graph flows directly under #canvas/);
+  assert.match(crossGraph.errors.join("\n"), /place cross-graph flows directly at the source root/);
   const missing = parseDiagram("#canvas\n  graph\n    .node\n      .id a\n      .label A\n    .flow\n      .from a\n      .to missing");
   assert.match(missing.errors.join("\n"), /flow target "missing" is not defined/);
   const offset = parseDiagram("#canvas\n  graph\n    .node\n      .offset 12, -8\n      .label Root");

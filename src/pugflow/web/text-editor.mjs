@@ -99,6 +99,11 @@ export function attachTextEditor(element) {
     const previousStart = element.selectionStart;
     const previousEnd = element.selectionEnd;
     const text = String(replacement);
+    element.dispatchEvent(new InputEvent("beforeinput", {
+      bubbles: true,
+      inputType: "insertReplacementText",
+      data: text,
+    }));
     element.value = element.value.slice(0, start) + text + element.value.slice(end);
     if (selectionMode === "select") element.setSelectionRange(start, start + text.length);
     else if (selectionMode === "start") element.setSelectionRange(start, start);
@@ -123,10 +128,25 @@ export function attachTextEditor(element) {
     });
   });
 
+  element.addEventListener("keydown", (event) => {
+    const primaryModifier = event.metaKey || event.ctrlKey;
+    if (primaryModifier && !event.altKey && event.key.toLowerCase() === "a") {
+      event.preventDefault();
+      element.setSelectionRange(0, element.value.length);
+      return;
+    }
+    if (!["Backspace", "Delete"].includes(event.key) || element.selectionStart === element.selectionEnd) return;
+    event.preventDefault();
+    element.setRangeText("", element.selectionStart, element.selectionEnd, "end");
+    element.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      inputType: event.key === "Backspace" ? "deleteContentBackward" : "deleteContentForward",
+    }));
+  });
+
   element.addEventListener("paste", (event) => {
     event.preventDefault();
     const text = event.clipboardData?.getData("text/plain") ?? "";
-    element.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, inputType: "insertFromPaste", data: text }));
     element.setRangeText(text, element.selectionStart, element.selectionEnd, "end");
     element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertFromPaste", data: text }));
   });

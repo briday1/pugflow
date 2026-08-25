@@ -386,7 +386,30 @@ export function cleanupAlignmentOffsets(nodes, edges) {
   const centerY = (node) => node.y + node.height / 2;
   const verticalDirection = (direction) => direction === "up" || direction === "down";
   const directionSign = (direction) => direction === "left" || direction === "up" ? -1 : 1;
-  edges.filter((edge) => edge.kind === "branch" || edge.kind === "merge" && edge.declarationKind === "node").forEach((edge) => {
+  const remember = (node) => {
+    node.offsetX = Math.round((node.offsetX ?? 0) * 10) / 10;
+    node.offsetY = Math.round((node.offsetY ?? 0) * 10) / 10;
+    if (Math.abs(node.offsetX) < 0.05) node.offsetX = 0;
+    if (Math.abs(node.offsetY) < 0.05) node.offsetY = 0;
+    changed.set(node.id, { kind: "offset", id: node.id, lineNumber: node.lineNumber, offsetX: node.offsetX, offsetY: node.offsetY });
+  };
+
+  // Tiny drag offsets are always accidental noise. Removing them directly also
+  // handles branch/merge junctions where moving for one connector could disturb
+  // another connector.
+  byId.forEach((node) => {
+    for (const axis of ["X", "Y"]) {
+      const key = `offset${axis}`;
+      const coordinate = axis.toLowerCase();
+      const offset = node[key] ?? 0;
+      if (Math.abs(offset) < 0.05 || Math.abs(offset) > 2) continue;
+      node[coordinate] -= offset;
+      node[key] = 0;
+      remember(node);
+    }
+  });
+
+  const cleanForwardEdge = (edge) => {
     const source = byId.get(edge.from);
     const target = byId.get(edge.to);
     if (!source || !target || source.hidden || target.hidden) return;
@@ -422,13 +445,11 @@ export function cleanupAlignmentOffsets(nodes, edges) {
     if (Math.abs(difference) < 0.05) return;
     if (adjustX) target.x += difference;
     else target.y += difference;
-    target.offsetX = Math.round(((target.offsetX ?? 0) + (adjustX ? difference : 0)) * 10) / 10;
-    target.offsetY = Math.round(((target.offsetY ?? 0) + (adjustX ? 0 : difference)) * 10) / 10;
-    if (Math.abs(target.offsetX) < 0.0001) target.offsetX = 0;
-    if (Math.abs(target.offsetY) < 0.0001) target.offsetY = 0;
-    changed.set(target.id, { kind: "offset", id: target.id, lineNumber: target.lineNumber, offsetX: target.offsetX, offsetY: target.offsetY });
-  });
-  edges.filter((edge) => edge.kind === "merge" && edge.declarationKind === "merge").forEach((edge) => {
+    target.offsetX = (target.offsetX ?? 0) + (adjustX ? difference : 0);
+    target.offsetY = (target.offsetY ?? 0) + (adjustX ? 0 : difference);
+    remember(target);
+  };
+  const cleanMergeSource = (edge) => {
     const source = byId.get(edge.from);
     const target = byId.get(edge.to);
     if (!source || !target || source.hidden || target.hidden) return;
@@ -446,12 +467,25 @@ export function cleanupAlignmentOffsets(nodes, edges) {
     if (Math.abs(perpendicularOffset) < 0.05 || Math.abs(difference) < 0.05 || Math.abs(difference) > 32) return;
     if (sourceVertical) source.x += difference;
     else source.y += difference;
-    source.offsetX = Math.round(((source.offsetX ?? 0) + (sourceVertical ? difference : 0)) * 10) / 10;
-    source.offsetY = Math.round(((source.offsetY ?? 0) + (sourceVertical ? 0 : difference)) * 10) / 10;
-    if (Math.abs(source.offsetX) < 0.0001) source.offsetX = 0;
-    if (Math.abs(source.offsetY) < 0.0001) source.offsetY = 0;
-    changed.set(source.id, { kind: "offset", id: source.id, lineNumber: source.lineNumber, offsetX: source.offsetX, offsetY: source.offsetY });
-  });
+    source.offsetX = (source.offsetX ?? 0) + (sourceVertical ? difference : 0);
+    source.offsetY = (source.offsetY ?? 0) + (sourceVertical ? 0 : difference);
+    remember(source);
+  };
+
+  // Reach a fixed point in one invocation. A repeated position signature stops
+  // contradictory cyclic constraints from oscillating indefinitely.
+  const forwardEdges = edges.filter((edge) => edge.kind === "branch" || edge.kind === "merge" && edge.declarationKind === "node");
+  const mergeEdges = edges.filter((edge) => edge.kind === "merge" && edge.declarationKind === "merge");
+  const signatures = new Set();
+  for (let pass = 0; pass < 24; pass += 1) {
+    const before = [...byId.values()].map((node) => `${node.id}:${node.offsetX ?? 0},${node.offsetY ?? 0}`).join("|");
+    if (signatures.has(before)) break;
+    signatures.add(before);
+    forwardEdges.forEach(cleanForwardEdge);
+    mergeEdges.forEach(cleanMergeSource);
+    const after = [...byId.values()].map((node) => `${node.id}:${node.offsetX ?? 0},${node.offsetY ?? 0}`).join("|");
+    if (after === before) break;
+  }
   return [...changed.values()];
 }
 

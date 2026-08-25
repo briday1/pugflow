@@ -114,7 +114,7 @@ function parseMarkupLine(body, lineNumber, errors) {
 
   const element = body.match(/^([a-zA-Z][\w-]*)?((?:\.[\w-]+)+)(?:\((.*)\))?(?:\s+(.*))?$/);
   if (!element) {
-    errors.push(`Line ${lineNumber}: expected @node, #canvas, a structural declaration, or a node field.`);
+    errors.push(`Line ${lineNumber}: expected a reusable definition, canvas setting, graph, structural declaration, or node field.`);
     return null;
   }
   const classes = [...element[2].matchAll(/\.([\w-]+)/g)].map((match) => match[1]);
@@ -935,7 +935,7 @@ function compileMarkup(tree) {
     container.children.forEach((child) => {
       if (child.type === "flow") buildFlow(child, null);
       else if (child.type === "graph") {
-        if (container.type !== "diagram") errors.push(`Line ${child.lineNumber}: graphs cannot be nested; place every graph directly under #canvas.`);
+        if (container.type !== "diagram") errors.push(`Line ${child.lineNumber}: graphs cannot be nested; place every graph directly at the source root.`);
         else buildSubdiagram(child);
       }
       else if (["branch", "merge", "connect"].includes(child.type)) errors.push(`Line ${child.lineNumber}: .${child.type} has been removed; declare a .flow with .from and .to instead.`);
@@ -947,7 +947,7 @@ function compileMarkup(tree) {
   const unexpectedRoots = tree.roots.filter((root) => !definitionTypes.has(root.type) && root.type !== "diagram");
   const definitionAfterDiagram = diagramRoot && tree.roots.some((root, index) => definitionTypes.has(root.type) && index > tree.roots.indexOf(diagramRoot));
   if (diagramRoots.length !== 1 || unexpectedRoots.length || definitionAfterDiagram) {
-    errors.push("The document must contain optional @node, @flow, and @annotation definitions followed by exactly one #canvas.");
+    errors.push("The document must contain optional reusable definitions followed by root-level canvas settings and graphs.");
     return { nodes, edges, groups, errors, format: "pug", figure, ...styleBaselines() };
   }
   const rootLabel = diagramRoot.children.find((child) => child.type === "field" && child.classes.includes("label"));
@@ -991,7 +991,7 @@ function compileMarkup(tree) {
     if (!from || !to || !nodesById.has(from) || !nodesById.has(to)) continue;
     const fromGraph = graphByNode.get(from);
     const toGraph = graphByNode.get(to);
-    if (graphId && (fromGraph !== graphId || toGraph !== graphId)) errors.push(`Line ${flow.lineNumber}: a graph flow must connect two nodes in graph "${graphId}"; place cross-graph flows directly under #canvas.`);
+    if (graphId && (fromGraph !== graphId || toGraph !== graphId)) errors.push(`Line ${flow.lineNumber}: a graph flow must connect two nodes in graph "${graphId}"; place cross-graph flows directly at the source root.`);
     if (!graphId && fromGraph && toGraph && fromGraph === toGraph) errors.push(`Line ${flow.lineNumber}: a canvas flow must connect nodes in different graphs; place this flow inside graph "${fromGraph}".`);
     const fromDirection = attributes["from-direction"] ?? attributes.direction ?? "right";
     const toDirection = attributes["to-direction"] ?? fromDirection;
@@ -1028,6 +1028,19 @@ export function parseDiagram(source, styleSource = "") {
   const prefix = styles.source ? `${styles.source}\n\n` : "";
   const prefixLines = prefix ? prefix.split("\n").length - 1 : 0;
   const tree = parseMarkupTree(prefix + source);
+  const definitionTypes = new Set(["node-definition", "flow-definition", "line-definition", "annotation-definition", "graph-definition"]);
+  const explicitDiagramRoots = tree.roots.filter((root) => root.type === "diagram");
+  if (!explicitDiagramRoots.length) {
+    const definitions = tree.roots.filter((root) => definitionTypes.has(root.type));
+    const canvasChildren = tree.roots.filter((root) => !definitionTypes.has(root.type));
+    tree.roots = [...definitions, {
+      type: "diagram",
+      attrs: {},
+      children: canvasChildren,
+      lineNumber: canvasChildren[0]?.lineNumber ?? 1,
+      implicit: true,
+    }];
+  }
   tree.roots.filter((root) => root.type === "diagram").forEach((root) => { root._isRoot = true; });
   const nodeTypeNames = new Set(tree.roots.filter((root) => root.type === "node-definition").map((root) => root.name));
   const lineTypeNames = new Set(tree.roots.filter((root) => ["flow-definition", "line-definition"].includes(root.type)).map((root) => root.name));

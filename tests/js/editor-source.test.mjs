@@ -32,6 +32,28 @@ import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
 
 const FLAT_GRAPH = "#canvas\n  graph\n    .id main\n    .node\n      .id root\n      .label Root\n    .node\n      .id child\n      .label Child\n    .flow\n      .from root\n      .to child\n      .label request";
 
+test("adds a graph to blank source without emitting a canvas declaration", () => {
+  const updated = appendDiagramNode("", {
+    diagramId: "main", id: "root", label: "Root",
+  });
+  assert.equal(updated, "graph\n  .id main\n  .node\n    .id root\n    .label Root");
+  assert.doesNotMatch(updated, /#canvas|#diagram/);
+  assert.deepEqual(parseDiagram(updated).errors, []);
+});
+
+test("adds and moves cross-graph flows at the implied canvas root", () => {
+  const source = "graph\n  .id one\n  .node\n    .id first\n    .label First\ngraph\n  .id two\n  .node\n    .id second\n    .label Second";
+  const appended = appendFlowReference(source, 0, { from: "first", to: "second" });
+  assert.match(appended, /\n\n\.flow\n  \.from first\n  \.to second/);
+  assert.deepEqual(parseDiagram(appended).errors, []);
+
+  const nested = `${source}\n  .flow\n    .from first\n    .to second`;
+  const flow = parseDiagram(nested).edges[0];
+  const moved = moveDeclarationToContainer(nested, flow.lineNumber, 0);
+  assert.match(moved, /\n\n\.flow\n  \.from first\n  \.to second$/);
+  assert.deepEqual(parseDiagram(moved).errors, []);
+});
+
 test("edits inspector-backed node properties", () => {
   let edited = setNodeField(FLAT_GRAPH, 6, "fill", "#123456");
   edited = setNodeOffsetField(edited, parseDiagram(edited).nodes[0].lineNumber, "offset", 12.26, -4.04);

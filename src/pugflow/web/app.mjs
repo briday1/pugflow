@@ -6,7 +6,7 @@ import { arrangeNodeOffsets, cleanupAlignmentOffsets, cleanupGraphOffsets, indep
 import { pugDefinitionsToStyleSheet } from "./style-sheet.mjs";
 import { appendReusableStyle, reusableStyleDeclarations } from "./reusable-style.mjs";
 
-const EXAMPLE_DOCUMENT = `// Production delivery architecture — layered graphs and cross-graph flows
+const EXAMPLE_DEFINITIONS = `// Production delivery architecture — layered graphs and cross-graph flows
 @node edge-service
   .shape rounded
   .fill #2563eb
@@ -142,8 +142,9 @@ const EXAMPLE_DOCUMENT = `// Production delivery architecture — layered graphs
   .color #ffffff
   .font-family SFMono-Regular, Menlo, Consolas, monospace
   .font-style italic
+`;
 
-#canvas
+const EXAMPLE_CANVAS = `
   .background #f8fafc
   .defaults
     .node
@@ -353,9 +354,9 @@ const EXAMPLE_DOCUMENT = `// Production delivery architecture — layered graphs
     .direction down
     .application-to-operations
 `;
-const EXAMPLE_DIAGRAM_START = EXAMPLE_DOCUMENT.indexOf("#canvas");
-const EXAMPLE = `// Pugflow showcase — edit anything and watch the preview update\n${EXAMPLE_DOCUMENT.slice(EXAMPLE_DIAGRAM_START)}`;
-const EXAMPLE_STYLES = pugDefinitionsToStyleSheet(EXAMPLE_DOCUMENT.slice(0, EXAMPLE_DIAGRAM_START));
+  const EXAMPLE_CANVAS_SOURCE = EXAMPLE_CANVAS.trim().split("\n").map((line) => line.startsWith("  ") ? line.slice(2) : line).join("\n");
+  const EXAMPLE = `// Pugflow showcase — edit anything and watch the preview update\n${EXAMPLE_CANVAS_SOURCE}`;
+  const EXAMPLE_STYLES = pugDefinitionsToStyleSheet(EXAMPLE_DEFINITIONS);
 
 const source = attachTextEditor(document.querySelector("#source"));
 const editorShell = document.querySelector(".editor-shell");
@@ -457,7 +458,7 @@ let colorPickerActive = false;
 let colorPickerSourceAnchor = null;
 let activeDocument = "pug";
 const launchParams = new URLSearchParams(location.search);
-let pugSource = launchParams.get("demo") === "1" ? EXAMPLE : "#canvas";
+let pugSource = launchParams.get("demo") === "1" ? EXAMPLE : "";
 let cssSource = launchParams.get("demo") === "1" ? EXAMPLE_STYLES : "";
 let pugFileName = launchParams.get("pug_name") ?? (launchParams.get("demo") === "1" ? "demo.pug" : "");
 let cssFileName = launchParams.get("css_name") ?? (launchParams.get("demo") === "1" ? "demo.css" : "");
@@ -468,7 +469,7 @@ let canvasZoomPercent = 100;
 let pendingReusableStyle = null;
 if (launchParams.get("project") === "1") {
   [pugSource, cssSource] = await Promise.all([
-    fetch("/__project.pug").then((response) => response.ok ? response.text() : "#canvas"),
+    fetch("/__project.pug").then((response) => response.ok ? response.text() : ""),
     fetch("/__project.css").then((response) => response.ok ? response.text() : ""),
   ]);
 }
@@ -1424,10 +1425,11 @@ function reconcileFlowScopes(value) {
     });
     if (!edge) return value;
     const expectedGraph = ownership.get(edge.from) === ownership.get(edge.to) ? ownership.get(edge.from) : null;
+    const explicitCanvasLine = value.split("\n").findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim())) + 1;
     const containerLine = expectedGraph
       ? parsed.groups.find((group) => group.id === expectedGraph)?.lineNumber
-      : value.split("\n").findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim())) + 1;
-    if (!containerLine) return value;
+      : explicitCanvasLine || 0;
+    if (containerLine === undefined) return value;
     value = moveDeclarationToContainer(value, edge.lineNumber, containerLine);
   }
   return value;
@@ -2009,7 +2011,6 @@ const structureCompletions = [
   { label: "@node", insert: "@node custom_node", detail: "Define a reusable node type" },
   { label: "@flow", insert: "@flow custom_flow", detail: "Define a reusable flow type" },
   { label: "@annotation", insert: "@annotation custom_note", detail: "Define a reusable annotation style" },
-  { label: "#canvas", insert: "#canvas", detail: "Canvas root" },
   { label: "graph", insert: "graph\n  .id graph-id", detail: "Start a canvas graph" },
   { label: ".defaults", insert: ".defaults", detail: "Group diagram-wide node, line, and annotation defaults" },
   { label: ".flow", insert: ".flow\n  .from source-id\n  .to target-id", detail: "Flow between nodes; branching and merging are inferred" },
@@ -2091,7 +2092,7 @@ function availableStructureCompletions() {
 }
 
 const completionLabels = {
-  root: new Set(["@node", "@flow", "@graph", "@annotation", "#canvas"]),
+  root: new Set(["@node", "@flow", "@graph", "@annotation", "graph", ".defaults", ".background", ".font", ".flow"]),
   canvas: new Set(["graph", ".defaults", ".background", ".font", ".flow"]),
   graph: new Set([".node", ".flow", ".id", ".label", ".layer", ".placement", ".relative-to", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".label-offset", ".align", ".vertical-align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   node: new Set([".id", ".label", ".layer", ".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".vertical-align", ".offset", ".label-offset", ".annotation", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".image", ".image-width", ".image-height", ".image-fit", ".image-opacity", ".image-offset", ".image-padding", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
@@ -2653,6 +2654,11 @@ function redoCanvas() {
 }
 
 source.value = pugSource;
+source.addEventListener("beforeinput", () => {
+  if (activeDocument !== "pug" || colorPickerActive || source.value !== pugSource) return;
+  if (canvasUndo.at(-1) !== pugSource) canvasUndo.push(pugSource);
+  canvasRedo = [];
+});
 source.addEventListener("input", (event) => {
   storeActiveDocument();
   highlightSource();
@@ -2661,6 +2667,12 @@ source.addEventListener("input", (event) => {
   else if (!completionMenu.hidden) showCompletions();
 });
 source.addEventListener("keydown", (event) => {
+  if (activeDocument === "pug" && (event.metaKey || event.ctrlKey) && !event.altKey && ["z", "y"].includes(event.key.toLowerCase())) {
+    event.preventDefault();
+    if (event.key.toLowerCase() === "y" || event.shiftKey) redoCanvas();
+    else undoCanvas();
+    return;
+  }
   if (event.ctrlKey && event.code === "Space") {
     event.preventDefault();
     showCompletions();
@@ -2708,8 +2720,8 @@ document.querySelectorAll("[data-source-tab]").forEach((tab) => tab.addEventList
 const fileMenu = document.querySelector(".file-menu");
 document.querySelector("#new-pug").addEventListener("click", () => {
   storeActiveDocument();
-  if (pugSource !== "#canvas" && !window.confirm("Replace the current Pug document with a new blank diagram?")) return;
-  pugSource = "#canvas";
+  if (pugSource && !window.confirm("Replace the current Pug document with a new blank diagram?")) return;
+  pugSource = "";
   pugFileName = "";
   pugFileHandle = null;
   canvasUndo = [];
@@ -2980,8 +2992,8 @@ graphBuilderForm.addEventListener("submit", (event) => {
     }
     const fromGroup = graphForNode(from);
     const toGroup = graphForNode(to);
-    const canvasLine = pugSource.split("\n").findIndex((line) => /^#canvas(?:\(|$)/.test(line.trim())) + 1;
-    const scopeLine = fromGroup?.id === toGroup?.id ? fromGroup.lineNumber : canvasLine;
+    const canvasLine = pugSource.split("\n").findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim())) + 1;
+    const scopeLine = fromGroup?.id === toGroup?.id ? fromGroup.lineNumber : canvasLine || 0;
     nextSource = appendFlowReference(pugSource, scopeLine, { ...options, from, to });
   } else if (mode === "connected-node") {
     const pinned = graphBuilder.dataset.connectedNode;
@@ -2997,7 +3009,7 @@ graphBuilderForm.addEventListener("submit", (event) => {
     const from = towardNewNode ? pinned : id;
     const to = towardNewNode ? id : pinned;
     const canvasLine = pugSource.split("\n").findIndex((line) => /^#(?:canvas|diagram)(?:\(|$)/.test(line.trim())) + 1;
-    const scopeLine = pinnedGraph.id === nodeGraph.id ? nodeGraph.lineNumber : canvasLine;
+    const scopeLine = pinnedGraph.id === nodeGraph.id ? nodeGraph.lineNumber : canvasLine || 0;
     nextSource = appendGraphNode(pugSource, nodeGraph.lineNumber, options);
     nextSource = appendFlowReference(nextSource, scopeLine, { ...options, from, to, toDirection: options.fromDirection });
   } else if (mode === "node") {

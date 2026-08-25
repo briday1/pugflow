@@ -6,33 +6,31 @@
 <h1>Pugflow</h1><p class="lede">Complete offline reference for building, styling, editing, and exporting source-first diagrams.</p>
 
 <h2 id="start">Getting started</h2><p>A project needs one Pug file and may have one companion CSS file. Pug describes structure and local overrides; CSS holds reusable node, flow, and annotation types. The smallest diagram is:</p>
-<pre><code>#canvas
-  graph
-    .node
-      .id start
-      .right-ports distributed
-      .label Start</code></pre>
+<pre><code>graph
+  .node
+    .id start
+    .right-ports distributed
+    .label Start</code></pre>
 <p>Indentation defines ownership. Use two spaces consistently. Blank lines and lines beginning with <code>//</code> are ignored. Save Pug and CSS to keep the project editable; SVG and PNG are export formats.</p>
 
-<h2 id="structure">Canvas and graphs</h2><p><code>#canvas</code> is the single document root. It holds canvas defaults and one or more sibling <code>graph</code> blocks. Graphs never nest. Declare every node directly inside its graph; put a flow inside that graph when both endpoints belong to it, or directly under <code>#canvas</code> when it crosses graph boundaries.</p>
-<pre><code>#canvas
-  .background #ffffff
-  graph
-    .id main
-    .label Main process
-    .label-position outside
-    .align center
-    .font-size 16
-    .font-weight bold
-    .node
-      .id root
-      .label Root
-  graph
-    .id separate
-    .layer 1
-    .offset (0, 40)
-    .node
-      .label Independent graph</code></pre>
+<h2 id="structure">Canvas and graphs</h2><p>The canvas is always implied, so an empty file is a valid empty canvas. Put canvas defaults, one or more sibling <code>graph</code> blocks, and cross-graph flows directly at the source root. Graphs never nest. Declare every node directly inside its graph and put a flow inside that graph when both endpoints belong to it. Legacy <code>#canvas</code> and <code>#diagram</code> roots still parse, but new source never needs or emits them.</p>
+<pre><code>.background #ffffff
+graph
+  .id main
+  .label Main process
+  .label-position outside
+  .align center
+  .font-size 16
+  .font-weight bold
+  .node
+    .id root
+    .label Root
+graph
+  .id separate
+  .layer 1
+  .offset (0, 40)
+  .node
+    .label Independent graph</code></pre>
 <p>Graph titles support <code>.label-position inside|outside</code>, horizontal <code>.align left|center|right</code>, vertical <code>.vertical-align top|middle|bottom</code>, <code>.label-offset (x, y)</code>, <code>.color</code>, and all font options. Titles default to top-center inside the graph. Drag a graph title to set its label offset. Use <code>.placement above|below|left|right</code> with <code>.relative-to graph-id</code> to position a graph relative to another graph. Without these fields, each graph is placed below the previous graph. Use <code>.x-spacing</code> and <code>.y-spacing</code> to tune layout within a graph. Frames are automatically packed without overlap by default. Explicit offsets may overlap frames. <strong>Clean Up</strong> removes small accidental flow kinks within and between graphs while preserving deliberate bends; cross-graph corrections move whole graphs rather than altering their internal layouts. Higher layers render in front; equal layers retain source order. The right-side <strong>Objects</strong> panel combines collapsible graph ordering with a graph picker and clickable node/flow lists. A flow renders at the higher layer of its endpoint graphs.</p>
 
 <h2 id="nodes">Nodes</h2><p>A node always starts with <code>.node</code>; nest a reusable <code>@node</code> class such as <code>.card</code> directly beneath it to apply that type, exactly as flows nest their class inside <code>.flow</code>. Declaring the class itself as the keyword still works for older documents. Keep identity, label, layout, and appearance fields together beneath it. Declaration order initially controls stacking within the graph, with later nodes in front. Reordering nodes adds integer <code>.layer</code> overrides to the source.</p>
@@ -93,7 +91,7 @@
     | second note</code></pre>
 <p>Set <code>.arrow-shape chunky</code> for a filled block arrow. Its <code>.color</code> is the fill, while <code>.outline</code> and <code>.outline-width</code> control the outside border. <code>.arrow-height</code> sets shaft height and <code>.arrow-head-width</code> sets head length.</p>
 
-<h2 id="styles">Reusable CSS</h2><p>Reusable definitions may be written above <code>#canvas</code> in Pug or in the optional CSS tab. CSS uses Pugflow at-rules rather than browser selectors:</p>
+<h2 id="styles">Reusable CSS</h2><p>Reusable definitions may be written at the source root in Pug or in the optional CSS tab. CSS uses Pugflow at-rules rather than browser selectors:</p>
 <pre><code>@node card {
   shape: rounded;
   fill: #ffffff;
@@ -145,7 +143,7 @@
 
 <h2 id="hidden">Hiding items</h2><p>Add <code>.hidden</code> to a node, annotation, flow, or graph. Hidden nodes remain in layout so before/after versions retain exact placement; their annotations and every touching flow are also hidden. Hidden graphs, nodes, and flows appear struck through in the Objects panel.</p>
 
-<h2 id="canvas-ui">Canvas editing</h2><ul><li>Click a node, label, annotation, flow, flow label, or graph to select it and jump to its source.</li><li>From a node's properties, use <strong>Add Connected Node</strong> to create a new node above, below, left, or right.</li><li>Graph boundaries fade in when the pointer approaches them, making transparent graphs easy to find and select.</li><li>Ctrl-click (Cmd-click on macOS) toggles multi-selection. Mixed selections show only actions shared by every selected item.</li><li>Drag nodes, text, images, and graphs; hold Cmd on macOS or Ctrl on other platforms to constrain movement to the dominant axis. Shift remains supported as an alternative. Graph offsets may intentionally overlap frames.</li><li>Use <strong>Graph Layer</strong> in the graph inspector or the collapsible <strong>Graphs</strong> list in the Objects panel to control graph stacking.</li><li>Choose a graph in the Objects panel to browse its nodes and flows. Its node list is ordered front to back from declaration order. Dragging nodes, or using <strong>Node Layer</strong> in the node inspector to send selected nodes to the front or back, writes explicit layers to the source. Clicking any node or flow opens its normal property inspector.</li><li>The origin ghost shows the previous position while dragging.</li><li>A selected node lists all incoming and outgoing flows, including flows crossing graph boundaries. Each flow exposes its source and target faces.</li><li>Text fields provide adjacent expandable <strong>Font options</strong> for family, style, size, weight, decoration, and color.</li><li>Use node/flow types first, then local inspector values as overrides.</li><li>Align or distribute multiple selected nodes or graphs from the inspector.</li><li><strong>Clean up</strong> aligns connected flow nodes and collapses unnecessary bends by correcting offsets. It never changes flow faces or moves untouched sibling branches.</li><li>Undo/Redo and Ctrl+Z/Ctrl+Y cover canvas source edits.</li><li>Zoom affects preview only; Fit frames the drawing. Exports use diagram bounds.</li><li><strong>+ New</strong> contains Graph, Node, and Flow creation.</li><li><strong>Copy</strong> writes a 2× high-DPI PNG to the clipboard. <strong>Save</strong> opens format and PNG-resolution options for PNG or SVG export.</li></ul>
+<h2 id="canvas-ui">Canvas editing</h2><ul><li>Click a node, label, annotation, flow, flow label, or graph to select it and jump to its source.</li><li>From a node's properties, use <strong>Add Connected Node</strong> to create a new node above, below, left, or right.</li><li>Graph boundaries fade in when the pointer approaches them, making transparent graphs easy to find and select.</li><li>Ctrl-click (Cmd-click on macOS) toggles multi-selection. Mixed selections show only actions shared by every selected item.</li><li>Drag nodes, text, images, and graphs; hold Cmd on macOS or Ctrl on other platforms to constrain movement to the dominant axis. Shift remains supported as an alternative. Graph offsets may intentionally overlap frames.</li><li>Use <strong>Graph Layer</strong> in the graph inspector or the collapsible <strong>Graphs</strong> list in the Objects panel to control graph stacking.</li><li>Choose a graph in the Objects panel to browse its nodes and flows. Its node list is ordered front to back from declaration order. Dragging nodes, or using <strong>Node Layer</strong> in the node inspector to send selected nodes to the front or back, writes explicit layers to the source. Clicking any node or flow opens its normal property inspector.</li><li>The origin ghost shows the previous position while dragging.</li><li>A selected node lists all incoming and outgoing flows, including flows crossing graph boundaries. Each flow exposes its source and target faces.</li><li>Text fields provide adjacent expandable <strong>Font options</strong> for family, style, size, weight, decoration, and color.</li><li>Use node/flow types first, then local inspector values as overrides.</li><li>Align or distribute multiple selected nodes or graphs from the inspector.</li><li><strong>Clean up</strong> aligns connected flow nodes and collapses unnecessary bends by correcting offsets. It never changes flow faces or moves untouched sibling branches.</li><li>Undo/Redo and Ctrl+Z/Ctrl+Y cover canvas and direct source edits, including edits that temporarily cause a parse error.</li><li>Zoom affects preview only; Fit frames the drawing. Exports use diagram bounds.</li><li><strong>+ New</strong> contains Graph, Node, and Flow creation.</li><li><strong>Copy</strong> writes a 2× high-DPI PNG to the clipboard. <strong>Save</strong> opens format and PNG-resolution options for PNG or SVG export.</li></ul>
 
 <h2 id="editor">Source editor</h2><p>The editor provides line numbers, current-line highlighting, syntax color, color pickers beside hex values, completions with Ctrl+Space, Tab/Shift+Tab indentation, and click-to-source navigation. Vim mode is off by default and supports Normal, Insert, and Visual modes, a block cursor, movement/edit/yank/paste/marks, <code>&gt;</code>/<code>&lt;</code> indentation, and Escape/Ctrl+[ /Ctrl+C to return to Normal mode.</p>
 
