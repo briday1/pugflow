@@ -64,20 +64,20 @@ Enable **Vim mode** from **Settings** for Normal, Insert, and Visual modes. It s
 ```pug
 graph
   .id main
-  .node
+  node
     .id root
     .label Root
-  .node
+  node
     .id left
     .label Left path
-  .node
+  node
     .id right
     .label Right path
-  .flow
+  flow
     .from root
     .to left
     .arrow-style forward
-  .flow
+  flow
     .from root
     .to right
 ```
@@ -86,52 +86,52 @@ The common structure is intentionally small:
 
 - The canvas is implied; an empty file is a valid empty canvas. Put canvas settings and sibling `graph` components directly at the source root. Graphs never nest.
 - Nodes are declared directly inside their graph and have explicit IDs when flows reference them.
-- Every connection is an explicit `.flow` with `.from` and `.to`.
+- Every connection is an explicit bare `flow` with `.from` and `.to`.
 - Put a flow inside a graph when both endpoints belong to that graph. Put cross-graph flows directly at the source root.
-- Flow style fields such as `.color`, `.label`, and `.arrow-style` are direct children of `.flow`; there is no nested `.line` group.
+- Flow style fields such as `.color`, `.label`, and `.arrow-style` are dotted properties directly beneath `flow`; there is no nested `.line` group.
 - Blank lines and `//` comment lines are ignored.
 
 For a long pipeline, declare each node and each connection at graph level:
 
 ```pug
 graph
-  .node
+  node
     .id start
     .label Start
-  .node
+  node
     .id validate
     .label Validate
-  .node
+  node
     .id publish
     .label Publish
-  .flow
+  flow
     .from start
     .to validate
-  .flow
+  flow
     .from validate
     .to publish
 ```
 
-This creates `Start -> Validate -> Publish`. A reusable flow class or local fields on each `.flow` style the connector.
+This creates `Start -> Validate -> Publish`. A reusable flow class or local properties on each `flow` style the connector.
 
 Flows accept `.direction right`, `.direction left`, `.direction up`, or `.direction down`. Multiple flows may start at the same node—even in the same direction. Multiple outgoing flows are rendered as branches and multiple incoming flows are rendered as a merge. The layout assigns competing paths separate lanes so their nodes do not overlap. Arrowheads are controlled independently with `.arrow-style`.
 
 ```pug
 graph
-  .node
+  node
     .id dispatcher
     .label Dispatcher
-  .node
+  node
     .id main
     .label Main work
-  .node
+  node
     .id audit
     .label Audit work
-  .flow
+  flow
     .from dispatcher
     .to main
     .direction right
-  .flow
+  flow
     .from dispatcher
     .to audit
     .direction down
@@ -140,7 +140,7 @@ graph
 Each node face accepts its own port setting: `.top-ports`, `.right-ports`, `.bottom-ports`, and `.left-ports`. Use `shared` (the default) to attach connections at the face center or `distributed` to space them uniformly.
 
 ```pug
-.node
+node
   .id source-id
   .right-ports distributed
   .label Source
@@ -148,7 +148,7 @@ Each node face accepts its own port setting: `.top-ports`, `.right-ports`, `.bot
 
 ## Reusable style classes
 
-Define a styled node type at the source root, then apply it by nesting its class inside a `.node` declaration, exactly as flows nest `.warning_flow` inside `.flow`. It inherits the canvas node defaults and overrides only the fields in its definition. The older form, which used the class name itself as the declaration keyword (`.my_node` directly inside `graph`), still parses so existing documents keep working.
+Define a styled node type at the source root, then apply it by nesting its dotted class inside a bare `node` declaration, exactly as flows nest `.warning_flow` inside bare `flow`. It inherits the canvas node defaults and overrides only the properties in its definition. Legacy dotted structural declarations still parse so existing documents keep working.
 
 ```pug
 @node my_node
@@ -164,10 +164,10 @@ Define a styled node type at the source root, then apply it by nesting its class
   .color #f59e0b
 
 .defaults
-  .node
+  node
     .outline #111111
 graph
-  .node
+  node
     .my_node
     .id root
     .label Reusable styled node
@@ -175,42 +175,42 @@ graph
       .above
         .warning_note
         | Styled annotation
-  .node
+  node
     .id child
     .label Child
-  .flow
+  flow
     .from root
     .to child
     .warning_flow
 ```
 
-Reusable node definitions create classes such as `.my_node`; reusable flow and annotation definitions create decorators such as `.warning_flow` and `.warning_note`. Nest the class inside `.node`, `.flow`, or the annotation entry it styles. Local fields override the reusable style, and fields nested under the class itself (for example `.my_node` followed by an indented `.fill #ff0000`) override it too. Names must be unique across node, flow, and annotation definitions.
+Reusable definitions create dotted classes such as `.my_node`, `.warning_flow`, and `.warning_note`. Nest the class inside bare `node`, bare `flow`, or the annotation entry it styles. Local properties override the reusable style, and properties nested under the class itself override it too. Names must be unique across node, flow, and annotation definitions.
 
 The complete original definition is preserved in [examples/original.pug](examples/original.pug).
 
 ## ID-based flows
 
-Give nodes IDs, then use the same `.flow` keyword for convergence, feedback, cross-graph links, or a target that appears later in the source:
+Give nodes IDs, then use the same bare `flow` keyword for convergence, feedback, cross-graph links, or a target that appears later in the source:
 
 ```pug
 graph
-  .node
+  node
     .id api
     .label API
-  .node
+  node
     .id cache
     .label Cache
-  .node
+  node
     .id result
     .label Result
     .annotation
       .above Paths converge here
     .shape hexagon
-  .flow
+  flow
     .from api
     .to result
     .label live
-  .flow
+  flow
     .from cache
     .to result
     .label hit
@@ -221,7 +221,7 @@ The parser resolves `.from` and `.to` after reading all nodes, so either endpoin
 For a feedback path, specify the endpoint directions independently:
 
 ```pug
-.flow
+flow
   .from archived
   .from-direction left
   .to styled-text
@@ -239,29 +239,29 @@ Pugflow has a small built-in rendering theme: white background with black blocks
 .background #fffaf0
 .font Arial
 .defaults
-  .node
+  node
     .shape rounded
     .fill #ffffff
     .color #202020
     .outline-width 2
     .align center
-  .flow
+  flow
     .color #303030
   .annotation
     .color #606060
 graph
-  .node
+  node
     .label Root
 ```
 
-`.background`, `.font`, and `.defaults` belong directly at the source root. Reusable node, flow, and annotation defaults are grouped under `.defaults`. Direct fields on a `.flow` override inherited defaults. Legacy files containing an explicit `#canvas` or `#diagram` root remain supported, but new source and editor actions never emit one.
+`.background`, `.font`, and `.defaults` belong directly at the source root. Reusable node, flow, and annotation defaults are grouped under `.defaults`. Direct dotted properties on a bare `flow` override inherited defaults. Legacy files containing dotted structural declarations or an explicit `#canvas` or `#diagram` root remain supported, but new source and editor actions emit bare structure.
 
 ## Block options
 
 Node identity, text, layout, and appearance use separate readable fields. For easy scanning, keep them in that order:
 
 ```pug
-.node
+node
   .id service
   .layer 1
   .label
@@ -301,7 +301,7 @@ Auto-sized blocks measure their content, wrap long labels, and grow vertically. 
 Place any number of annotations above or below a node:
 
 ```pug
-.node
+node
   .label Controller
   .annotation
     .above
@@ -316,7 +316,7 @@ Place any number of annotations above or below a node:
 Add `.hidden` beside the node's other fields:
 
 ```pug
-.node
+node
   .annotation
     .above Removed in the after diagram
   .id legacy
@@ -342,7 +342,7 @@ Use **+ New** above the canvas to add a Graph, Node, or Flow without hand-writin
 - Dragging its label writes `.label-offset (x, y)` inside its node.
 - Dragging an image inside a node writes `.image-offset (x, y)` without moving the node.
 - Dragging a block annotation writes an indented `.offset (x, y)` field.
-- Dragging a flow label writes `.label-offset (x, y)` directly inside its `.flow` declaration.
+- Dragging a flow label writes `.label-offset (x, y)` directly inside its `flow` declaration.
 
 Offsets affect only the rendered position. The node's automatic layout slot remains fixed.
 
@@ -353,7 +353,7 @@ Nodes support SVG drop shadows through `.shadow-color`, `.shadow-offset-x`, `.sh
 Nodes can contain a clipped image using `.image`, with `.image-width`, `.image-height`, `.image-fit` (`contain`, `cover`, or `fill`), `.image-opacity`, and `.image-offset`. These fields work in reusable `@node` styles and in the canvas inspector. Relative paths and same-origin URLs export reliably to PNG; remote images require the image server to allow cross-origin canvas use. SVG exports retain the image URL.
 
 ```pug
-.node
+node
   .image photos/sample.png
   .image-width 72
   .image-height 72
@@ -363,10 +363,10 @@ Nodes can contain a clipped image using `.image`, with `.image-width`, `.image-h
 
 ## Flows, arrows, and annotations
 
-Set appearance and annotation properties directly on a `.flow`. Use a reusable `@flow` class when several flows need identical styling.
+Set appearance and annotation properties directly on a bare `flow`. Use a reusable `@flow` class when several flows need identical styling.
 
 ```pug
-.flow
+flow
   .from service-a
   .to service-b
   .arrow-style both
@@ -393,7 +393,7 @@ Set appearance and annotation properties directly on a `.flow`. Use a reusable `
 Use `$...$` for inline math and `$$...$$` for a display equation on its own line. Pugflow uses a bundled MathJax renderer to produce real TeX as SVG paths, including in nodes, node annotations, and connection annotations. Equation dimensions participate in node sizing and diagram layout, and SVG/PNG/CLI exports remain self-contained and offline.
 
 ```pug
-.node
+node
   .label Transfer $x_i^2 \\rightarrow y_i$
 ```
 
@@ -417,9 +417,9 @@ Copy the files in `src/pugflow/web/`, then:
   import { createBlockDiagram } from "./pugflow.mjs";
 
   const source = `graph
-    .node
+    node
       .label Root
-    .node
+    node
       .label Child`;
 
   const diagram = createBlockDiagram(document.querySelector("#diagram"), source);

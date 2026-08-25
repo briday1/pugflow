@@ -2235,6 +2235,29 @@ function renderCompletions() {
   });
 }
 
+function positionCompletionMenu() {
+  const selection = window.getSelection();
+  const range = selection?.rangeCount && source.contains(selection.focusNode) ? selection.getRangeAt(0).cloneRange() : null;
+  range?.collapse(false);
+  const caretRect = range?.getClientRects()[0];
+  const shellRect = editorShell.getBoundingClientRect();
+  const lineStart = source.value.lastIndexOf("\n", source.selectionStart - 1) + 1;
+  const line = source.value.slice(0, source.selectionStart).split("\n").length - 1;
+  const column = [...source.value.slice(lineStart, source.selectionStart)]
+    .reduce((count, character) => character === "\t" ? count + (2 - count % 2) : count + 1, 0);
+  const caretLeft = caretRect?.left ?? shellRect.left + 52 + column * 7.23 - source.scrollLeft;
+  const caretTop = caretRect?.top ?? shellRect.top + 14 + line * 20 - source.scrollTop;
+  const caretBottom = caretRect?.bottom ?? caretTop + 20;
+  const width = completionMenu.offsetWidth;
+  const height = completionMenu.offsetHeight;
+  const left = Math.max(6, Math.min(caretLeft - shellRect.left, shellRect.width - width - 6));
+  const below = caretBottom - shellRect.top + 4;
+  const top = below + height <= shellRect.height - 6
+    ? below
+    : Math.max(6, caretTop - shellRect.top - height - 4);
+  completionMenu.style.translate = `${left}px ${top}px`;
+}
+
 function showCompletions() {
   const context = completionContext();
   const prefix = context.prefix.toLowerCase().replace(/^\./, "");
@@ -2252,10 +2275,12 @@ function showCompletions() {
   completionRange = context;
   completionMenu.hidden = false;
   renderCompletions();
+  positionCompletionMenu();
 }
 
 function hideCompletions() {
   completionMenu.hidden = true;
+  completionMenu.style.translate = "";
   shownCompletions = [];
   completionRange = null;
 }
