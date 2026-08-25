@@ -19,9 +19,11 @@ import {
   setAnnotationOffsetField,
   setAnnotationPosition,
   setAnnotationText,
+  setGraphGeometry,
   setNodeAnnotationField,
   setNodeAnnotationText,
   setNodeField,
+  setNodeGeometry,
   setImageGeometry,
   setNodeOffsetField,
   setNodeType,
@@ -195,6 +197,21 @@ test("adds and updates standalone image geometry", () => {
   assert.match(updated, /\.height 55/);
   assert.match(updated, /\.offset \(8\.3, -4\)/);
   assert.equal(parseDiagram(updated).nodes.find((node) => node.id === "photo").kind, "image");
+});
+
+test("updates node and graph geometry", () => {
+  const node = parseDiagram(FLAT_GRAPH).nodes[0];
+  const resizedNode = setNodeGeometry(FLAT_GRAPH, node.lineNumber, 180, 72, 5, -3);
+  const parsedNode = parseDiagram(resizedNode).nodes[0];
+  assert.deepEqual([parsedNode.style.width, parsedNode.style.height, parsedNode.offsetX, parsedNode.offsetY], [180, 72, 5, -3]);
+
+  const graph = parseDiagram(resizedNode).groups[0];
+  const resizedGraph = setGraphGeometry(resizedNode, graph.lineNumber, 420, 260, 12, -8);
+  const parsedGraph = parseDiagram(resizedGraph).groups[0];
+  assert.deepEqual(
+    [parsedGraph.width, parsedGraph.height, parsedGraph.frameOffsetX, parsedGraph.frameOffsetY],
+    [420, 260, 12, -8],
+  );
 });
 
 test("indents and outdents selected source lines", () => {

@@ -276,6 +276,29 @@ function addBlockAnnotation(group, node, annotation, index, colors) {
   group.append(wrapper);
 }
 
+function resizeHandles({ className, x, y, width, height, lineNumber, id, kind, currentX = 0, currentY = 0 }) {
+  const handles = svgElement("g", { class: `resize-handles ${className}`, display: "none", "aria-hidden": "true" });
+  handles.append(svgElement("rect", { class: "resize-frame", x, y, width, height }));
+  for (const [resizeX, resizeY] of [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]]) {
+    handles.append(svgElement("circle", {
+      class: "resize-handle",
+      cx: x + (resizeX + 1) * width / 2,
+      cy: y + (resizeY + 1) * height / 2,
+      r: 5,
+      "data-line": lineNumber,
+      "data-id": id,
+      "data-drag-kind": kind,
+      "data-resize-x": resizeX,
+      "data-resize-y": resizeY,
+      "data-current-x": currentX,
+      "data-current-y": currentY,
+      "data-current-width": width,
+      "data-current-height": height,
+    }));
+  }
+  return handles;
+}
+
 function addNode(svg, node, colors, defs) {
   const group = svgElement("g", {
     class: `entry ${node.kind === "merge" ? "merge-entry" : ""}`.trim(),
@@ -319,26 +342,11 @@ function addNode(svg, node, colors, defs) {
       tabindex: 0,
       "aria-label": `Move image ${node.id}`,
     }));
-    const handles = svgElement("g", { class: "image-resize-handles", display: "none", "aria-hidden": "true" });
-    handles.append(svgElement("rect", { class: "image-resize-frame", x: imageX, y: imageY, width: node.style.width, height: node.style.height }));
-    for (const [resizeX, resizeY] of [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]]) {
-      handles.append(svgElement("circle", {
-        class: "image-resize-handle",
-        cx: imageX + (resizeX + 1) * node.style.width / 2,
-        cy: imageY + (resizeY + 1) * node.style.height / 2,
-        r: 5,
-        "data-line": node.lineNumber,
-        "data-id": node.id,
-        "data-drag-kind": "image-resize",
-        "data-resize-x": resizeX,
-        "data-resize-y": resizeY,
-        "data-current-x": node.offsetX,
-        "data-current-y": node.offsetY,
-        "data-current-width": node.style.width,
-        "data-current-height": node.style.height,
-      }));
-    }
-    group.append(handles);
+    group.append(resizeHandles({
+      className: "image-resize-handles", x: imageX, y: imageY,
+      width: node.style.width, height: node.style.height, lineNumber: node.lineNumber,
+      id: node.id, kind: "image-resize", currentX: node.offsetX, currentY: node.offsetY,
+    }));
   }
   group.append(shape);
   if (node.kind === "image") {
@@ -346,6 +354,11 @@ function addNode(svg, node, colors, defs) {
     svg.append(group);
     return;
   }
+  group.append(resizeHandles({
+    className: "node-resize-handles", x: node.x, y: top, width: node.width, height: node.height,
+    lineNumber: node.lineNumber, id: node.id, kind: "node-resize",
+    currentX: node.offsetX, currentY: node.offsetY,
+  }));
   const textColor = node.style.color ?? colors.text;
   const anchor = node.style.align === "left" ? "start" : node.style.align === "right" ? "end" : "middle";
   const baseX = node.style.align === "left" ? node.x + 16 : node.style.align === "right" ? node.x + node.width - 16 : node.x + node.width / 2;
@@ -822,12 +835,25 @@ function diagramBounds(groups, nodesById, colors) {
     const titleHeight = group.label ? Math.ceil((group.fontSize ?? 13) * 1.2) : 0;
     const titleSpace = group.label && group.labelPosition !== "outside" && group.verticalAlign !== "middle" ? titleHeight + 6 : 0;
     const titleAtBottom = group.verticalAlign === "bottom";
-    const bounds = {
+    const natural = {
       ...group,
       x: Math.min(...nodes.map((node) => node.x)) - padding,
       y: Math.min(...nodes.map((node) => node.y)) - padding - (titleAtBottom ? 0 : titleSpace),
       right: Math.max(...nodes.map((node) => node.x + node.width)) + padding,
       bottom: Math.max(...nodes.map((node) => node.y + node.layoutHeight)) + padding + (titleAtBottom ? titleSpace : 0),
+    };
+    const extraWidth = Math.max(0, (group.width ?? 0) - (natural.right - natural.x));
+    const extraHeight = Math.max(0, (group.height ?? 0) - (natural.bottom - natural.y));
+    const frameOffsetX = Math.max(-extraWidth / 2, Math.min(extraWidth / 2, group.frameOffsetX ?? 0));
+    const frameOffsetY = Math.max(-extraHeight / 2, Math.min(extraHeight / 2, group.frameOffsetY ?? 0));
+    const bounds = {
+      ...natural,
+      x: natural.x - extraWidth / 2 + frameOffsetX,
+      right: natural.right + extraWidth / 2 + frameOffsetX,
+      y: natural.y - extraHeight / 2 + frameOffsetY,
+      bottom: natural.bottom + extraHeight / 2 + frameOffsetY,
+      frameOffsetX,
+      frameOffsetY,
     };
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
@@ -912,6 +938,12 @@ function addDiagramFrame(parent, group, colors, defs) {
     label.textContent = group.label;
     frame.append(label);
   }
+  frame.append(resizeHandles({
+    className: "graph-resize-handles", x: group.x, y: group.y,
+    width: group.right - group.x, height: group.bottom - group.y,
+    lineNumber: group.lineNumber, id: group.id, kind: "graph-resize",
+    currentX: group.frameOffsetX, currentY: group.frameOffsetY,
+  }));
   parent.append(frame);
 }
 
@@ -1123,7 +1155,7 @@ function renderSvg(container, graph, options) {
         const element = target.dataset.dragKind === "node" ? target.closest(".entry") : target;
         const selectionKey = target.closest?.("[data-selection-key]")?.dataset.selectionKey ?? null;
         const groupDrag = selectionKey && element.classList.contains("selected-element")
-          && !["image-resize", "node-label", "block-annotation"].includes(target.dataset.dragKind);
+          && !["image-resize", "node-resize", "graph-resize", "node-label", "block-annotation"].includes(target.dataset.dragKind);
         const elements = groupDrag
           ? [...svg.querySelectorAll(".entry.selected-element, g[data-drag-kind='graph'].selected-element, text[data-drag-kind='connection-label'].selected-element")]
           : [element];

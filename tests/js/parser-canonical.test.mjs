@@ -124,6 +124,12 @@ test("parses standalone images with annotations and flow endpoints", () => {
   assert.deepEqual(result.edges.map(({ from, to }) => [from, to]), [["logo", "done"]]);
 });
 
+test("parses explicit graph dimensions", () => {
+  const result = parseDiagram("graph\n  .width 420\n  .height 260\n  node\n    .label Sized");
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual([result.groups[0].width, result.groups[0].height], [420, 260]);
+});
+
 test("rejects image properties on nodes", () => {
   const result = parseDiagram("graph\n  node\n    .id profile\n    .label Profile\n    .image photo.png");
   assert.match(result.errors.join("\n"), /image is a group|images must also be declared directly in graph/);
