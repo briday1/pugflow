@@ -199,6 +199,18 @@ test("adds and updates standalone image geometry", () => {
   assert.equal(parseDiagram(updated).nodes.find((node) => node.id === "photo").kind, "image");
 });
 
+test("writes dragged image offsets inside the image declaration", () => {
+  const source = appendGraphImage(FLAT_GRAPH, 2, { id: "photo", source: "photo.png", width: 40, height: 40 });
+  const image = parseDiagram(source).nodes.find((node) => node.id === "photo");
+  const updated = setNodeOffsetField(source, image.lineNumber, "offset", 12.26, -4.04);
+  assert.match(updated, /\n    image\n      \.offset \(12\.3, -4\)\n/);
+  assert.doesNotMatch(updated, /\n    node\.offset /);
+  assert.deepEqual(
+    [parseDiagram(updated).nodes.find((node) => node.id === "photo").offsetX, parseDiagram(updated).nodes.find((node) => node.id === "photo").offsetY],
+    [12.3, -4],
+  );
+});
+
 test("updates node and graph geometry", () => {
   const node = parseDiagram(FLAT_GRAPH).nodes[0];
   const resizedNode = setNodeGeometry(FLAT_GRAPH, node.lineNumber, 180, 72, 5, -3);

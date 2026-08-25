@@ -36,6 +36,9 @@ export function indentSourceSelection(value, selectionStart, selectionEnd, outde
 export function setNodeOffsetField(value, labelLineNumber, prefix, x, y) {
   const lines = value.split("\n");
   const labelIndex = labelLineNumber - 1;
+  if (/^\s*image(?:\s|$)/.test(lines[labelIndex] ?? "")) {
+    return setChildOffsetField(value, labelLineNumber, `.${prefix}`, x, y);
+  }
   const indentation = lines[labelIndex]?.match(/^\s*/)?.[0] ?? "";
   if (lines[labelIndex]?.trim().match(/^\.label(?:\s|$)/)) {
     const propertyIndent = indentationWidth(lines[labelIndex]);
