@@ -288,6 +288,31 @@ function compactSiblingBranches(nodes, edges, options) {
   return nodes;
 }
 
+function resolveNodeCollisions(nodes, cells, options) {
+  const placed = [];
+  const overlaps = (first, second) => first.x < second.x + second.width
+    && second.x < first.x + first.width
+    && first.y < second.y + second.layoutHeight
+    && second.y < first.y + first.layoutHeight;
+  nodes.forEach((node) => {
+    let blocker;
+    while ((blocker = placed.find((candidate) => overlaps(node, candidate)))) {
+      const cell = cells.get(node.id);
+      const blockerCell = cells.get(blocker.id);
+      const horizontalShift = blocker.x + blocker.width + options.horizontalGutter - node.x;
+      const verticalShift = blocker.y + blocker.layoutHeight + options.verticalGutter - node.y;
+      if (cell?.y === blockerCell?.y
+        || cell?.x !== blockerCell?.x && horizontalShift <= verticalShift) {
+        node.x += horizontalShift;
+      } else {
+        node.y += verticalShift;
+      }
+    }
+    placed.push(node);
+  });
+  return nodes;
+}
+
 /**
  * Compact sibling lanes are positioned around their source after the main grid
  * is built. Anchor them to the source track during grid sizing so their
@@ -370,6 +395,7 @@ export function layoutDiagram(nodes, edges, overrides = {}) {
     };
   });
   compactSiblingBranches(placed, edges, options);
+  resolveNodeCollisions(placed, cells, options);
 
   return { nodes: placed, edges: routedEdges, width, height, options };
 }

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseDiagram } from "../../src/pugflow/web/parser.mjs";
+import { ADDITIONAL_DEMOS } from "../../src/pugflow/web/demo-sources.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets, cleanupGraphOffsets, DEFAULT_LAYOUT, independentMoveOffsets, inheritedFlowOffsets, layoutDiagram } from "../../src/pugflow/web/layout.mjs";
 import { connectionPath, connectionPathAvoidingNodes, constrainDragDelta, constrainResizeDelta, edgeIsVisible } from "../../src/pugflow/web/pugflow.mjs";
 
@@ -118,6 +119,35 @@ test("places multiple directional flows without collisions", () => {
   assert.ok(nodes.get("south").y > nodes.get("root").y);
   assert.ok(nodes.get("east-two").x > nodes.get("root").x);
   assert.notEqual(nodes.get("east").y, nodes.get("east-two").y);
+});
+
+test("keeps offset-free demo nodes from overlapping after lane compaction", () => {
+  for (const demo of ADDITIONAL_DEMOS) {
+    const graph = parseDiagram(demo.pug, demo.css);
+    for (const group of graph.groups) {
+      const nodeIds = new Set(group.nodeIds);
+      const nodes = graph.nodes.filter((node) => nodeIds.has(node.id)).map((node) => {
+        const width = typeof node.style.width === "number" ? node.style.width : 150;
+        const height = typeof node.style.height === "number" ? node.style.height : 42;
+        return { ...node, width, height, layoutHeight: height };
+      });
+      const edges = graph.edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to));
+      const placed = layoutDiagram(nodes, edges, {
+        horizontalGutter: group.xSpacing,
+        verticalGutter: group.ySpacing,
+      }).nodes;
+      for (let index = 0; index < placed.length; index += 1) {
+        const first = placed[index];
+        for (const second of placed.slice(index + 1)) {
+          const overlap = first.x < second.x + second.width
+            && second.x < first.x + first.width
+            && first.y < second.y + second.layoutHeight
+            && second.y < first.y + first.layoutHeight;
+          assert.equal(overlap, false, `${demo.name}: ${first.id} overlaps ${second.id}`);
+        }
+      }
+    }
+  }
 });
 
 test("centers same-direction sibling branches around their source", () => {
