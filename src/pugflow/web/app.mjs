@@ -1,5 +1,5 @@
 import { createBlockDiagram, parseDiagram } from "./pugflow.mjs";
-import { appendDiagramNode, appendFlowAnnotation, appendFlowReference, appendGraphImage, appendGraphNode, appendNodeAnnotation, indentSourceSelection, moveDeclarationToContainer, moveNodeToGraph, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeAnnotation, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, renameGraphReferences, renameNodeReferences, setAnnotationOffsetField, setAnnotationPosition, setAnnotationText, setDeclarationOffsetField, setGraphType, setImageGeometry, setNodeField, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
+import { appendDiagramNode, appendFlowAnnotation, appendFlowReference, appendGraphImage, appendGraphNode, appendNodeAnnotation, indentSourceSelection, moveDeclarationToContainer, moveNodeToGraph, removeConnectionLabel, removeDeclaration, removeDeclarationField, removeNodeAnnotation, removeNodeDeclaration, removeNodeReferences, removeNodeField, removeNodeFields, renameGraphReferences, renameNodeReferences, setAnnotationOffsetField, setAnnotationPosition, setAnnotationText, setDeclarationOffsetField, setGraphGeometry, setGraphType, setNodeField, setNodeGeometry, setNodeOffsetField, setNodeType, setStructuralField, setStructuralLineType, setStructuralOffsetField } from "./editor-source.mjs";
 import { attachVimMode } from "./vim-mode.mjs";
 import { attachTextEditor } from "./text-editor.mjs";
 import { arrangeNodeOffsets, cleanupAlignmentOffsets, cleanupGraphOffsets, independentMoveOffsets } from "./layout.mjs";
@@ -406,20 +406,9 @@ function showCanvasToast(message) {
 function renderImagePanel(image) {
   const graph = graphForNode(image.id);
   const graphOptions = currentGraph.groups.map((group) => `<option value="${escapeHtml(group.id)}"${group.id === graph?.id ? " selected" : ""}>${escapeHtml(group.label || group.id)}</option>`).join("");
-  const option = (value) => `<option${image.style.fit === value ? " selected" : ""}>${value}</option>`;
-  const preview = `<div class="preview-stage node-preview-stage"${previewStageBackground(graph)}>
-    ${annotationChip("node-annotations", "above", image.annotations.filter((item) => item.position !== "below"))}
-    <div style="position:relative;width:138px;height:92px;margin:auto">
-      <img src="${escapeHtml(image.style.source)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:${image.style.fit};opacity:${image.style.opacity}">
-      <svg viewBox="0 0 138 92" style="position:absolute;inset:0;width:100%;height:100%" aria-hidden="true">${previewShapeMarkup(image.style, 138, 92)}</svg>
-    </div>
-    ${annotationChip("node-annotations", "below", image.annotations.filter((item) => item.position === "below"))}</div>`;
   inspectorContent.innerHTML = `<div class="inspector-heading"><div class="inspector-heading-text"><strong>Image</strong></div><label class="inspector-switch inspector-switch-heading"><span>Hidden</span><input data-node-hidden type="checkbox"${image.hidden ? " checked" : ""}></label></div>`
     + `<label class="inspector-id-field">ID (optional)<input data-node-field="id" value="${escapeHtml(image.explicitId)}" placeholder="${escapeHtml(image.id)}" pattern="[A-Za-z][A-Za-z0-9_-]*"></label>`
-    + preview
-    + `<div class="inspector-file-row"><label>URL or file<input data-node-field="source" value="${escapeHtml(image.style.source)}" placeholder="image.png or https://…"></label><button type="button" data-choose-image>Browse…</button></div>`
-    + `<div class="inspector-grid"><label>Width<input data-node-field="width" type="number" min="1" value="${image.style.width}"></label><label>Height<input data-node-field="height" type="number" min="1" value="${image.style.height}"></label><label>Fit<select data-node-field="fit">${["contain", "cover", "fill"].map(option).join("")}</select></label><label>Opacity<input data-node-field="opacity" type="number" min="0" max="1" step="0.05" value="${image.style.opacity}"></label><label>Border padding<input data-node-field="padding" type="number" min="0" value="${image.style.padding}"></label></div>`
-    + `<details><summary>Border and overlay</summary><label>Shape<select data-node-field="shape">${["square","rounded","round","pill","diamond","hexagon"].map((shape) => `<option${image.style.shape === shape ? " selected" : ""}>${shape}</option>`).join("")}</select></label>${colorControl("Fill overlay", "fill", image.style.fill)}${colorControl("Border", "outline", image.style.outline)}<div class="inspector-grid"><label>Border style<select data-node-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${image.style.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Border width<input data-node-field="outline-width" type="number" min="0" value="${image.style.outlineWidth}"></label></div>${shadowControls("node", image.style)}</details>`
+    + imagePreviewMarkup(image)
     + `<div class="inspector-grid"><label>Graph<select data-node-graph>${graphOptions}</select></label><label>Layer (${image.layer ?? 0})<select data-node-layer-order><option value="">Choose…</option><option value="up">Move Up</option><option value="down">Move Down</option><option value="top">Send to Top</option><option value="bottom">Send to Bottom</option></select></label></div>`
     + nodeConnectionsSection(image);
   setReusableStyleAction();
@@ -885,6 +874,7 @@ let renderedSidecarKey = "";
 
 const SIDECAR_TITLES = {
   "node-box": "Node box",
+  "image-box": "Image",
   "node-label": "Node label",
   "node-annotations": "Node annotations",
   "node-flow": "Flow properties",
@@ -1115,6 +1105,21 @@ function nodePreviewMarkup(node) {
     ${annotationChip("node-annotations", "below", below)}</div>`;
 }
 
+function imagePreviewMarkup(image) {
+  const above = image.annotations.filter((annotation) => annotation.position !== "below");
+  const below = image.annotations.filter((annotation) => annotation.position === "below");
+  const faces = ["top", "right", "bottom", "left"];
+  const addButtons = faces.map((face) => `<button type="button" class="preview-face-add" data-face-add="${face}" title="Add a connected node on the ${face} face" aria-label="Add connected node on the ${face} face">+</button>`).join("");
+  return `<div class="preview-stage node-preview-stage"${previewStageBackground(graphForNode(image.id))}>
+    ${addButtons}
+    ${annotationChip("node-annotations", "above", above)}
+    <div class="image-preview-box preview-part" data-sidecar="image-box" role="button" tabindex="0" title="Edit image source, size, fit, and frame">
+      <img src="${escapeHtml(image.style.source)}" alt="" style="object-fit:${image.style.fit};opacity:${image.style.opacity}">
+      <svg viewBox="0 0 138 92" aria-hidden="true">${previewShapeMarkup(image.style, 138, 92)}</svg>
+    </div>
+    ${annotationChip("node-annotations", "below", below)}</div>`;
+}
+
 function previewArrowMarkup(x, sign, shape, color, outline, outlineWidth, size) {
   const stroke = outline && outline !== "transparent" ? outline : null;
   const paint = stroke ? ` stroke="${escapeHtml(stroke)}" stroke-width="${Math.max(outlineWidth, 1)}" paint-order="stroke" stroke-linejoin="round"` : "";
@@ -1230,6 +1235,19 @@ function nodeBoxSidecar(node) {
     + `<div class="inspector-inline-field"><label>Offset<input value="(${node.offsetX}, ${node.offsetY})" readonly></label><button type="button" data-arrange="remove-offsets">Remove</button></div>`;
 }
 
+function imageBoxSidecar(image) {
+  const option = (value) => `<option${image.style.fit === value ? " selected" : ""}>${value}</option>`;
+  const faceControls = ["top", "right", "bottom", "left"].map((face) => {
+    const ports = image.style.ports[face];
+    return `<label>${face[0].toUpperCase()}${face.slice(1)}<select data-node-field="${face}-ports">${["shared", "distributed"].map((value) => `<option${ports === value ? " selected" : ""}>${value}</option>`).join("")}</select></label>`;
+  }).join("");
+  return `<div class="inspector-file-row"><label>URL or file<input data-node-field="source" value="${escapeHtml(image.style.source)}" placeholder="image.png or https://…"></label><button type="button" data-choose-image>Browse…</button></div>`
+    + `<div class="inspector-grid"><label>Width<input data-node-field="width" type="number" min="1" value="${image.style.width}"></label><label>Height<input data-node-field="height" type="number" min="1" value="${image.style.height}"></label><label>Fit<select data-node-field="fit">${["contain", "cover", "fill"].map(option).join("")}</select></label><label>Opacity<input data-node-field="opacity" type="number" min="0" max="1" step="0.05" value="${image.style.opacity}"></label><label>Border padding<input data-node-field="padding" type="number" min="0" value="${image.style.padding}"></label></div>`
+    + `<details open><summary>Frame</summary><label>Shape<select data-node-field="shape">${["square","rounded","round","pill","diamond","hexagon"].map((shape) => `<option${image.style.shape === shape ? " selected" : ""}>${shape}</option>`).join("")}</select></label>${colorControl("Fill overlay", "fill", image.style.fill)}${colorControl("Border", "outline", image.style.outline)}<div class="inspector-grid"><label>Border style<select data-node-field="outline-style">${["solid","dashed","dotted"].map((value) => `<option${image.style.outlineStyle === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Border width<input data-node-field="outline-width" type="number" min="0" value="${image.style.outlineWidth}"></label></div>${shadowControls("node", image.style)}</details>`
+    + `<details class="face-connections"><summary>Face connections</summary><div class="inspector-grid">${faceControls}</div></details>`
+    + `<div class="inspector-inline-field"><label>Offset<input value="(${image.offsetX}, ${image.offsetY})" readonly></label><button type="button" data-arrange="remove-offsets">Remove</button></div>`;
+}
+
 function nodeLabelSidecar(node) {
   return `<label>Label<input data-node-field="label" value="${escapeHtml(node.label.replace(/\n/g, " "))}"></label>`
     + `<div class="inspector-grid"><label>Horizontal alignment<select data-node-field="align">${["left", "center", "right"].map((value) => `<option${node.style.align === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label>Vertical alignment<select data-node-field="vertical-align">${["top", "middle", "bottom"].map((value) => `<option${node.style.verticalAlign === value ? " selected" : ""}>${value}</option>`).join("")}</select></label></div>`
@@ -1279,6 +1297,7 @@ function sidecarMarkup(state) {
     return target ? flowStructuralSidecar(target) : "";
   }
   if (node) {
+    if (state.kind === "image-box" && node.kind === "image") return imageBoxSidecar(node);
     if (state.kind === "node-box") return nodeBoxSidecar(node);
     if (state.kind === "node-label") return nodeLabelSidecar(node);
     if (state.kind === "node-annotations") return nodeAnnotationControls(node);
@@ -2075,13 +2094,13 @@ function availableStructureCompletions() {
 const completionLabels = {
   root: new Set(["@node", "@flow", "@graph", "@annotation", "graph", ".defaults", ".background", ".font", "flow"]),
   canvas: new Set(["graph", ".defaults", ".background", ".font", "flow"]),
-  graph: new Set(["node", "image", "flow", ".id", ".label", ".layer", ".placement", ".relative-to", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".label-offset", ".align", ".vertical-align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  graph: new Set(["node", "image", "flow", ".id", ".label", ".layer", ".placement", ".relative-to", ".width", ".height", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".label-offset", ".align", ".vertical-align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   node: new Set([".id", ".label", ".layer", ".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".vertical-align", ".offset", ".label-offset", ".annotation", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   image: new Set([".id", ".source", ".width", ".height", ".fit", ".opacity", ".padding", ".shape", ".fill", ".outline", ".outline-style", ".outline-width", ".offset", ".annotation", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".hidden"]),
   nodeStyle: new Set([".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".vertical-align", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width"]),
   flow: new Set([".from", ".to", ".from-direction", ".to-direction", ".direction", ".color", ".outline", ".outline-width", ".width", ".arrow-style", ".arrow-shape", ".arrow-height", ".arrow-head-width", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation", ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   flowStyle: new Set([".color", ".outline", ".outline-width", ".width", ".arrow-style", ".arrow-shape", ".arrow-height", ".arrow-head-width", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
-  graphStyle: new Set([".label-position", ".align", ".vertical-align", ".placement", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".padding", ".x-spacing", ".y-spacing", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width"]),
+  graphStyle: new Set([".label-position", ".align", ".vertical-align", ".placement", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".padding", ".x-spacing", ".y-spacing", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width"]),
   annotation: new Set([".above", ".below"]),
   annotationStyle: new Set([".color", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width"]),
   annotationEntry: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
@@ -2290,7 +2309,7 @@ function persistElementMove(change) {
   const nextX = change.currentX + change.dx;
   const nextY = change.currentY + change.dy;
   const draggedSelection = selections.find((item) => item.selectionKey === change.selectionKey);
-  if (draggedSelection && selections.length > 1 && !["image-resize", "node-label", "graph-label", "block-annotation"].includes(change.kind)) {
+  if (draggedSelection && selections.length > 1 && !["image-resize", "node-resize", "graph-resize", "node-label", "graph-label", "block-annotation"].includes(change.kind)) {
     let nextSource = source.value;
     const selectedNodeIds = selections.filter((selection) => selection.kind === "node").map((selection) => selection.id);
     const nodeMoves = independentMoveOffsets(diagram?.layout?.nodes ?? [], diagram?.layout?.edges ?? [], selectedNodeIds, change.dx, change.dy)
@@ -2327,12 +2346,18 @@ function persistElementMove(change) {
     setSource(setNodeOffsetField(source.value, change.lineNumber, "label-offset", nextX, nextY));
     return;
   }
-  if (change.kind === "image-resize") {
+  if (change.kind === "image-resize" || change.kind === "node-resize") {
     const width = Math.max(1, change.currentWidth + change.dx * change.resizeX);
     const height = Math.max(1, change.currentHeight + change.dy * change.resizeY);
     const offsetX = change.currentX + (change.resizeX ? change.dx / 2 : 0);
     const offsetY = change.currentY + (change.resizeY ? change.dy / 2 : 0);
-    setSource(setImageGeometry(source.value, change.lineNumber, width, height, offsetX, offsetY));
+    setSource(setNodeGeometry(source.value, change.lineNumber, width, height, offsetX, offsetY));
+    return;
+  }
+  if (change.kind === "graph-resize") {
+    const width = Math.max(1, change.currentWidth + change.dx * change.resizeX);
+    const height = Math.max(1, change.currentHeight + change.dy * change.resizeY);
+    setSource(setGraphGeometry(source.value, change.lineNumber, width, height));
     return;
   }
   if (change.kind === "connection-label") {

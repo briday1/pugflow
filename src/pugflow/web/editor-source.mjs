@@ -368,10 +368,17 @@ export function setNodeField(value, labelLineNumber, field, fieldValue) {
 }
 
 
-export function setImageGeometry(value, declarationLineNumber, width, height, offsetX, offsetY) {
+export function setNodeGeometry(value, declarationLineNumber, width, height, offsetX, offsetY) {
   let next = setNodeField(value, declarationLineNumber, "width", offsetNumber(width));
   next = setNodeField(next, declarationLineNumber, "height", offsetNumber(height));
   return setNodeField(next, declarationLineNumber, "offset", offsetTuple(offsetX, offsetY));
+}
+
+export const setImageGeometry = setNodeGeometry;
+
+export function setGraphGeometry(value, declarationLineNumber, width, height) {
+  let next = setStructuralField(value, declarationLineNumber, "width", offsetNumber(width));
+  return setStructuralField(next, declarationLineNumber, "height", offsetNumber(height));
 }
 
 export function removeNodeField(value, labelLineNumber, field) {

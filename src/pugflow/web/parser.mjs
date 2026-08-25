@@ -80,7 +80,7 @@ const IMAGE_PROPERTIES = new Set([
 ]);
 const GRAPH_STYLE_PROPERTIES = new Set([
   "label-position", "align", "vertical-align", "placement", "fill", "color", "outline", "outline-style", "outline-width",
-  "padding", "x-spacing", "y-spacing",
+  "width", "height", "padding", "x-spacing", "y-spacing",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
   "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width",
 ]);
@@ -626,7 +626,7 @@ function customLineStyles(tree, errors) {
 
 const GRAPH_DEFAULTS = {
   labelPosition: "inside", labelOffsetX: 0, labelOffsetY: 0, align: "center", verticalAlign: "top", placement: "below", fill: "transparent", color: null,
-  outline: "transparent", outlineStyle: "solid", outlineWidth: 1.5, padding: 24, xSpacing: 60, ySpacing: 40,
+  outline: "transparent", outlineStyle: "solid", outlineWidth: 1.5, width: 0, height: 0, padding: 24, xSpacing: 60, ySpacing: 40,
   shadowColor: null, shadowOffsetX: 4, shadowOffsetY: 5, shadowBlur: 6, shadowOpacity: 0.3,
   fontFamily: null, fontSize: 13, fontWeight: "600", fontStyle: "normal", textDecoration: "none",
   textOutline: "transparent", textOutlineWidth: 0,
@@ -916,6 +916,8 @@ function compileMarkup(tree) {
       outline: field("outline") || "transparent",
       outlineStyle: field("outline-style") || "solid",
       outlineWidth: Number(field("outline-width") || 1.5),
+      width: numberAttribute(field("width"), 0, 0, "graph.width", component.lineNumber, errors),
+      height: numberAttribute(field("height"), 0, 0, "graph.height", component.lineNumber, errors),
       padding: Number(field("padding") || 24),
       xSpacing: numberAttribute(field("x-spacing"), 60, 0, "graph.x-spacing", component.lineNumber, errors),
       ySpacing: numberAttribute(field("y-spacing"), 40, 0, "graph.y-spacing", component.lineNumber, errors),
