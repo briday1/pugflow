@@ -361,7 +361,6 @@ const EXAMPLE_CANVAS = `
 const source = attachTextEditor(document.querySelector("#source"));
 const editorShell = document.querySelector(".editor-shell");
 const lineNumbers = document.querySelector("#line-numbers");
-const colorDecorators = document.querySelector("#color-decorators");
 const colorPickerPopup = document.querySelector("#color-picker-popup");
 const colorPickerSaturation = document.querySelector("#color-picker-saturation");
 const colorPickerMarker = document.querySelector("#color-picker-marker");
@@ -1902,11 +1901,6 @@ function updateEditorChrome() {
   lineNumbers.children[line]?.classList.add("active");
   lineNumbers.style.transform = "translateY(" + -source.scrollTop + "px)";
   currentLine.style.transform = "translateY(" + (14 + line * 20 - source.scrollTop) + "px)";
-  for (const swatch of colorDecorators.children) {
-    const left = 52 + (Number(swatch.dataset.column) + Number(swatch.dataset.length)) * 7.23 + 8;
-    const top = 18 + Number(swatch.dataset.line) * 20;
-    swatch.style.transform = `translate(${left}px, ${top}px)`;
-  }
   const showVimCursor = source.dataset.vimMode === "normal" && document.activeElement === source;
   vimBlockCursor.hidden = !showVimCursor;
   if (showVimCursor) {
@@ -1924,44 +1918,7 @@ function updateEditorChrome() {
   }
 }
 
-function renderColorDecorators() {
-  const swatches = [];
-  const pattern = /#[\da-fA-F]{8}\b|#[\da-fA-F]{6}\b|#[\da-fA-F]{4}\b|#[\da-fA-F]{3}\b|\b(?:transparent|none)\b/gi;
-  for (const match of source.value.matchAll(pattern)) {
-    const before = source.value.slice(0, match.index);
-    const lineStart = before.lastIndexOf("\n") + 1;
-    const lineText = source.value.slice(lineStart, match.index);
-    const column = [...lineText].reduce((count, character) => character === "\t" ? count + (2 - count % 2) : count + 1, 0);
-    const decorator = document.createElement("button");
-    decorator.type = "button";
-    const noColor = /^(?:transparent|none)$/i.test(match[0]);
-    decorator.className = `color-decorator color-popup-trigger${noColor ? " none" : ""}`;
-    const color = !noColor && [4, 5].includes(match[0].length)
-      ? "#" + [...match[0].slice(1)].map((digit) => digit + digit).join("")
-      : match[0];
-    decorator.dataset.colorPopup = "source";
-    decorator.style.setProperty("--swatch", color);
-    decorator.title = noColor ? "Choose a color (currently transparent)" : `Change ${match[0]}`;
-    decorator.setAttribute("aria-label", noColor ? "Choose color; currently transparent" : `Change color ${match[0]}`);
-    decorator.dataset.start = String(match.index);
-    decorator.dataset.end = String(match.index + match[0].length);
-    decorator.dataset.line = String(before.split("\n").length - 1);
-    decorator.dataset.column = String(column);
-    decorator.dataset.length = String(match[0].length);
-    const replaceColor = (color) => {
-      const start = Number(decorator.dataset.start);
-      source.setRangeText(color, start, Number(decorator.dataset.end), "end");
-      decorator.dataset.end = String(start + color.length);
-      source.dispatchEvent(new Event("input", { bubbles: true }));
-    };
-    decorator.addEventListener("click", () => openColorPickerPopup(decorator, color, replaceColor));
-    swatches.push(decorator);
-  }
-  colorDecorators.replaceChildren(...swatches);
-}
-
 function highlightSource() {
-  renderColorDecorators();
   updateEditorChrome();
   if (!CSS.highlights || !window.Highlight) return;
   for (const name of ["sbd-comment", "sbd-string", "sbd-math", "sbd-structure", "sbd-attribute", "sbd-color", "sbd-number"]) {
@@ -2736,11 +2693,6 @@ source.addEventListener("keydown", (event) => {
     }
   }
   if (event.key !== "Tab") return;
-  if (!event.shiftKey && source.selectionStart === source.selectionEnd) {
-    event.preventDefault();
-    showCompletions();
-    if (!completionMenu.hidden) return;
-  }
   event.preventDefault();
   const indented = indentSourceSelection(source.value, source.selectionStart, source.selectionEnd, event.shiftKey);
   source.value = indented.value;

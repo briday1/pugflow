@@ -28,7 +28,8 @@ test("source completions behave like an IDE near the caret", () => {
   assert.match(app, /replace\(\/\^\\\.\/, ""\)\.includes\(prefix\)/);
   assert.match(app, /leftRank - rightRank \|\| leftLabel\.localeCompare\(rightLabel\)/);
   assert.match(app, /item\.insert\.replaceAll\("\\n", `\\n\$\{indentation\}`\)/);
-  assert.doesNotMatch(app, /event\.key === "Enter" \|\| event\.key === "Tab"/);
+  assert.match(app, /if \(!completionMenu\.hidden\)[\s\S]*event\.key === "Tab"[\s\S]*acceptCompletion\(\)/);
+  assert.doesNotMatch(app, /event\.key !== "Tab"[\s\S]*showCompletions\(\)/);
   assert.match(app, /if \(event\.key === "Enter"\) hideCompletions\(\)/);
   assert.match(app, /function positionCompletionMenu\(\)[\s\S]*caretRect[\s\S]*completionMenu\.style\.translate/);
   assert.match(styles, /\.completion-menu \{[\s\S]*top: 0;[\s\S]*left: 0;/);
@@ -238,8 +239,7 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.doesNotMatch(html, /color-picker-popup-input[^>]*type="color"/);
   assert.match(app, /popupAlpha/);
   assert.match(app, /Math\.round\(popupAlpha \* 255\)/);
-  assert.match(app, /transparent\|none[\s\S]*renderColorDecorators|renderColorDecorators[\s\S]*transparent\|none/);
-  assert.match(app, /openColorPickerPopup\([^,]+, color, replaceColor\)/);
+  assert.match(app, /function openColorPickerPopup\(trigger, value, apply\)/);
   assert.match(app, /"sbd-color"/);
   assert.match(app, /match\[6\] \? "sbd-color"/);
   assert.match(app, /@\(\?:node\|flow\|line\|annotation\)\\b/);
@@ -306,8 +306,9 @@ test("editor exposes flat layered graphs and scoped connection controls", () => 
   assert.match(app, /setAnnotationText\(source\.value, flowAnnotationLine/);
   assert.match(app, /CSS\.supports\("color"/);
   assert.match(app, /currentTrigger\?\.style\.setProperty\("--swatch", color\)/);
-  assert.match(styles, /\.color-decorator \{\s*position: absolute;/);
-  assert.match(html, /id="source"[^>]*contenteditable="plaintext-only"[^>]*><\/div>\s*<div class="color-decorators" id="color-decorators" aria-hidden="true"><\/div>/);
+  assert.doesNotMatch(styles, /\.color-decorator \{/);
+  assert.doesNotMatch(html, /color-decorators/);
+  assert.doesNotMatch(app, /renderColorDecorators|colorDecorators/);
   assert.doesNotMatch(app, /Number\(swatch\.dataset\.line\) \* 20 - source\.scrollTop/);
   assert.doesNotMatch(app, /Number\(swatch\.dataset\.length\)\) \* 7\.23 - source\.scrollLeft/);
   assert.doesNotMatch(styles, /^\.color-popup-trigger \{[^}]*position: relative/m);
