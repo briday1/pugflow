@@ -40,7 +40,7 @@
         </details>
         <details class="toolbar-menu new-menu">
           <summary>New</summary>
-          <div class="toolbar-popover"><button id="add-diagram" type="button">Graph</button><button id="add-node" type="button">Node</button><button id="add-flow" type="button">Flow</button></div>
+          <div class="toolbar-popover"><button id="add-diagram" type="button">Graph</button><button id="add-node" type="button">Node</button><button id="add-image" type="button">Image</button><button id="add-flow" type="button">Flow</button></div>
         </details>
         <details class="toolbar-menu settings-menu">
           <summary>Settings</summary>
@@ -94,7 +94,7 @@
         </details>
         <section class="graph-browser">
           <label>Graph<select id="graph-browser-select" aria-label="Choose graph"></select></label>
-          <details class="graph-browser-section" open><summary>Nodes <small id="graph-node-count">0</small></summary><div class="graph-item-list" id="graph-nodes-list" role="list" aria-label="Nodes in selected graph"></div></details>
+          <details class="graph-browser-section" open><summary>Nodes and images <small id="graph-node-count">0</small></summary><div class="graph-item-list" id="graph-nodes-list" role="list" aria-label="Nodes and images in selected graph"></div></details>
           <details class="graph-browser-section" open><summary>Flows <small id="graph-flow-count">0</small></summary><div class="graph-item-list" id="graph-flows-list" role="list" aria-label="Flows associated with selected graph"></div></details>
         </section>
       </aside>
@@ -107,13 +107,13 @@
           <div class="flow-endpoints relationship-only">
             <section class="flow-endpoint">
               <label class="connected-source-choice"><span id="builder-from-graph-label">From graph</span><select id="builder-from-graph"></select></label>
-              <fieldset class="flow-only connected-source-choice"><legend>From Node</legend><div id="builder-sources" class="node-choice-list" role="listbox" aria-label="From node"></div></fieldset>
+              <fieldset class="flow-only connected-source-choice"><legend>From Object</legend><div id="builder-sources" class="node-choice-list" role="listbox" aria-label="From object"></div></fieldset>
               <div class="connected-node-only connected-node-summary"><label>Connected node<input id="builder-connected-node" readonly></label><label>Face<input id="builder-connected-face" readonly></label></div>
               <label class="flow-only existing-flow-only">From direction<select id="builder-from-direction"><option>right</option><option>left</option><option>down</option><option>up</option></select></label>
             </section>
             <section class="flow-endpoint flow-only existing-target-only">
               <label>To graph<select id="builder-to-graph"></select></label>
-              <fieldset><legend>To Node</legend><div id="builder-targets" class="node-choice-list" role="listbox" aria-label="To node"></div></fieldset>
+              <fieldset><legend>To Object</legend><div id="builder-targets" class="node-choice-list" role="listbox" aria-label="To object"></div></fieldset>
               <label>To direction<select id="builder-to-direction"><option>right</option><option>left</option><option>down</option><option>up</option></select></label>
             </section>
           </div>

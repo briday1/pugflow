@@ -76,22 +76,31 @@ function measureNodes(nodes, colors) {
   return nodes.map((node) => {
     context.font = `${node.style.fontStyle} ${node.style.fontWeight} ${node.style.fontSize}px ${node.style.fontFamily ?? colors.font}`;
     const label = node.label;
+    if (node.kind === "image") {
+      const width = node.style.width + node.style.padding * 2;
+      const height = node.style.height + node.style.padding * 2;
+      const above = node.annotations.filter((annotation) => annotation.position === "above").map((annotation) => measuredAnnotation(annotation, colors));
+      const below = node.annotations.filter((annotation) => annotation.position === "below").map((annotation) => measuredAnnotation(annotation, colors));
+      return {
+        ...node, width, height, lines: [], lineHeight: 0, rich: false, textHeight: 0, above, below,
+        aboveHeight: above.length ? above.reduce((sum, annotation) => sum + annotation.renderHeight, 7) : 0,
+        belowHeight: below.length ? below.reduce((sum, annotation) => sum + annotation.renderHeight, 7) : 0,
+        layoutHeight: height,
+      };
+    }
     const requestedWidth = node.style.width;
     const initialLines = label.split("\n");
-    const imageOnly = Boolean(node.style.image) && !label.trim();
-    const imageWidth = node.style.image ? node.style.imageWidth + node.style.imagePadding * 2 : 0;
-    const imageHeight = node.style.image ? node.style.imageHeight + node.style.imagePadding * 2 : 0;
     const rich = containsMath(label);
     const unconstrainedRich = rich ? layoutRichText(label, { fontSize: node.style.fontSize, measureText: measure }) : null;
-    const naturalWidth = imageOnly ? imageWidth : Math.max(rich ? unconstrainedRich.width + 32 : Math.max(...initialLines.map(measure), 70) + 32, imageWidth);
-    let width = requestedWidth === "auto" ? Math.max(imageWidth, Math.min(420, Math.max(110, naturalWidth))) : Math.max(requestedWidth, imageWidth);
+    const naturalWidth = Math.max(rich ? unconstrainedRich.width + 32 : Math.max(...initialLines.map(measure), 70) + 32, 0);
+    let width = requestedWidth === "auto" ? Math.min(420, Math.max(110, naturalWidth)) : requestedWidth;
     const richLayout = rich ? layoutRichText(label, { fontSize: node.style.fontSize, maxWidth: Math.max(36, width - 30), measureText: measure }) : null;
     if (rich && richLayout.width > width - 30) width = richLayout.width + 30;
     const lines = rich ? richLayout.lines : wrapText(label, Math.max(36, width - 30), measure);
     const lineHeight = Math.ceil(node.style.fontSize * 1.2);
     const textHeight = rich ? richLayout.height : lines.length * lineHeight;
-    const naturalHeight = imageOnly ? imageHeight : Math.max(42, textHeight + 20, imageHeight);
-    const height = node.style.height === "auto" ? naturalHeight : Math.max(node.style.height, imageHeight);
+    const naturalHeight = Math.max(42, textHeight + 20);
+    const height = node.style.height === "auto" ? naturalHeight : node.style.height;
     const above = node.annotations.filter((annotation) => annotation.position === "above").map((annotation) => measuredAnnotation(annotation, colors));
     const below = node.annotations.filter((annotation) => annotation.position === "below").map((annotation) => measuredAnnotation(annotation, colors));
     const aboveHeight = above.length ? above.reduce((sum, annotation) => sum + annotation.renderHeight, 7) : 0;
@@ -159,7 +168,7 @@ function shapeElement(node, colors, defs) {
     "data-current-y": node.offsetY ?? 0,
     role: "link",
     tabindex: 0,
-    "aria-label": "Move or edit block " + node.label.replace(/\n/g, " "),
+    "aria-label": `Move or edit ${node.kind === "image" ? "image" : "block"} ${node.label.replace(/\n/g, " ") || node.id}`,
   };
   if (node.style.shape === "cylinder") {
     const capRy = Math.min(Math.round(node.height * 0.18), 20);
@@ -275,62 +284,67 @@ function addNode(svg, node, colors, defs) {
     "data-line": node.lineNumber,
     role: "link",
     tabindex: 0,
-    "aria-label": `Edit ${node.label.replace(/\n/g, " ")}`,
+    "aria-label": `Edit ${node.kind === "image" ? "image " + node.id : node.label.replace(/\n/g, " ")}`,
   });
   const top = boxTop(node);
   node.above.filter((annotation) => !annotation.hidden).forEach((annotation, index) => addBlockAnnotation(group, node, annotation, index, colors));
   const shape = shapeElement(node, colors, defs);
-  group.append(shape);
-  if (node.style.image) {
+  if (node.kind === "image") {
     const clipId = `image-clip-${node.id.replace(/[^\w-]/g, "-")}`;
     const clip = svgElement("clipPath", { id: clipId });
     const clipShape = shape.cloneNode(false);
     ["class", "filter", "stroke", "stroke-width", "stroke-dasharray", "data-line", "data-id", "data-drag-kind", "data-current-x", "data-current-y", "role", "tabindex", "aria-label"].forEach((name) => clipShape.removeAttribute(name));
     clip.append(clipShape);
     defs.append(clip);
-    const preserveAspectRatio = node.style.imageFit === "fill" ? "none" : `xMidYMid ${node.style.imageFit === "cover" ? "slice" : "meet"}`;
-    const imageX = node.x + (node.width - node.style.imageWidth) / 2 + node.imageOffsetX;
-    const imageY = top + (node.height - node.style.imageHeight) / 2 + node.imageOffsetY;
+    const preserveAspectRatio = node.style.fit === "fill" ? "none" : `xMidYMid ${node.style.fit === "cover" ? "slice" : "meet"}`;
+    const imageX = node.x + node.style.padding;
+    const imageY = top + node.style.padding;
     group.append(svgElement("image", {
-      href: node.style.image,
+      href: node.style.source,
       x: imageX,
       y: imageY,
-      width: node.style.imageWidth,
-      height: node.style.imageHeight,
-      opacity: Math.min(1, node.style.imageOpacity),
+      width: node.style.width,
+      height: node.style.height,
+      opacity: Math.min(1, node.style.opacity),
       preserveAspectRatio,
       "clip-path": `url(#${clipId})`,
       "data-line": node.lineNumber,
       "data-id": node.id,
-      "data-drag-kind": "node-image",
-      "data-select-kind": "image",
-      "data-selection-key": `image:${node.id}`,
-      "data-current-x": node.imageOffsetX,
-      "data-current-y": node.imageOffsetY,
+      "data-drag-kind": "node",
+      "data-select-kind": "node",
+      "data-selection-key": `node:${node.id}`,
+      "data-current-x": node.offsetX,
+      "data-current-y": node.offsetY,
       role: "link",
       tabindex: 0,
-      "aria-label": `Move image in ${node.label.replace(/\n/g, " ")}`,
+      "aria-label": `Move image ${node.id}`,
     }));
     const handles = svgElement("g", { class: "image-resize-handles", display: "none", "aria-hidden": "true" });
-    handles.append(svgElement("rect", { class: "image-resize-frame", x: imageX, y: imageY, width: node.style.imageWidth, height: node.style.imageHeight }));
+    handles.append(svgElement("rect", { class: "image-resize-frame", x: imageX, y: imageY, width: node.style.width, height: node.style.height }));
     for (const [resizeX, resizeY] of [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]]) {
       handles.append(svgElement("circle", {
         class: "image-resize-handle",
-        cx: imageX + (resizeX + 1) * node.style.imageWidth / 2,
-        cy: imageY + (resizeY + 1) * node.style.imageHeight / 2,
+        cx: imageX + (resizeX + 1) * node.style.width / 2,
+        cy: imageY + (resizeY + 1) * node.style.height / 2,
         r: 5,
         "data-line": node.lineNumber,
         "data-id": node.id,
-        "data-drag-kind": "node-image-resize",
+        "data-drag-kind": "image-resize",
         "data-resize-x": resizeX,
         "data-resize-y": resizeY,
-        "data-current-x": node.imageOffsetX,
-        "data-current-y": node.imageOffsetY,
-        "data-current-width": node.style.imageWidth,
-        "data-current-height": node.style.imageHeight,
+        "data-current-x": node.offsetX,
+        "data-current-y": node.offsetY,
+        "data-current-width": node.style.width,
+        "data-current-height": node.style.height,
       }));
     }
     group.append(handles);
+  }
+  group.append(shape);
+  if (node.kind === "image") {
+    node.below.filter((annotation) => !annotation.hidden).forEach((annotation, index) => addBlockAnnotation(group, node, annotation, index, colors));
+    svg.append(group);
+    return;
   }
   const textColor = node.style.color ?? colors.text;
   const anchor = node.style.align === "left" ? "start" : node.style.align === "right" ? "end" : "middle";
@@ -1109,7 +1123,7 @@ function renderSvg(container, graph, options) {
         const element = target.dataset.dragKind === "node" ? target.closest(".entry") : target;
         const selectionKey = target.closest?.("[data-selection-key]")?.dataset.selectionKey ?? null;
         const groupDrag = selectionKey && element.classList.contains("selected-element")
-          && !["node-image", "node-image-resize", "node-label", "block-annotation"].includes(target.dataset.dragKind);
+          && !["image-resize", "node-label", "block-annotation"].includes(target.dataset.dragKind);
         const elements = groupDrag
           ? [...svg.querySelectorAll(".entry.selected-element, g[data-drag-kind='graph'].selected-element, text[data-drag-kind='connection-label'].selected-element")]
           : [element];

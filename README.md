@@ -336,11 +336,11 @@ Graphs are packed without overlap by default. Graph titles support `.label-posit
 
 The **Node** builder adds an independent node to the chosen graph. The **Flow** builder places graph-filtered **From** and **To** endpoints side by side with independent directions.
 
-Use **+ New** above the canvas to add a Graph, Node, or Flow without hand-writing its initial structure. Branching, merging, and feedback are inferred from explicit flows. **Add Connected Node** in a selected node's inspector creates and connects a new node above, below, left, or right; **Add Flow** connects existing nodes. These actions insert ordinary Pug; the source remains the single editable representation.
+Use **+ New** above the canvas to add a Graph, Node, Image, or Flow without hand-writing its initial structure. Branching, merging, and feedback are inferred from explicit flows. Images and nodes can both be flow endpoints. **Add Connected Node** in a selected node's inspector creates and connects a new node above, below, left, or right; **Add Flow** connects existing objects. These actions insert ordinary Pug; the source remains the single editable representation.
 
 - Dragging a box writes `.offset (x, y)` inside its node.
 - Dragging its label writes `.label-offset (x, y)` inside its node.
-- Dragging an image inside a node writes `.image-offset (x, y)` without moving the node.
+- Dragging an image writes `.offset (x, y)` on its standalone declaration.
 - Dragging a block annotation writes an indented `.offset (x, y)` field.
 - Dragging a flow label writes `.label-offset (x, y)` directly inside its `flow` declaration.
 
@@ -350,15 +350,17 @@ Use **Clean up** above the canvas after manual positioning to align connected fl
 
 Nodes support SVG drop shadows through `.shadow-color`, `.shadow-offset-x`, `.shadow-offset-y`, `.shadow-blur`, and `.shadow-opacity`. A shadow is enabled when `shadow-color` is present; these fields work in `@node` definitions, diagram defaults, local nodes, and the canvas inspector.
 
-Nodes can contain a clipped image using `.image`, with `.image-width`, `.image-height`, `.image-fit` (`contain`, `cover`, or `fill`), `.image-opacity`, and `.image-offset`. These fields work in reusable `@node` styles and in the canvas inspector. Relative paths and same-origin URLs export reliably to PNG; remote images require the image server to allow cross-origin canvas use. SVG exports retain the image URL.
+Images are standalone graph objects rather than node contents. They have no label, retain above/below annotations, and can be used in `.from` and `.to` just like nodes. Use `.source` for a URL or file location, or browse for a local image in the inspector. `.fit` accepts `contain`, `cover`, or `fill`; `.opacity` controls the image, and `.padding` adds optional space between it and its border. Padding defaults to zero. The border and fill default to transparent, and the fill is rendered over the image so translucent overlays are possible. Nodes also default to transparent borders and fills.
 
 ```pug
-node
-  .image photos/sample.png
-  .image-width 72
-  .image-height 72
-  .image-fit cover
-  .label Profile
+image
+  .id profile
+  .source photos/sample.png
+  .width 72
+  .height 72
+  .fit cover
+  .annotation
+    .below Profile
 ```
 
 ## Flows, arrows, and annotations

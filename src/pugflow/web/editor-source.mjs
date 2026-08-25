@@ -323,6 +323,12 @@ export function setDeclarationOffsetField(value, declarationLineNumber, x, y) {
 
 function nodeRange(lines, labelLineNumber) {
   const labelIndex = labelLineNumber - 1;
+  if (/^\s*image(?:\s|$)/.test(lines[labelIndex] ?? "")) {
+    const indent = indentationWidth(lines[labelIndex]);
+    let end = labelIndex + 1;
+    while (end < lines.length && (!lines[end].trim() || indentationWidth(lines[end]) > indent)) end += 1;
+    return { start: labelIndex, end, fieldIndent: (lines[labelIndex].match(/^\s*/)?.[0] ?? "") + "  " };
+  }
   const propertyIndent = indentationWidth(lines[labelIndex] ?? "");
   let start = labelIndex - 1;
   while (start >= 0 && indentationWidth(lines[start]) >= propertyIndent) start -= 1;
@@ -361,23 +367,11 @@ export function setNodeField(value, labelLineNumber, field, fieldValue) {
   return lines.join("\n");
 }
 
-export function setNodeImageGeometry(value, labelLineNumber, width, height, offsetX, offsetY) {
-  const lines = value.split("\n");
-  const range = nodeRange(lines, labelLineNumber);
-  const values = new Map([
-    ["image-width", offsetNumber(width)],
-    ["image-height", offsetNumber(height)],
-    ["image-offset", offsetTuple(offsetX, offsetY)],
-  ]);
-  for (let index = range.end - 1; index > range.start; index -= 1) {
-    if (indentationWidth(lines[index]) !== indentationWidth(range.fieldIndent)) continue;
-    const field = lines[index].trim().match(/^\.([\w-]+)(?:\s|$)/)?.[1];
-    if (!values.has(field)) continue;
-    lines[index] = `${range.fieldIndent}.${field} ${values.get(field)}`;
-    values.delete(field);
-  }
-  lines.splice(range.start + 1, 0, ...[...values].map(([field, fieldValue]) => `${range.fieldIndent}.${field} ${fieldValue}`));
-  return lines.join("\n");
+
+export function setImageGeometry(value, declarationLineNumber, width, height, offsetX, offsetY) {
+  let next = setNodeField(value, declarationLineNumber, "width", offsetNumber(width));
+  next = setNodeField(next, declarationLineNumber, "height", offsetNumber(height));
+  return setNodeField(next, declarationLineNumber, "offset", offsetTuple(offsetX, offsetY));
 }
 
 export function removeNodeField(value, labelLineNumber, field) {
@@ -396,7 +390,6 @@ const NODE_RESERVED_NAMES = new Set([
   "shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align",
   "top-ports", "right-ports", "bottom-ports", "left-ports",
   "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
-  "image", "image-width", "image-height", "image-fit", "image-opacity", "image-offset", "image-padding",
   "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width",
 ]);
 
@@ -422,7 +415,6 @@ export function setNodeType(value, labelLineNumber, type, knownTypes = []) {
   const styleFields = new Set([
     "shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align",
     "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity",
-    "image", "image-width", "image-height", "image-fit", "image-opacity",
   ]);
   for (let index = end - 1; index > range.start; index -= 1) {
     if (indentationWidth(lines[index]) !== indentationWidth(range.fieldIndent)) continue;
@@ -522,6 +514,18 @@ function flowDeclaration(indentation, { from = "", to = "", direction = "right",
 export function appendGraphNode(value, graphLineNumber, { nodeType = "node", id = "", label = "" } = {}) {
   const lines = value.split("\n");
   appendToContainer(lines, graphLineNumber, (indentation) => nodeDeclaration(nodeType, indentation, id, label));
+  return lines.join("\n");
+}
+
+export function appendGraphImage(value, graphLineNumber, { id = "", source = "", width = 64, height = 64 } = {}) {
+  const lines = value.split("\n");
+  appendToContainer(lines, graphLineNumber, (indentation) => [
+    `${indentation}image`,
+    `${indentation}  .id ${id}`,
+    `${indentation}  .source ${source}`,
+    `${indentation}  .width ${width}`,
+    `${indentation}  .height ${height}`,
+  ]);
   return lines.join("\n");
 }
 

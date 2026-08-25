@@ -4,6 +4,7 @@ import {
   appendDiagramNode,
   appendFlowAnnotation,
   appendFlowReference,
+  appendGraphImage,
   appendGraphNode,
   appendNodeAnnotation,
   indentSourceSelection,
@@ -21,7 +22,7 @@ import {
   setNodeAnnotationField,
   setNodeAnnotationText,
   setNodeField,
-  setNodeImageGeometry,
+  setImageGeometry,
   setNodeOffsetField,
   setNodeType,
   setStructuralField,
@@ -186,14 +187,14 @@ test("creates node annotations with editable text borders", () => {
   assert.equal(annotation.textOutlineWidth, 1.5);
 });
 
-test("writes node image geometry as one stable edit", () => {
-  const source = FLAT_GRAPH.replace("      .label Root", "      .image photo.png\n      .image-width 40\n      .label Root");
-  const root = parseDiagram(source).nodes.find((node) => node.id === "root");
-  const updated = setNodeImageGeometry(source, root.lineNumber, 72, 55, 8.25, -4.04);
-  assert.match(updated, /\.image-width 72/);
-  assert.match(updated, /\.image-height 55/);
-  assert.match(updated, /\.image-offset \(8\.3, -4\)/);
-  assert.equal((updated.match(/\.image-width/g) ?? []).length, 1);
+test("adds and updates standalone image geometry", () => {
+  const source = appendGraphImage(FLAT_GRAPH, 2, { id: "photo", source: "photo.png", width: 40, height: 40 });
+  const image = parseDiagram(source).nodes.find((node) => node.id === "photo");
+  const updated = setImageGeometry(source, image.lineNumber, 72, 55, 8.25, -4.04);
+  assert.match(updated, /\.width 72/);
+  assert.match(updated, /\.height 55/);
+  assert.match(updated, /\.offset \(8\.3, -4\)/);
+  assert.equal(parseDiagram(updated).nodes.find((node) => node.id === "photo").kind, "image");
 });
 
 test("indents and outdents selected source lines", () => {

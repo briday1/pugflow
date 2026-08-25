@@ -23,7 +23,7 @@ test("source editor preserves standard selection, deletion, and copy shortcuts",
 test("source completions behave like an IDE near the caret", () => {
   const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
   const styles = readFileSync(new URL("../../src/pugflow/web/styles.css", import.meta.url), "utf8");
-  assert.match(app, /graph: new Set\(\["node", "flow"/);
+  assert.match(app, /graph: new Set\(\["node", "image", "flow"/);
   assert.match(app, /scope === item\.reusableKind/);
   assert.match(app, /replace\(\/\^\\\.\/, ""\)\.includes\(prefix\)/);
   assert.match(app, /leftRank - rightRank \|\| leftLabel\.localeCompare\(rightLabel\)/);
@@ -47,7 +47,7 @@ test("the built-in showcase presents a restrained layered production architectur
   assert.doesNotMatch(canvas, /#canvas|#diagram/);
   const result = parseDiagram(canvas, pugDefinitionsToStyleSheet(definitions));
   assert.deepEqual(result.errors, []);
-  assert.equal(result.nodes.length, 13);
+  assert.equal(result.nodes.length, 14);
   assert.deepEqual(result.groups.map((group) => group.id), ["edge", "application", "operations"]);
   assert.deepEqual(result.groups.map((group) => group.layer), [2, 1, 0]);
   assert.ok(result.groups.every((group) => group.placement === "below" && group.relativeTo === null));
@@ -72,7 +72,7 @@ test("the built-in showcase presents a restrained layered production architectur
   assert.equal(parsed.get("client")?.annotations.length, 1);
   assert.equal(parsed.get("event-stream")?.annotations.length, 0);
   assert.deepEqual([parsed.get("gateway")?.layer, parsed.get("identity")?.layer, parsed.get("policy")?.layer], [2, 1, 0]);
-  assert.ok(result.nodes.every((node) => !node.style.image));
+  assert.ok(result.nodes.some((node) => node.kind === "image" && node.style.source.startsWith("https://")));
   assert.deepEqual([parsed.get("gateway")?.style.fill, parsed.get("gateway")?.style.color, parsed.get("gateway")?.style.outline, parsed.get("gateway")?.style.fontFamily], ["#2563eb", "#ffffff", "#ffffff", "SFMono-Regular, Menlo, Consolas, monospace"]);
   assert.equal(parsed.get("policy")?.style.shape, "diamond");
   assert.deepEqual([parsed.get("api")?.style.shape, parsed.get("api")?.style.fill, parsed.get("api")?.style.color, parsed.get("api")?.style.outline], ["square", "#172554", "#fef3c7", "#fde68a"]);
