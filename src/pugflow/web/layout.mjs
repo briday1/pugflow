@@ -288,7 +288,7 @@ function compactSiblingBranches(nodes, edges, options) {
   return nodes;
 }
 
-function resolveNodeCollisions(nodes, cells, options) {
+function resolveNodeCollisions(nodes, options) {
   const placed = [];
   const overlaps = (first, second) => first.x < second.x + second.width
     && second.x < first.x + first.width
@@ -297,12 +297,9 @@ function resolveNodeCollisions(nodes, cells, options) {
   nodes.forEach((node) => {
     let blocker;
     while ((blocker = placed.find((candidate) => overlaps(node, candidate)))) {
-      const cell = cells.get(node.id);
-      const blockerCell = cells.get(blocker.id);
       const horizontalShift = blocker.x + blocker.width + options.horizontalGutter - node.x;
       const verticalShift = blocker.y + blocker.layoutHeight + options.verticalGutter - node.y;
-      if (cell?.y === blockerCell?.y
-        || cell?.x !== blockerCell?.x && horizontalShift <= verticalShift) {
+      if (horizontalShift < verticalShift) {
         node.x += horizontalShift;
       } else {
         node.y += verticalShift;
@@ -395,7 +392,7 @@ export function layoutDiagram(nodes, edges, overrides = {}) {
     };
   });
   compactSiblingBranches(placed, edges, options);
-  resolveNodeCollisions(placed, cells, options);
+  resolveNodeCollisions(placed, options);
 
   return { nodes: placed, edges: routedEdges, width, height, options };
 }
