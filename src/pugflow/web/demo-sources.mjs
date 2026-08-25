@@ -43,6 +43,14 @@ graph
     .candidate
     .id talent
     .label Talent community
+  node
+    .candidate
+    .id references
+    .label Reference checks
+  node
+    .success
+    .id onboarding
+    .label Onboarding
   flow
     .from apply
     .to screen
@@ -63,9 +71,23 @@ graph
     .direction down
   flow
     .from interview
-    .to offer
+    .to references
     .direction down
-    .annotation-above great match`,
+    .annotation-above great match
+  flow
+    .from references
+    .to offer
+    .direction right
+  flow
+    .from references
+    .to talent
+    .direction left
+    .stroke-style dashed
+    .annotation-above keep warm
+  flow
+    .from offer
+    .to onboarding
+    .direction down`,
     css: `@node candidate {
   shape: rounded;
   fill: #ffedd5;
@@ -147,6 +169,42 @@ graph
     .ending
     .id village
     .label Lantern village
+  node
+    .scene
+    .id tower
+    .label Mossy watchtower
+  node
+    .danger
+    .id wolves
+    .label Wolf crossing
+  node
+    .wonder
+    .id waterfall
+    .label Silver waterfall
+  node
+    .choice
+    .id bridge
+    .label Cross the old bridge?
+  node
+    .scene
+    .id ruins
+    .label Sunken ruins
+  node
+    .wonder
+    .id owl
+    .label Owl oracle
+  node
+    .ending
+    .id sanctuary
+    .label Starlight sanctuary
+  node
+    .danger
+    .id thorns
+    .label Sleeping thorns
+  node
+    .ending
+    .id home
+    .label Dawn road home
   flow
     .from trail
     .to fork
@@ -168,7 +226,57 @@ graph
   flow
     .from river
     .to village
-    .direction down`,
+    .direction down
+  flow
+    .from cave
+    .to tower
+    .direction left
+    .annotation-above climb
+  flow
+    .from cave
+    .to wolves
+    .direction right
+    .annotation-above flee
+  flow
+    .from river
+    .to waterfall
+    .direction right
+  flow
+    .from river
+    .to bridge
+    .direction left
+  flow
+    .from tower
+    .to ruins
+    .direction down
+  flow
+    .from wolves
+    .to ruins
+    .direction down
+  flow
+    .from waterfall
+    .to owl
+    .direction down
+  flow
+    .from bridge
+    .to thorns
+    .direction down
+  flow
+    .from ruins
+    .to sanctuary
+    .direction down
+  flow
+    .from owl
+    .to sanctuary
+    .direction left
+  flow
+    .from thorns
+    .to home
+    .direction down
+  flow
+    .from sanctuary
+    .to home
+    .direction right`,
     css: `@node scene {
   shape: pill;
   fill: #14532d;
@@ -332,6 +440,22 @@ graph
     .child
     .id leo
     .label Leo
+  node
+    .parent
+    .id nadia
+    .label Nadia
+  node
+    .child
+    .id june
+    .label June
+  node
+    .child
+    .id miles
+    .label Miles
+  node
+    .child
+    .id zoe
+    .label Zoe
   flow
     .from evelyn
     .to maya
@@ -355,6 +479,30 @@ graph
   flow
     .from maya
     .to leo
+    .direction down
+  flow
+    .from evelyn
+    .to nadia
+    .direction down
+  flow
+    .from arthur
+    .to nadia
+    .direction down
+  flow
+    .from theo
+    .to june
+    .direction down
+  flow
+    .from theo
+    .to miles
+    .direction down
+  flow
+    .from nadia
+    .to miles
+    .direction down
+  flow
+    .from nadia
+    .to zoe
     .direction down`,
     css: `@node elder {
   shape: pill;
@@ -442,6 +590,54 @@ graph
     .label
       | Q4
       | Intelligence
+  node
+    .planned
+    .id permissions
+    .label Granular permissions
+  node
+    .planned
+    .id comments
+    .label Threaded comments
+  node
+    .planned
+    .id templates
+    .label Workflow templates
+  node
+    .planned
+    .id triggers
+    .label Event triggers
+  node
+    .planned
+    .id ios
+    .label iOS client
+  node
+    .planned
+    .id android
+    .label Android client
+  node
+    .planned
+    .id slack
+    .label Slack integration
+  node
+    .planned
+    .id github
+    .label GitHub integration
+  node
+    .future
+    .id assistant
+    .label Project assistant
+  node
+    .future
+    .id forecasting
+    .label Delivery forecasting
+  node
+    .future
+    .id search
+    .label Semantic search
+  node
+    .shipped
+    .id telemetry
+    .label Product telemetry
   flow
     .from q1
     .to q2
@@ -472,7 +668,85 @@ graph
     .from integrations
     .to q4
     .direction down
-    .stroke-style dashed`,
+    .stroke-style dashed
+  flow
+    .from q2
+    .to permissions
+    .direction left
+  flow
+    .from q2
+    .to comments
+    .direction right
+  flow
+    .from automations
+    .to templates
+    .direction left
+  flow
+    .from automations
+    .to triggers
+    .direction right
+  flow
+    .from mobile
+    .to ios
+    .direction left
+  flow
+    .from mobile
+    .to android
+    .direction right
+  flow
+    .from integrations
+    .to slack
+    .direction left
+  flow
+    .from integrations
+    .to github
+    .direction right
+  flow
+    .from templates
+    .to assistant
+    .direction down
+    .stroke-style dashed
+  flow
+    .from triggers
+    .to assistant
+    .direction down
+    .stroke-style dashed
+  flow
+    .from ios
+    .to forecasting
+    .direction down
+    .stroke-style dashed
+  flow
+    .from android
+    .to forecasting
+    .direction down
+    .stroke-style dashed
+  flow
+    .from slack
+    .to search
+    .direction down
+    .stroke-style dashed
+  flow
+    .from github
+    .to search
+    .direction down
+    .stroke-style dashed
+  flow
+    .from telemetry
+    .to q2
+    .direction right
+  flow
+    .from assistant
+    .to q4
+    .direction right
+  flow
+    .from forecasting
+    .to q4
+    .direction down
+  flow
+    .from search
+    .to q4
+    .direction left`,
     css: `@node shipped {
   shape: rounded;
   fill: #dbeafe;
@@ -551,6 +825,22 @@ graph
     .land
     .id runoff
     .label Rivers + runoff
+  node
+    .land
+    .id groundwater
+    .label Groundwater
+  node
+    .land
+    .id glacier
+    .label Glaciers
+  node
+    .sky
+    .id plants
+    .label Plant vapor
+  node
+    .cloud
+    .id snow
+    .label Snow clouds
   flow
     .from ocean
     .to vapor
@@ -573,7 +863,38 @@ graph
   flow
     .from runoff
     .to ocean
-    .direction left`,
+    .direction left
+  flow
+    .from rain
+    .to groundwater
+    .direction right
+    .annotation-above infiltration
+  flow
+    .from groundwater
+    .to ocean
+    .direction left
+  flow
+    .from runoff
+    .to plants
+    .direction right
+    .annotation-above transpiration
+  flow
+    .from plants
+    .to clouds
+    .direction up
+  flow
+    .from clouds
+    .to snow
+    .direction right
+  flow
+    .from snow
+    .to glacier
+    .direction down
+  flow
+    .from glacier
+    .to runoff
+    .direction left
+    .annotation-above meltwater`,
     css: `@node ocean {
   shape: pill;
   fill: #0369a1;
@@ -657,6 +978,10 @@ graph
     .answer
     .id roots
     .label Two roots
+  node
+    .operation
+    .id verify
+    .label Substitute to verify
   flow
     .from standard
     .to identify
@@ -668,7 +993,11 @@ graph
   flow
     .from solve
     .to roots
-    .direction right`,
+    .direction right
+  flow
+    .from roots
+    .to verify
+    .direction down`,
     css: `@node equation {
   shape: rounded;
   fill: #eef2ff;
@@ -751,6 +1080,34 @@ graph
     .label
       | Days 6–7
       | Osaka
+  node
+    .nature
+    .id nikko
+    .label Nikko
+  node
+    .city
+    .id nagano
+    .label Nagano
+  node
+    .nature
+    .id shirakawa
+    .label Shirakawa-go
+  node
+    .city
+    .id takayama
+    .label Takayama
+  node
+    .nature
+    .id nara
+    .label Nara
+  node
+    .food
+    .id kobe
+    .label Kobe
+  node
+    .city
+    .id hiroshima
+    .label Hiroshima
   flow
     .from tokyo
     .to hakone
@@ -775,7 +1132,52 @@ graph
     .from kyoto
     .to osaka
     .direction down
-    .annotation-above 15 min`,
+    .annotation-above 15 min
+  flow
+    .from tokyo
+    .to nikko
+    .direction up
+    .annotation-above day trip
+  flow
+    .from nikko
+    .to nagano
+    .direction right
+  flow
+    .from nagano
+    .to kanazawa
+    .direction down
+  flow
+    .from kanazawa
+    .to shirakawa
+    .direction right
+  flow
+    .from shirakawa
+    .to takayama
+    .direction down
+  flow
+    .from takayama
+    .to kyoto
+    .direction left
+  flow
+    .from kyoto
+    .to nara
+    .direction right
+  flow
+    .from nara
+    .to osaka
+    .direction down
+  flow
+    .from osaka
+    .to kobe
+    .direction left
+  flow
+    .from osaka
+    .to hiroshima
+    .direction right
+  flow
+    .from kobe
+    .to hiroshima
+    .direction down`,
     css: `@node city {
   shape: rounded;
   fill: #ffe4e6;
@@ -847,6 +1249,62 @@ graph
     .iot
     .id thermostat
     .label Thermostat
+  node
+    .wired
+    .id switch
+    .label Managed switch
+  node
+    .wired
+    .id desktop
+    .label Gaming desktop
+  node
+    .wired
+    .id media
+    .label Media server
+  node
+    .wired
+    .id printer
+    .label Office printer
+  node
+    .wireless
+    .id tablet
+    .label Family tablet
+  node
+    .wireless
+    .id television
+    .label Living room TV
+  node
+    .wireless
+    .id speaker
+    .label Kitchen speaker
+  node
+    .iot
+    .id doorbell
+    .label Video doorbell
+  node
+    .iot
+    .id camera-garage
+    .label Garage camera
+  node
+    .iot
+    .id camera-yard
+    .label Yard camera
+  node
+    .router
+    .id access-point
+    .label Upstairs access point
+  node
+    .wireless
+    .id guest-phone
+    .label Guest phone
+  node
+    .iot
+    .id lights
+    .label Smart lights
+  node
+    .wired
+    .id bridge
+    .label Home automation bridge
   flow
     .from fiber
     .to router
@@ -874,7 +1332,100 @@ graph
     .to thermostat
     .direction down
     .stroke-style dotted
-    .color #a855f7`,
+    .color #a855f7
+  flow
+    .from router
+    .to switch
+    .direction left
+    .annotation-above 2.5 GbE
+  flow
+    .from switch
+    .to nas
+    .direction down
+  flow
+    .from switch
+    .to desktop
+    .direction left
+  flow
+    .from switch
+    .to media
+    .direction right
+  flow
+    .from switch
+    .to printer
+    .direction down
+  flow
+    .from router
+    .to access-point
+    .direction right
+    .stroke-style dashed
+    .annotation-above mesh backhaul
+  flow
+    .from router
+    .to tablet
+    .direction down
+    .stroke-style dashed
+  flow
+    .from router
+    .to television
+    .direction down
+    .stroke-style dashed
+  flow
+    .from router
+    .to speaker
+    .direction down
+    .stroke-style dashed
+  flow
+    .from access-point
+    .to guest-phone
+    .direction down
+    .stroke-style dashed
+  flow
+    .from access-point
+    .to lights
+    .direction right
+    .stroke-style dotted
+    .color #a855f7
+  flow
+    .from access-point
+    .to doorbell
+    .direction left
+    .stroke-style dotted
+    .color #a855f7
+  flow
+    .from access-point
+    .to camera-garage
+    .direction down
+    .stroke-style dotted
+    .color #a855f7
+  flow
+    .from access-point
+    .to camera-yard
+    .direction right
+    .stroke-style dotted
+    .color #a855f7
+  flow
+    .from switch
+    .to bridge
+    .direction down
+  flow
+    .from bridge
+    .to thermostat
+    .direction left
+    .stroke-style dotted
+    .color #a855f7
+  flow
+    .from bridge
+    .to lights
+    .direction right
+    .stroke-style dotted
+    .color #a855f7
+  flow
+    .from media
+    .to television
+    .direction right
+    .arrow-style forward
+    .annotation-above stream`,
     css: `@node internet {
   shape: pill;
   fill: #2563eb;
