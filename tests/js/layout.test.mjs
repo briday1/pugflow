@@ -150,6 +150,28 @@ test("keeps offset-free demo nodes from overlapping after lane compaction", () =
   }
 });
 
+test("chooses the compact axis when resolving sibling lane collisions", () => {
+  const nodes = [
+    { id: "root", width: 229, height: 76 },
+    { id: "pivot", width: 120, height: 111 },
+    { id: "left", width: 90, height: 93 },
+    { id: "right", width: 75, height: 35 },
+    { id: "above", width: 141, height: 90 },
+  ];
+  const edges = [
+    { from: "root", to: "pivot", kind: "branch", layoutDirection: "up" },
+    { from: "pivot", to: "left", kind: "branch", layoutDirection: "down" },
+    { from: "pivot", to: "right", kind: "branch", layoutDirection: "down" },
+    { from: "pivot", to: "above", kind: "branch", layoutDirection: "up" },
+  ];
+  const placed = new Map(layoutDiagram(nodes, edges).nodes.map((node) => [node.id, node]));
+  const root = placed.get("root");
+
+  assert.equal(placed.get("left").y - (root.y + root.layoutHeight), DEFAULT_LAYOUT.verticalGutter);
+  assert.equal(placed.get("right").y - (root.y + root.layoutHeight), DEFAULT_LAYOUT.verticalGutter);
+  assert.ok(placed.get("right").x + placed.get("right").width <= root.x + root.width);
+});
+
 test("centers same-direction sibling branches around their source", () => {
   const nodes = [
     { id: "payment", width: 160, height: 60 },
