@@ -1,7 +1,7 @@
 export const ADDITIONAL_DEMOS = [
   {
     name: "Hiring pipeline",
-    pug: `// Demo 2 — a candidate journey from application to offer
+    pug: `// Demo 2 — a candidate journey with branching hiring outcomes
 .background #fff7ed
 .defaults
   flow
@@ -18,6 +18,7 @@ graph
   .outline-width 2
   .padding 34
   .x-spacing 58
+  .y-spacing 46
   node
     .candidate
     .id apply
@@ -31,21 +32,39 @@ graph
     .id interview
     .label Team interview
   node
+    .declined
+    .id archive
+    .label Close application
+  node
     .success
     .id offer
     .label Offer
+  node
+    .candidate
+    .id talent
+    .label Talent community
   flow
     .from apply
     .to screen
-    .direction right
+    .direction down
   flow
     .from screen
     .to interview
     .direction right
+    .annotation-above advance
+  flow
+    .from screen
+    .to archive
+    .direction left
+    .annotation-above not now
+  flow
+    .from archive
+    .to talent
+    .direction down
   flow
     .from interview
     .to offer
-    .direction right
+    .direction down
     .annotation-above great match`,
     css: `@node candidate {
   shape: rounded;
@@ -73,6 +92,15 @@ graph
   color: #ffffff;
   outline: #166534;
   width: 120;
+}
+
+@node declined {
+  shape: rounded;
+  fill: #f1f5f9;
+  color: #475569;
+  outline: #94a3b8;
+  outline-style: dashed;
+  width: 132;
 }`
   },
   {
@@ -355,7 +383,7 @@ graph
   },
   {
     name: "Product roadmap",
-    pug: `// Demo 6 — a one-page product roadmap
+    pug: `// Demo 6 — a roadmap with parallel product workstreams
 .background #eff6ff
 .defaults
   flow
@@ -373,6 +401,7 @@ graph
   .outline-width 2
   .padding 38
   .x-spacing 62
+  .y-spacing 52
   node
     .shipped
     .id q1
@@ -391,10 +420,22 @@ graph
       .above NOW
   node
     .planned
-    .id q3
+    .id automations
     .label
       | Q3
       | Automations
+  node
+    .planned
+    .id mobile
+    .label
+      | Q3
+      | Mobile
+  node
+    .planned
+    .id integrations
+    .label
+      | Q3
+      | Integrations
   node
     .future
     .id q4
@@ -404,15 +445,33 @@ graph
   flow
     .from q1
     .to q2
-    .direction right
+    .direction down
   flow
     .from q2
-    .to q3
+    .to automations
+    .direction left
+  flow
+    .from q2
+    .to mobile
+    .direction down
+  flow
+    .from q2
+    .to integrations
     .direction right
   flow
-    .from q3
+    .from automations
     .to q4
-    .direction right
+    .direction down
+    .stroke-style dashed
+  flow
+    .from mobile
+    .to q4
+    .direction down
+    .stroke-style dashed
+  flow
+    .from integrations
+    .to q4
+    .direction down
     .stroke-style dashed`,
     css: `@node shipped {
   shape: rounded;
@@ -644,7 +703,7 @@ graph
   },
   {
     name: "Japan itinerary",
-    pug: `// Demo 9 — a simple rail itinerary across Japan
+    pug: `// Demo 9 — a rail itinerary with two routes across Japan
 .background #fff1f2
 .defaults
   flow
@@ -661,6 +720,7 @@ graph
   .outline-width 2
   .padding 38
   .x-spacing 64
+  .y-spacing 52
   node
     .city
     .id tokyo
@@ -673,6 +733,12 @@ graph
     .label
       | Day 3
       | Hakone
+  node
+    .city
+    .id kanazawa
+    .label
+      | Day 3
+      | Kanazawa
   node
     .city
     .id kyoto
@@ -688,17 +754,27 @@ graph
   flow
     .from tokyo
     .to hakone
-    .direction right
+    .direction left
     .annotation-above 35 min
+  flow
+    .from tokyo
+    .to kanazawa
+    .direction right
+    .annotation-above 2.5 hr
   flow
     .from hakone
     .to kyoto
-    .direction right
-    .annotation-above 2 hr
+    .direction down
+    .annotation-above via Mt. Fuji
+  flow
+    .from kanazawa
+    .to kyoto
+    .direction down
+    .annotation-above via the Alps
   flow
     .from kyoto
     .to osaka
-    .direction right
+    .direction down
     .annotation-above 15 min`,
     css: `@node city {
   shape: rounded;
