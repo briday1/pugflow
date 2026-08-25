@@ -106,6 +106,7 @@ test("the nine additional demos are distinct, styled, and valid", () => {
 
 test("the demo collection balances linear and branching layouts", () => {
   const diagrams = ADDITIONAL_DEMOS.map((demo) => parseDiagram(demo.pug, demo.css));
+  const diagramSizes = diagrams.map((diagram) => `${diagram.nodes.length}:${diagram.edges.length}`);
   const horizontalChains = diagrams.filter((diagram) =>
     diagram.nodes.length === 4
     && diagram.edges.length === 3
@@ -115,7 +116,9 @@ test("the demo collection balances linear and branching layouts", () => {
     for (const edge of diagram.edges) outgoing.set(edge.from, (outgoing.get(edge.from) ?? 0) + 1);
     return [...outgoing.values()].some((count) => count > 1);
   });
-  assert.equal(horizontalChains.length, 2);
+  assert.equal(new Set(diagramSizes).size, diagrams.length);
+  assert.ok(diagrams.filter((diagram) => diagram.nodes.length >= 15).length >= 3);
+  assert.equal(horizontalChains.length, 1);
   assert.ok(branching.length >= 6);
 });
 
