@@ -118,7 +118,7 @@ test("the demo collection balances linear and branching layouts", () => {
   });
   assert.equal(new Set(diagramSizes).size, diagrams.length);
   assert.ok(diagrams.filter((diagram) => diagram.nodes.length >= 15).length >= 3);
-  assert.equal(horizontalChains.length, 2);
+  assert.equal(horizontalChains.length, 1);
   assert.ok(branching.length >= 6);
 });
 
