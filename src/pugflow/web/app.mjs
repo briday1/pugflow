@@ -1967,6 +1967,7 @@ function syncHighlightScroll() {
 const structureCompletions = [
   { label: "@node", insert: "@node custom_node", detail: "Define a reusable node type" },
   { label: "@flow", insert: "@flow custom_flow", detail: "Define a reusable flow type" },
+  { label: "@graph", insert: "@graph custom_graph", detail: "Define a reusable graph type" },
   { label: "@annotation", insert: "@annotation custom_note", detail: "Define a reusable annotation style" },
   { label: "graph", insert: "graph\n  .id graph-id", detail: "Start a canvas graph" },
   { label: ".defaults", insert: ".defaults", detail: "Group diagram-wide node, line, and annotation defaults" },
@@ -2054,10 +2055,12 @@ const completionLabels = {
   canvas: new Set(["graph", ".defaults", ".background", ".font", "flow"]),
   graph: new Set(["node", "flow", ".id", ".label", ".layer", ".placement", ".relative-to", ".x-spacing", ".y-spacing", ".padding", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".offset", ".label-position", ".label-offset", ".align", ".vertical-align", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   node: new Set([".id", ".label", ".layer", ".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".vertical-align", ".offset", ".label-offset", ".annotation", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".image", ".image-width", ".image-height", ".image-fit", ".image-opacity", ".image-offset", ".image-padding", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  nodeStyle: new Set([".shape", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".width", ".height", ".align", ".vertical-align", ".top-ports", ".right-ports", ".bottom-ports", ".left-ports", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".image", ".image-width", ".image-height", ".image-fit", ".image-opacity", ".image-padding", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width"]),
   flow: new Set([".from", ".to", ".from-direction", ".to-direction", ".direction", ".color", ".outline", ".outline-width", ".width", ".arrow-style", ".arrow-shape", ".arrow-height", ".arrow-head-width", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation", ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   flowStyle: new Set([".color", ".outline", ".outline-width", ".width", ".arrow-style", ".arrow-shape", ".arrow-height", ".arrow-head-width", ".stroke-style", ".roundness", ".label", ".label-position", ".label-offset", ".label-hidden", ".annotation-above", ".annotation-below", ".annotation-above-hidden", ".annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `.annotation-${position}-${property}`)), ".source-face", ".target-face", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  graphStyle: new Set([".label-position", ".align", ".vertical-align", ".placement", ".fill", ".color", ".outline", ".outline-style", ".outline-width", ".padding", ".x-spacing", ".y-spacing", ".shadow-color", ".shadow-offset-x", ".shadow-offset-y", ".shadow-blur", ".shadow-opacity", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width"]),
   annotation: new Set([".above", ".below"]),
-  annotationStyle: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
+  annotationStyle: new Set([".color", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width"]),
   annotationEntry: new Set([".color", ".offset", ".font-family", ".font-size", ".font-weight", ".font-style", ".text-decoration", ".text-outline", ".text-outline-width", ".hidden"]),
   defaults: new Set(["node", "flow", ".annotation"]),
 };
@@ -2071,6 +2074,7 @@ const cssRootCompletions = [
 const cssPropertyLabels = {
   node: ["shape", "fill", "color", "outline", "outline-style", "outline-width", "width", "height", "align", "vertical-align", "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity", "image", "image-width", "image-height", "image-fit", "image-opacity", "image-padding", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"],
   flow: ["color", "outline", "outline-width", "width", "arrow-style", "arrow-shape", "arrow-height", "arrow-head-width", "stroke-style", "roundness", "source-face", "target-face", "label", "label-position", "label-offset", "label-hidden", "annotation-above", "annotation-below", "annotation-above-hidden", "annotation-below-hidden", ...["above", "below"].flatMap((position) => ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"].map((property) => `annotation-${position}-${property}`)), "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width", "hidden"],
+  graph: ["label-position", "align", "vertical-align", "placement", "fill", "color", "outline", "outline-style", "outline-width", "padding", "x-spacing", "y-spacing", "shadow-color", "shadow-offset-x", "shadow-offset-y", "shadow-blur", "shadow-opacity", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"],
   annotation: ["color", "font-family", "font-size", "font-weight", "font-style", "text-decoration", "text-outline", "text-outline-width"],
 };
 
@@ -2097,7 +2101,7 @@ function cssCompletionContext(caret) {
   const openBrace = before.lastIndexOf("{");
   const closeBrace = before.lastIndexOf("}");
   if (openBrace > closeBrace) {
-    const header = before.slice(0, openBrace).match(/@(node|flow|annotation)\s+[a-zA-Z][\w-]*\s*$/);
+    const header = before.slice(0, openBrace).match(/@(node|flow|graph|annotation)\s+[a-zA-Z][\w-]*\s*$/);
     if (header) return { items: cssPropertyCompletions(header[1]), prefix: match?.[1] ?? "", start, end: caret };
   }
   return { items: cssRootCompletions, prefix: match?.[1] ?? "", start, end: caret };
@@ -2119,11 +2123,12 @@ function completionScope(caret) {
     ceiling = width;
   }
   const parent = ancestors[0] ?? "";
-  const customKinds = new Map([...`${pugSource}\n${cssSource}`.matchAll(/^@(node|flow|annotation)\s+([a-zA-Z][\w-]*)/gm)].map((match) => [`.${match[2]}`, match[1]]));
+  const customKinds = new Map([...`${pugSource}\n${cssSource}`.matchAll(/^@(node|flow|graph|annotation)\s+([a-zA-Z][\w-]*)/gm)].map((match) => [`.${match[2]}`, match[1]]));
   const parentHead = parent.split(/\s/)[0];
   if (!parent) return "root";
-  if (/^@node\b/.test(parent)) return "node";
+  if (/^@node\b/.test(parent)) return "nodeStyle";
   if (/^@flow\b/.test(parent)) return "flowStyle";
+  if (/^@graph\b/.test(parent)) return "graphStyle";
   if (/^@annotation\b/.test(parent)) return "annotationStyle";
   if (parent === "#canvas" || parent.startsWith("#canvas(")) return "canvas";
   if (parent === "graph") return "graph";
@@ -2132,6 +2137,7 @@ function completionScope(caret) {
   if ([".above", ".below"].includes(parentHead)) return "annotationEntry";
   if (parentHead === ".defaults") return "defaults";
   if (["node", ".node"].includes(parentHead) && ancestors.some((item) => item === ".defaults")) return "node";
+  if (customKinds.get(parentHead) === "graph") return "graph";
   if (customKinds.get(parentHead) === "flow") return "flowStyle";
   if (customKinds.get(parentHead) === "annotation") return "annotationEntry";
   if (["node", ".node"].includes(parentHead) || customKinds.get(parentHead) === "node") return "node";
@@ -2162,12 +2168,14 @@ function completionContext() {
   if (activeDocument === "css") return cssCompletionContext(caret);
   const lineStart = source.value.lastIndexOf("\n", caret - 1) + 1;
   const before = source.value.slice(lineStart, caret);
+  const declaration = before.trimStart();
   const openParen = before.lastIndexOf("(");
   if (openParen > before.lastIndexOf(")")) {
     const match = before.match(/([\w-]*)$/);
     return { items: [], prefix: match?.[1] ?? "", start: caret - (match?.[1]?.length ?? 0), end: caret };
   }
   const match = before.match(/([a-zA-Z][\w-]*|(?:\.[\w-]*)+|#[\w-]*|@[\w-]*)$/);
+  if (!match || declaration !== match[1]) return { items: [], prefix: "", start: caret, end: caret };
   return { items: completionsForScope(completionScope(caret)), prefix: match?.[1] ?? "", start: match ? caret - match[1].length : caret, end: caret };
 }
 
@@ -2656,7 +2664,7 @@ source.addEventListener("input", (event) => {
   storeActiveDocument();
   highlightSource();
   update();
-  if (event.inputType === "insertLineBreak" || /^[a-z@.#(-]$/i.test(event.data ?? "")) showCompletions();
+  if (/^[a-z@.#-]$/i.test(event.data ?? "")) showCompletions();
   else if (!completionMenu.hidden) showCompletions();
 });
 source.addEventListener("keydown", (event) => {
