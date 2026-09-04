@@ -74,6 +74,12 @@ test("treats a blank document as an empty implied canvas", () => {
   assert.deepEqual(result.groups, []);
 });
 
+test("gives default nodes a black outline", () => {
+  const result = parseDiagram("graph\n  node\n    .label Default");
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.nodes[0].style.outline, "#000000");
+});
+
 test("parses canvas settings and graphs directly at the source root", () => {
   const result = parseDiagram(".background #f8fafc\n.defaults\n  .node\n    .font-size 14\ngraph\n  .id main\n  .node\n    .id first\n    .label First");
   assert.deepEqual(result.errors, []);

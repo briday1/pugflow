@@ -289,7 +289,7 @@ function blockStyle(attrs, lineNumber, errors, defaults = {}) {
     shape: SHAPES.has(shape) ? shape : "round",
     fill: attrs.fill ?? defaults.fill ?? "transparent",
     color: attrs.color ?? defaults.color ?? null,
-    outline: attrs.outline ?? defaults.outline ?? "transparent",
+    outline: attrs.outline ?? defaults.outline ?? "#000000",
     outlineStyle: LINE_STYLES.has(outlineStyle) ? outlineStyle : "solid",
     outlineWidth: numberAttribute(attrs["outline-width"], defaults.outlineWidth ?? 2, 0, "outline-width", lineNumber, errors),
     width: numberAttribute(attrs.width, defaults.width ?? "auto", 48, "width", lineNumber, errors),
