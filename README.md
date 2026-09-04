@@ -351,7 +351,7 @@ Use **Clean up** above the canvas after manual positioning to align connected fl
 
 Nodes support SVG drop shadows through `.shadow-color`, `.shadow-offset-x`, `.shadow-offset-y`, `.shadow-blur`, and `.shadow-opacity`. A shadow is enabled when `shadow-color` is present; these fields work in `@node` definitions, diagram defaults, local nodes, and the canvas inspector.
 
-Images are standalone graph objects rather than node contents. They have no label, retain above/below annotations, and can be used in `.from` and `.to` just like nodes. Use `.source` for a URL or file location, or browse for a local image in the inspector. `.fit` accepts `contain`, `cover`, or `fill`; `.opacity` controls the image, and `.padding` adds optional space between it and its border. Padding defaults to zero. The border and fill default to transparent, and the fill is rendered over the image so translucent overlays are possible. Nodes also default to transparent borders and fills.
+Images are standalone graph objects rather than node contents. They have no label, retain above/below annotations, and can be used in `.from` and `.to` just like nodes. Use `.source` for a URL or file location, or browse for a local image in the inspector. `.fit` accepts `contain`, `cover`, or `fill`; `.opacity` controls the image, and `.padding` adds optional space between it and its border. Padding defaults to zero. The border and fill default to transparent, and the fill is rendered over the image so translucent overlays are possible. Nodes default to black borders and transparent fills.
 
 ```pug
 image
