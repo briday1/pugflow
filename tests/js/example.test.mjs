@@ -141,6 +141,16 @@ test("source saving writes the active document through a system file handle", ()
   assert.match(html, /id="save-source-as" type="button">Save As…<\/button>/);
 });
 
+test("the editor restores unsaved workspace sources after a normal reload", () => {
+  const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
+  assert.match(app, /const WORKSPACE_KEY = "pugflow-workspace-v1"/);
+  assert.match(app, /workspacePersistenceEnabled = !selectedDemo && launchParams\.get\("project"\) !== "1"/);
+  assert.match(app, /JSON\.parse\(localStorage\.getItem\(WORKSPACE_KEY\)\)/);
+  assert.match(app, /localStorage\.setItem\(WORKSPACE_KEY, JSON\.stringify\(\{[\s\S]*pugSource,[\s\S]*cssSource,[\s\S]*activeDocument,/);
+  assert.match(app, /function update\(\) \{\s*storeActiveDocument\(\);\s*persistWorkspace\(\);/);
+  assert.match(app, /source\.value = activeDocument === "pug" \? pugSource : cssSource/);
+});
+
 test("editor exposes flat layered graphs and scoped connection controls", () => {
   const app = readFileSync(new URL("../../src/pugflow/web/app.mjs", import.meta.url), "utf8");
   const html = readFileSync(new URL("../../src/pugflow/web/index.html", import.meta.url), "utf8");

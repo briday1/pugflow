@@ -475,6 +475,7 @@ const PANEL_COLLAPSED_KEY = "pugflow-panel-collapsed-v1";
 const LAYERS_COLLAPSED_KEY = "pugflow-layers-collapsed-v1";
 const LAYERS_WIDTH_KEY = "pugflow-layers-width-v1";
 const THEME_KEY = "pugflow-theme-v1";
+const WORKSPACE_KEY = "pugflow-workspace-v1";
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 let diagram;
 let currentGraph;
@@ -485,19 +486,29 @@ let canvasRedo = [];
 let canvasMode = "select";
 let colorPickerActive = false;
 let colorPickerSourceAnchor = null;
-let activeDocument = "pug";
 const launchParams = new URLSearchParams(location.search);
 const requestedDemo = Number(launchParams.get("demo"));
 const selectedDemo = Number.isInteger(requestedDemo) && requestedDemo >= 1 && requestedDemo <= DEMOS.length
   ? DEMOS[requestedDemo - 1]
   : null;
-let pugSource = selectedDemo?.pug ?? "";
-let cssSource = selectedDemo?.css ?? "";
-let pugFileName = launchParams.get("pug_name") ?? (selectedDemo ? `demo${requestedDemo}.pug` : "");
-let cssFileName = launchParams.get("css_name") ?? (selectedDemo ? `demo${requestedDemo}.css` : "");
+const workspacePersistenceEnabled = !selectedDemo && launchParams.get("project") !== "1";
+let restoredWorkspace = null;
+if (workspacePersistenceEnabled) {
+  try {
+    const value = JSON.parse(localStorage.getItem(WORKSPACE_KEY));
+    if (value && typeof value === "object") restoredWorkspace = value;
+  } catch {
+    restoredWorkspace = null;
+  }
+}
+let activeDocument = restoredWorkspace?.activeDocument === "css" ? "css" : "pug";
+let pugSource = typeof restoredWorkspace?.pugSource === "string" ? restoredWorkspace.pugSource : (selectedDemo?.pug ?? "");
+let cssSource = typeof restoredWorkspace?.cssSource === "string" ? restoredWorkspace.cssSource : (selectedDemo?.css ?? "");
+let pugFileName = typeof restoredWorkspace?.pugFileName === "string" ? restoredWorkspace.pugFileName : (launchParams.get("pug_name") ?? (selectedDemo ? `demo${requestedDemo}.pug` : ""));
+let cssFileName = typeof restoredWorkspace?.cssFileName === "string" ? restoredWorkspace.cssFileName : (launchParams.get("css_name") ?? (selectedDemo ? `demo${requestedDemo}.css` : ""));
 let pugFileHandle = null;
 let cssFileHandle = null;
-let hasCssDocument = Boolean(cssFileName || cssSource);
+let hasCssDocument = Boolean(restoredWorkspace?.hasCssDocument || cssFileName || cssSource || activeDocument === "css");
 let canvasZoomPercent = 100;
 let pendingReusableStyle = null;
 if (launchParams.get("project") === "1") {
@@ -521,6 +532,22 @@ function storeActiveDocument() {
   else {
     cssSource = source.value;
     if (cssSource) hasCssDocument = true;
+  }
+}
+
+function persistWorkspace() {
+  if (!workspacePersistenceEnabled) return;
+  try {
+    localStorage.setItem(WORKSPACE_KEY, JSON.stringify({
+      pugSource,
+      cssSource,
+      pugFileName,
+      cssFileName,
+      hasCssDocument,
+      activeDocument,
+    }));
+  } catch {
+    // Browser storage may be unavailable or full; editing should continue normally.
   }
 }
 
@@ -2509,6 +2536,7 @@ async function saveActiveSource(saveAs = false) {
     if (kind === "pug") { pugFileHandle = handle; pugFileName = handle.name; }
     else { cssFileHandle = handle; cssFileName = handle.name; hasCssDocument = true; }
     updateSourceFileNames();
+    persistWorkspace();
     status.textContent = `Saved ${handle.name}`;
     status.className = "status ready";
     fileMenu.open = false;
@@ -2563,6 +2591,7 @@ function selectSourceLine({ lineNumber }) {
 
 function update() {
   storeActiveDocument();
+  persistWorkspace();
   const result = parseDiagram(pugSource, cssSource);
   if (result.errors.length) {
     status.textContent = result.errors[0];
@@ -2721,7 +2750,7 @@ function redoCanvas() {
   setSource(next, false);
 }
 
-source.value = pugSource;
+source.value = activeDocument === "pug" ? pugSource : cssSource;
 source.addEventListener("beforeinput", () => {
   if (activeDocument !== "pug" || colorPickerActive || source.value !== pugSource) return;
   if (canvasUndo.at(-1) !== pugSource) canvasUndo.push(pugSource);
@@ -3670,6 +3699,5 @@ document.querySelector("#save-export-form").addEventListener("submit", (event) =
 });
 
 updateSourceFileNames();
-highlightSource();
-update();
+activateDocument(activeDocument, true);
 window.addEventListener("pugflow-math-ready", update);
