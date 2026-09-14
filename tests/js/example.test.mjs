@@ -104,6 +104,19 @@ test("the nine additional demos are distinct, styled, and valid", () => {
   }
 });
 
+test("demo 2 presents a complete radar link budget", () => {
+  const radar = ADDITIONAL_DEMOS[0];
+  const result = parseDiagram(radar.pug, radar.css);
+
+  assert.equal(radar.name, "Radar link budget");
+  assert.match(radar.pug, /10 GHz · 10 km/);
+  assert.match(radar.pug, /Antenna gains · \+60 dB/);
+  assert.match(radar.pug, /Free-space terms · −223\.4 dB/);
+  assert.match(radar.pug, /Target RCS · \+10 dBsm/);
+  assert.match(radar.pug, /Detection margin · 2\.6 dB/);
+  assert.deepEqual(result.errors, []);
+});
+
 test("the demo collection balances linear and branching layouts", () => {
   const diagrams = ADDITIONAL_DEMOS.map((demo) => parseDiagram(demo.pug, demo.css));
   const diagramSizes = diagrams.map((diagram) => `${diagram.nodes.length}:${diagram.edges.length}`);
