@@ -1,128 +1,149 @@
 export const ADDITIONAL_DEMOS = [
   {
-    name: "Hiring pipeline",
-    pug: `// Demo 2 — a candidate journey with branching hiring outcomes
-.background #fff7ed
+    name: "Radar link budget",
+    pug: `// Demo 2 — a simple monostatic radar link budget
+.background #eff6ff
 .defaults
   flow
-    .color #c2410c
+    .color #2563eb
     .width 2
     .arrow-style forward
 
 graph
-  .id hiring
-  .label Hiring pipeline
+  .id radar-budget
+  .label X-band radar link budget
   .label-position inside
   .fill #ffffff
-  .outline #fed7aa
+  .outline #93c5fd
   .outline-width 2
   .padding 34
   .x-spacing 58
   .y-spacing 46
   node
-    .candidate
-    .id apply
-    .label Apply
+    .assumption
+    .id scenario
+    .label 10 GHz · 10 km
   node
-    .candidate
-    .id screen
-    .label Portfolio review
+    .power
+    .id transmitter
+    .label Transmit power · 60 dBm
   node
-    .decision
-    .id interview
-    .label Team interview
+    .gain
+    .id antennas
+    .label Antenna gains · +60 dB
   node
-    .declined
-    .id archive
-    .label Close application
+    .loss
+    .id propagation
+    .label Free-space terms · −223.4 dB
   node
-    .success
-    .id offer
-    .label Offer
+    .gain
+    .id target
+    .label Target RCS · +10 dBsm
   node
-    .candidate
-    .id talent
-    .label Talent community
+    .result
+    .id echo
+    .label Received echo · −93.4 dBm
   node
-    .candidate
-    .id references
-    .label Reference checks
+    .noise
+    .id noise-floor
+    .label Noise floor · −109 dBm
   node
-    .success
-    .id onboarding
-    .label Onboarding
+    .result
+    .id margin
+    .label Detection margin · 2.6 dB
   flow
-    .from apply
-    .to screen
+    .from scenario
+    .to transmitter
     .direction down
   flow
-    .from screen
-    .to interview
+    .from transmitter
+    .to antennas
     .direction right
-    .annotation-above advance
+    .annotation-above 1 kW peak
   flow
-    .from screen
-    .to archive
-    .direction left
-    .annotation-above not now
-  flow
-    .from archive
-    .to talent
+    .from antennas
+    .to propagation
     .direction down
+    .annotation-above 30 dBi each
   flow
-    .from interview
-    .to references
-    .direction down
-    .annotation-above great match
-  flow
-    .from references
-    .to offer
+    .from propagation
+    .to target
     .direction right
+    .annotation-above outbound + return
   flow
-    .from references
-    .to talent
+    .from target
+    .to echo
+    .direction down
+    .annotation-above 10 m² target
+  flow
+    .from scenario
+    .to noise-floor
     .direction left
     .stroke-style dashed
-    .annotation-above keep warm
+    .annotation-above 1 MHz BW · 5 dB NF
   flow
-    .from offer
-    .to onboarding
-    .direction down`,
-    css: `@node candidate {
+    .from echo
+    .to margin
+    .direction right
+    .annotation-above SNR 15.6 dB
+  flow
+    .from noise-floor
+    .to margin
+    .direction down
+    .stroke-style dashed
+    .annotation-above requires 13 dB`,
+    css: `@node assumption {
   shape: rounded;
-  fill: #ffedd5;
-  color: #9a3412;
-  outline: #fb923c;
-  width: 132;
-  shadow-color: #9a3412;
+  fill: #dbeafe;
+  color: #1e3a8a;
+  outline: #60a5fa;
+  width: 150;
+  shadow-color: #1e3a8a;
   shadow-offset-y: 4;
   shadow-blur: 12;
   shadow-opacity: 0.14;
 }
 
-@node decision {
-  shape: hexagon;
-  fill: #f97316;
+@node power {
+  shape: rounded;
+  fill: #2563eb;
   color: #ffffff;
-  outline: #c2410c;
-  width: 142;
+  outline: #1d4ed8;
+  width: 174;
 }
 
-@node success {
+@node gain {
   shape: pill;
-  fill: #15803d;
-  color: #ffffff;
-  outline: #166534;
-  width: 120;
+  fill: #dcfce7;
+  color: #166534;
+  outline: #4ade80;
+  width: 180;
 }
 
-@node declined {
+@node loss {
+  shape: hexagon;
+  fill: #fee2e2;
+  color: #991b1b;
+  outline: #f87171;
+  width: 198;
+}
+
+@node noise {
   shape: rounded;
   fill: #f1f5f9;
   color: #475569;
   outline: #94a3b8;
   outline-style: dashed;
-  width: 132;
+  width: 174;
+}
+
+@node result {
+  shape: rounded;
+  fill: #0f172a;
+  color: #ffffff;
+  outline: #38bdf8;
+  outline-width: 2;
+  width: 190;
 }`
   },
   {
