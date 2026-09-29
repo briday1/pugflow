@@ -1107,9 +1107,8 @@ function previewShapeMarkup(style, width, height) {
   if (shape === "cylinder") {
     const capRy = Math.min(h * 0.18, 12);
     const rx = w / 2;
-    const cx = inset + rx;
-    const body = `M ${inset},${inset + capRy} L ${inset},${inset + h - capRy} A ${rx},${capRy} 0 0 1 ${inset + w},${inset + h - capRy} L ${inset + w},${inset + capRy} A ${rx},${capRy} 0 0 0 ${inset},${inset + capRy} z`;
-    return `<path d="${body}" fill="${escapeHtml(style.fill ?? "transparent")}" stroke="none"/><ellipse ${common} cx="${cx}" cy="${inset + h - capRy}" rx="${rx}" ry="${capRy}"/><ellipse ${common} cx="${cx}" cy="${inset + capRy}" rx="${rx}" ry="${capRy}"/><path d="${body}" fill="none" stroke="${escapeHtml(stroke)}" stroke-width="${strokeWidth}"${dash}/>`;
+    const body = `M ${inset},${inset + capRy} L ${inset},${inset + h - capRy} A ${rx},${capRy} 0 0 0 ${inset + w},${inset + h - capRy} L ${inset + w},${inset + capRy} A ${rx},${capRy} 0 0 0 ${inset},${inset + capRy} z`;
+    return `<path ${common} d="${body}" stroke-linejoin="round"/><path d="M ${inset},${inset + capRy} A ${rx},${capRy} 0 0 0 ${inset + w},${inset + capRy}" fill="none" stroke="${escapeHtml(stroke)}" stroke-width="${strokeWidth}"${dash}/>`;
   }
   const radius = shape === "square" ? 0 : shape === "pill" ? h / 2 : shape === "rounded" ? 10 : 5;
   return `<rect ${common} x="${inset}" y="${inset}" width="${w}" height="${h}" rx="${radius}"/>`;

@@ -176,17 +176,12 @@ function shapeElement(node, colors, defs) {
   };
   if (node.style.shape === "cylinder") {
     const capRy = Math.min(Math.round(node.height * 0.18), 20);
-    const cx = node.x + node.width / 2;
     const rx = node.width / 2;
-    const outlineColor = node.style.outline ?? colors.label;
-    const sw = node.style.outlineWidth;
-    const da = dashArray(node.style.outlineStyle);
     const g = svgElement("g", common);
-    const bodyPath = `M ${node.x},${top + capRy} L ${node.x},${top + node.height - capRy} A ${rx},${capRy} 0 0 1 ${node.x + node.width},${top + node.height - capRy} L ${node.x + node.width},${top + capRy} A ${rx},${capRy} 0 0 0 ${node.x},${top + capRy} z`;
-    g.append(svgElement("path", { d: bodyPath, fill: node.style.fill, stroke: "none" }));
-    g.append(svgElement("ellipse", { cx, cy: top + node.height - capRy, rx, ry: capRy, fill: node.style.fill, stroke: outlineColor, "stroke-width": sw, "stroke-dasharray": da }));
-    g.append(svgElement("ellipse", { cx, cy: top + capRy, rx, ry: capRy, fill: node.style.fill, stroke: outlineColor, "stroke-width": sw, "stroke-dasharray": da }));
-    g.append(svgElement("path", { d: bodyPath, fill: "none", stroke: outlineColor, "stroke-width": sw, "stroke-dasharray": da, "stroke-linejoin": "round" }));
+    // Draw the silhouette and the visible top rim, never the rear bottom edge.
+    const bodyPath = `M ${node.x},${top + capRy} L ${node.x},${top + node.height - capRy} A ${rx},${capRy} 0 0 0 ${node.x + node.width},${top + node.height - capRy} L ${node.x + node.width},${top + capRy} A ${rx},${capRy} 0 0 0 ${node.x},${top + capRy} z`;
+    g.append(svgElement("path", { d: bodyPath, "stroke-linejoin": "round" }));
+    g.append(svgElement("path", { d: `M ${node.x},${top + capRy} A ${rx},${capRy} 0 0 0 ${node.x + node.width},${top + capRy}`, fill: "none" }));
     return g;
   }
   if (node.style.shape === "diamond") {
