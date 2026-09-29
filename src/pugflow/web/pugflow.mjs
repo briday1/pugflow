@@ -1020,14 +1020,11 @@ function renderSvg(container, graph, options) {
     node.x,
     node.x + node.width,
     node.x + node.width / 2 + node.labelOffsetX,
-    ...node.annotations.map((annotation) => node.x + node.width / 2 + annotation.offsetX),
   ]);
   const extentY = visualNodes.flatMap((node) => [
     boxTop(node),
     boxTop(node) + node.height,
     boxTop(node) + node.height / 2 + node.labelOffsetY,
-    ...node.above.map((annotation, index) => annotationTop(node, annotation, index)),
-    ...node.below.map((annotation, index) => annotationTop(node, annotation, index) + annotation.renderHeight),
   ]);
   const viewX = extentX.length ? Math.min(...extentX.map((value) => value - 60), ...groups.map((group) => group.visualLeft - 20)) : 0;
   const viewY = extentY.length ? Math.min(...extentY.map((value) => value - 40), ...groups.map((group) => group.visualTop - 20)) : 0;
@@ -1257,6 +1254,40 @@ function serialize(svg) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(svg)}`;
 }
 
+function includeAnnotationBounds(svg, bounds, nodeIds = null) {
+  const result = { ...bounds };
+  svg.querySelectorAll(".block-annotation, .connection-annotation").forEach((annotation) => {
+    if (nodeIds && !(annotation.dataset.id ? nodeIds.has(annotation.dataset.id)
+      : nodeIds.has(annotation.dataset.from) && nodeIds.has(annotation.dataset.to))) return;
+    // Measure after mounting so font size, math, offsets, and the full text width count.
+    const box = annotation.getBBox();
+    if (!box.width && !box.height) return;
+    const outline = Math.max(0, Number(annotation.getAttribute("stroke-width")) || 0,
+      ...[...annotation.querySelectorAll("text[stroke-width]")].map((text) => Number(text.getAttribute("stroke-width")) || 0)) / 2;
+    const padding = 20 + outline;
+    result.x = Math.min(result.x, box.x - padding);
+    result.y = Math.min(result.y, box.y - padding);
+    result.right = Math.max(result.right, box.x + box.width + padding);
+    result.bottom = Math.max(result.bottom, box.y + box.height + padding);
+  });
+  return result;
+}
+
+function setSvgBounds(svg, { x, y, right, bottom }) {
+  const width = right - x;
+  const height = bottom - y;
+  svg.setAttribute("viewBox", `${x} ${y} ${width} ${height}`);
+  svg.setAttribute("width", width);
+  svg.setAttribute("height", height);
+  const background = svg.querySelector(".diagram-background");
+  if (background) {
+    background.setAttribute("x", x);
+    background.setAttribute("y", y);
+    background.setAttribute("width", width);
+    background.setAttribute("height", height);
+  }
+}
+
 function exportSvgClone(svg, layout, graphId = "") {
   const clone = svg.cloneNode(true);
   clone.classList.remove("interactive");
@@ -1276,20 +1307,12 @@ function exportSvgClone(svg, layout, graphId = "") {
     if (!nodeIds.has(element.dataset.from) || !nodeIds.has(element.dataset.to)) element.remove();
   });
   const padding = 20;
-  const x = group.visualLeft - padding;
-  const y = group.visualTop - padding;
-  const width = group.visualRight - group.visualLeft + padding * 2;
-  const height = group.bottom - group.visualTop + padding * 2;
-  clone.setAttribute("viewBox", `${x} ${y} ${width} ${height}`);
-  clone.setAttribute("width", width);
-  clone.setAttribute("height", height);
-  const background = clone.querySelector(".diagram-background");
-  if (background) {
-    background.setAttribute("x", x);
-    background.setAttribute("y", y);
-    background.setAttribute("width", width);
-    background.setAttribute("height", height);
-  }
+  setSvgBounds(clone, includeAnnotationBounds(svg, {
+    x: group.visualLeft - padding,
+    y: group.visualTop - padding,
+    right: group.visualRight + padding,
+    bottom: group.visualBottom + padding,
+  }, nodeIds));
   return clone;
 }
 
@@ -1317,6 +1340,8 @@ export function createBlockDiagram(container, source, options = {}) {
     currentLayout = currentSvg.__diagramLayout;
     container.classList.add("pugflow");
     container.replaceChildren(currentSvg);
+    const { x, y, width, height } = currentSvg.viewBox.baseVal;
+    setSvgBounds(currentSvg, includeAnnotationBounds(currentSvg, { x, y, right: x + width, bottom: y + height }));
     return graph;
   }
   function exportSvg(graphId = "") {
