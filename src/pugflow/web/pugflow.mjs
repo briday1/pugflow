@@ -671,6 +671,31 @@ export function connectionPathAvoidingNodes(source, target, kind, direction, nod
   return roundedRoute(route, roundness);
 }
 
+function connectorShaftMask(defs, route, edge, markerId) {
+  if (edge.direction === "none") return null;
+  const marker = defs.querySelector(`#${markerId}`);
+  const baseX = edge.arrowShape === "open" ? 1 : edge.arrowShape === "circle" ? 0.5 : 0;
+  const headLength = (Number(marker.getAttribute("refX")) - baseX)
+    * Number(marker.getAttribute("markerWidth")) / 10 * edge.width;
+  const guide = svgElement("path", { d: route.d });
+  const length = guide.getTotalLength();
+  const start = ["backward", "both"].includes(edge.direction) ? headLength : 0;
+  const end = ["forward", "both"].includes(edge.direction) ? headLength : 0;
+  const id = `shaft-mask-${++connectorMaskSequence}`;
+  const mask = svgElement("mask", { id, maskUnits: "userSpaceOnUse", maskContentUnits: "userSpaceOnUse" });
+  const [x, y, width, height] = defs.parentNode.getAttribute("viewBox").split(/\s+/).map(Number);
+  Object.entries({ x, y, width, height }).forEach(([name, value]) => mask.setAttribute(name, value));
+  mask.append(svgElement("path", {
+    d: route.d, fill: "none", stroke: "white",
+    "stroke-width": edge.width + (edge.outlineWidth ?? 0) * 2 + 2,
+    "stroke-linecap": "butt", "stroke-linejoin": "round",
+    "stroke-dasharray": `${Math.max(0, length - start - end)} ${length + start + end + 1}`,
+    "stroke-dashoffset": -start,
+  }));
+  defs.append(mask);
+  return `url(#${id})`;
+}
+
 function addEdge(svg, defs, edge, source, target, colors, nodes) {
   const color = edgeColor(edge, colors);
   const outline = edge.outline ?? "transparent";
@@ -726,25 +751,35 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
   }
   if (arrowShape !== "chunky") {
     svg.append(hitPath);
+    // Keep the marker at the endpoint, but stop both shaft strokes at its base.
+    const shaft = svgElement("g", { class: "connector-shaft", mask: connectorShaftMask(defs, route, edge, marker) });
+    paint.append(shaft);
+    if (shadow) paint.setAttribute("filter", shadow);
     if (outlineWidth > 0 && !["none", "transparent"].includes(String(outline).toLowerCase())) {
-      paint.append(svgElement("path", {
+      shaft.append(svgElement("path", {
         d: route.d,
         class: `connector connector-outline ${edge.kind}`,
-        filter: shadow,
         stroke: outline,
         "stroke-width": edge.width + outlineWidth * 2,
         "stroke-dasharray": dashArray(edge.style),
         "pointer-events": "none",
       }));
     }
-    paint.append(svgElement("path", {
+    shaft.append(svgElement("path", {
       ...selection,
       d: route.d,
       class: `connector ${edge.kind}`,
-      filter: outlineWidth > 0 ? null : shadow,
       stroke: color,
       "stroke-width": edge.width,
       "stroke-dasharray": dashArray(edge.style),
+      "pointer-events": "none",
+    }));
+    paint.append(svgElement("path", {
+      ...selection,
+      d: route.d,
+      class: `connector connector-markers ${edge.kind}`,
+      stroke: "none",
+      "stroke-width": edge.width,
       "marker-start": ["backward", "both"].includes(edge.direction) ? `url(#${marker})` : null,
       "marker-end": ["forward", "both"].includes(edge.direction) ? `url(#${marker})` : null,
       "pointer-events": "none",
