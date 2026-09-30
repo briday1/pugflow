@@ -3,6 +3,7 @@ import { DEFAULT_LAYOUT, inheritedFlowOffsets, layoutDiagram } from "./layout.mj
 import { containsMath, layoutRichText, mathSvg } from "./math-render.mjs";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
+let connectorMaskSequence = 0;
 
 function svgElement(name, attributes = {}) {
   const element = document.createElementNS(SVG_NS, name);
@@ -411,20 +412,22 @@ function markerId(color, outline = "transparent", outlineWidth = 0, arrowShape =
 function ensureMarker(defs, color, outline = "transparent", outlineWidth = 0, arrowShape = "triangle") {
   const id = markerId(color, outline, outlineWidth, arrowShape);
   if (defs.querySelector(`#${id}`)) return id;
+  const border = outlineWidth > 0 && !["none", "transparent"].includes(String(outline).toLowerCase()) ? outlineWidth / 2 : 0;
   let markerEl;
   if (arrowShape === "open") {
-    markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
+    markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 9.75, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
     markerEl.append(svgElement("path", { d: "M 1 1 L 9 5 L 1 9", fill: "none", stroke: color, "stroke-width": 1.5, "stroke-linejoin": "round", "stroke-linecap": "round" }));
   } else if (arrowShape === "diamond") {
-    markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
-    markerEl.append(svgElement("path", { d: "M 0 5 L 5 0 L 10 5 L 5 10 z", fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke" }));
+    markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 10 + border, refY: 5, markerWidth: 8, markerHeight: 8, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
+    markerEl.append(svgElement("path", { d: "M 0 5 L 5 0 L 10 5 L 5 10 z", fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke", "stroke-linejoin": "round" }));
   } else if (arrowShape === "circle") {
-    markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 10, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
+    markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 9.5 + border, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
     markerEl.append(svgElement("circle", { cx: 5, cy: 5, r: 4.5, fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke" }));
   } else {
-    markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
+    markerEl = svgElement("marker", { id, viewBox: "0 0 10 10", refX: 10 + border, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse", markerUnits: "strokeWidth" });
     markerEl.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: color, stroke: outline, "stroke-width": outlineWidth, "paint-order": "stroke", "stroke-linejoin": "round" }));
   }
+  markerEl.setAttribute("overflow", "visible");
   defs.append(markerEl);
   return id;
 }
@@ -691,6 +694,7 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
     tabindex: 0,
     "aria-label": "Edit connection",
   };
+  const paint = svgElement("g", { class: "connector-paint", "data-from": edge.from, "data-to": edge.to });
   const hitPath = svgElement("path", {
     ...selection,
     d: route.d,
@@ -704,7 +708,7 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
   if (arrowShape === "chunky") {
     const chunkyPath = chunkyArrowPath(route.d, edge.direction, edge.arrowHeight, edge.arrowHeadWidth);
     const hasOutline = outlineWidth > 0 && !["none", "transparent"].includes(String(outline).toLowerCase());
-    svg.append(svgElement("path", {
+    paint.append(svgElement("path", {
       ...selection,
       d: chunkyPath,
       class: `connector chunky ${edge.kind}`,
@@ -723,7 +727,7 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
   if (arrowShape !== "chunky") {
     svg.append(hitPath);
     if (outlineWidth > 0 && !["none", "transparent"].includes(String(outline).toLowerCase())) {
-      svg.append(svgElement("path", {
+      paint.append(svgElement("path", {
         d: route.d,
         class: `connector connector-outline ${edge.kind}`,
         filter: shadow,
@@ -733,7 +737,7 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
         "pointer-events": "none",
       }));
     }
-    svg.append(svgElement("path", {
+    paint.append(svgElement("path", {
       ...selection,
       d: route.d,
       class: `connector ${edge.kind}`,
@@ -746,6 +750,7 @@ function addEdge(svg, defs, edge, source, target, colors, nodes) {
       "pointer-events": "none",
     }));
   }
+  svg.append(paint);
   const annotations = edge.annotations ?? [];
   const annotationStackHeight = { above: 0, below: 0 };
   annotations.filter((annotation) => annotation.text && !annotation.hidden).forEach((annotation) => {
@@ -1041,7 +1046,8 @@ function renderSvg(container, graph, options) {
     .label { user-select: none; }
     .block-annotation, .connection-annotation { text-anchor: middle; user-select: none; }
     .subdiagram-label { user-select: none; }
-    .connector { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .connector { stroke-linecap: round; stroke-linejoin: round; }
+    .connector:not(.chunky) { fill: none; }
     .interactive [data-line] { cursor: pointer; }
     .interactive [data-drag-kind] { touch-action: none; }
     .interactive .entry:hover .label-box, .interactive .entry:focus .label-box { filter: brightness(1.08); }
@@ -1085,6 +1091,30 @@ function renderSvg(container, graph, options) {
   [...visualNodes].sort((a, b) => (a.layer ?? 0) - (b.layer ?? 0) || (a.sourceIndex ?? 0) - (b.sourceIndex ?? 0)).forEach((node) => {
     const owner = ownerByNode.get(node.id);
     if (!node.hidden) addNode(owner ? nodeLayers.get(owner.id) ?? ungrouped : ungrouped, node, colors, defs);
+  });
+  // Paint arrows over borders, but remove every node interior from their ink.
+  // Hit targets and annotations keep their original stacking order.
+  const maskId = `connector-mask-${++connectorMaskSequence}`;
+  const mask = svgElement("mask", { id: maskId, maskUnits: "userSpaceOnUse", maskContentUnits: "userSpaceOnUse", x: viewX, y: viewY, width: viewWidth, height: viewHeight, "mask-type": "luminance" });
+  mask.append(svgElement("rect", { x: viewX, y: viewY, width: viewWidth, height: viewHeight, fill: "white" }));
+  svg.querySelectorAll(".label-box").forEach((shape) => {
+    const silhouette = shape.cloneNode(true);
+    [silhouette, ...silhouette.querySelectorAll("*")].forEach((element) => {
+      [...element.attributes].forEach(({ name }) => {
+        if (name.startsWith("data-") || ["class", "filter", "role", "tabindex", "aria-label"].includes(name)) element.removeAttribute(name);
+      });
+      element.setAttribute("fill", "black");
+      element.setAttribute("stroke", "none");
+    });
+    silhouette.setAttribute("class", "connector-node-mask");
+    silhouette.setAttribute("data-mask-node", shape.dataset.id);
+    mask.append(silhouette);
+  });
+  defs.append(mask);
+  edgeLayers.forEach((layer, layerNumber) => {
+    const paintLayer = svgElement("g", { class: "connector-paint-layer", mask: `url(#${maskId})` });
+    layer.querySelectorAll(".connector-paint").forEach((paint) => paintLayer.append(paint));
+    layerContainers.get(layerNumber).append(paintLayer);
   });
   Object.defineProperty(svg, "__diagramLayout", { value: { ...layout, nodes: visualNodes, groups } });
   if (options.onNodeClick || options.onElementMove) {
@@ -1297,6 +1327,9 @@ function exportSvgClone(svg, layout, graphId = "") {
   const group = layout?.groups.find((candidate) => candidate.id === graphId);
   if (!group) throw new Error(`Graph "${graphId}" was not found.`);
   const nodeIds = new Set(group.nodeIds);
+  clone.querySelectorAll(".connector-node-mask").forEach((element) => {
+    if (!nodeIds.has(element.dataset.maskNode)) element.remove();
+  });
   clone.querySelectorAll("[data-select-kind='graph']").forEach((element) => {
     if (element.dataset.id !== graphId) element.remove();
   });
